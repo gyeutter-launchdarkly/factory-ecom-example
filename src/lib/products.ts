@@ -8,6 +8,8 @@ export interface Product {
   emoji: string;
   inventory: number;
   image?: string;
+  rating?: number;       // average user rating out of 5
+  reviewCount?: number;  // total number of reviews
 }
 
 export const PRODUCTS: Product[] = [
@@ -20,6 +22,8 @@ export const PRODUCTS: Product[] = [
     category: 'electronics',
     emoji: '🎧',
     inventory: 50,
+    rating: 4.7,
+    reviewCount: 284,
   },
   {
     id: 'prod-002',
@@ -30,6 +34,8 @@ export const PRODUCTS: Product[] = [
     category: 'electronics',
     emoji: '⌚',
     inventory: 28,
+    rating: 4.5,
+    reviewCount: 193,
   },
   {
     id: 'prod-003',
@@ -40,6 +46,8 @@ export const PRODUCTS: Product[] = [
     category: 'electronics',
     emoji: '⌨️',
     inventory: 75,
+    rating: 4.8,
+    reviewCount: 421,
   },
   {
     id: 'prod-004',
@@ -50,6 +58,8 @@ export const PRODUCTS: Product[] = [
     category: 'clothing',
     emoji: '🧥',
     inventory: 100,
+    rating: 4.3,
+    reviewCount: 97,
   },
   {
     id: 'prod-005',
@@ -60,6 +70,8 @@ export const PRODUCTS: Product[] = [
     category: 'home',
     emoji: '💡',
     inventory: 60,
+    rating: 4.6,
+    reviewCount: 152,
   },
   {
     id: 'prod-006',
@@ -70,6 +82,8 @@ export const PRODUCTS: Product[] = [
     category: 'home',
     emoji: '☕',
     inventory: 15,
+    rating: 4.9,
+    reviewCount: 68,
   },
 ];
 
