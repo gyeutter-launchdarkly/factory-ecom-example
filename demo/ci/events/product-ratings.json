@@ -1,0 +1,17 @@
+{
+  "action": "opened",
+  "pull_request": {
+    "number": 1,
+    "head": { "ref": "feature/product-ratings" },
+    "base": { "ref": "main" },
+    "title": "feat: add per-product star ratings",
+    "body": "Adds numeric rating and reviewCount fields to each product and displays a star breakdown on product cards.",
+    "labels": []
+  },
+  "repository": {
+    "name": "factory-ecom-example",
+    "full_name": "gyeutter-launchdarkly/factory-ecom-example",
+    "default_branch": "main"
+  },
+  "sender": { "login": "demo" }
+}

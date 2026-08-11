@@ -1,4 +1,6 @@
 services:
+
+  # ── Demo app ──────────────────────────────────────────────────────────────
   app:
     build: .
     ports:
@@ -10,3 +12,28 @@ services:
       - NODE_ENV=production
       - LD_SDK_KEY=${LD_SDK_KEY:-}
       - DEPLOY_SHA=${DEPLOY_SHA:-dev}
+
+  # ── Terraform ─────────────────────────────────────────────────────────────
+  # Usage: docker compose run --rm terraform <command>
+  # The Makefile wraps this so TF_VAR_* are passed automatically.
+  terraform:
+    image: hashicorp/terraform:1.9
+    working_dir: /workspace/terraform
+    volumes:
+      - .:/workspace
+
+  # ── Local CI (act) ────────────────────────────────────────────────────────
+  # Runs the GitHub Actions workflow locally — same agents, no queue wait.
+  # Needs the Docker socket so act can spawn runner containers.
+  # Usage: make ci SCENARIO=dynamic-pricing
+  ci:
+    build:
+      context: .
+      dockerfile: demo/ci/Dockerfile
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - .:/workspace
+    working_dir: /workspace
+    env_file:
+      - path: .env.local
+        required: false

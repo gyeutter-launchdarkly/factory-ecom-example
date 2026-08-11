@@ -1,0 +1,17 @@
+{
+  "action": "opened",
+  "pull_request": {
+    "number": 2,
+    "head": { "ref": "feature/discount-codes" },
+    "base": { "ref": "main" },
+    "title": "feat: add discount code support to checkout",
+    "body": "Adds a discount code input to the checkout form. Codes are validated server-side before the order total is calculated.",
+    "labels": []
+  },
+  "repository": {
+    "name": "factory-ecom-example",
+    "full_name": "gyeutter-launchdarkly/factory-ecom-example",
+    "default_branch": "main"
+  },
+  "sender": { "login": "demo" }
+}

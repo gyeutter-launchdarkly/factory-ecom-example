@@ -1,0 +1,17 @@
+{
+  "action": "opened",
+  "pull_request": {
+    "number": 3,
+    "head": { "ref": "feature/dynamic-pricing" },
+    "base": { "ref": "main" },
+    "title": "feat: implement demand-based dynamic pricing",
+    "body": "Adjusts product unit prices based on current inventory levels — lower inventory yields a higher demand multiplier, increasing the displayed price to manage supply.",
+    "labels": []
+  },
+  "repository": {
+    "name": "factory-ecom-example",
+    "full_name": "gyeutter-launchdarkly/factory-ecom-example",
+    "default_branch": "main"
+  },
+  "sender": { "login": "demo" }
+}
