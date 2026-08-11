@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { shopperKey, withShopper } from '@/lib/shopper';
 import { NextRequest, NextResponse } from 'next/server';
 import { resolveProduct } from '@/lib/catalog';
-import { calculateOrderTotal, calculateLineTotal, formatPrice } from '@/lib/pricing';
+import { calculateOrderTotal, calculateLineTotal, applyDiscountCode, formatPrice } from '@/lib/pricing';
 import { track } from '@/lib/ld';
 import type { CartItem } from '@/lib/pricing';
 
@@ -18,6 +18,7 @@ interface CheckoutBody {
   payment: {
     cardNumber: string;
   };
+  discountCode?: string;
 }
 
 export async function POST(req: NextRequest) {
@@ -53,7 +54,24 @@ export async function POST(req: NextRequest) {
     items.push({ product, quantity: line.quantity });
   }
 
-  const orderTotal = calculateOrderTotal(items);
+  const subtotal = calculateOrderTotal(items);
+
+  // Apply discount code if provided
+  let orderTotal = subtotal;
+  let discountApplied: { code: string; amount: number } | null = null;
+
+  if (body.discountCode) {
+    const result = applyDiscountCode(body.discountCode, subtotal);
+    if (!result) {
+      return NextResponse.json(
+        { error: `Invalid discount code: ${body.discountCode}` },
+        { status: 400 },
+      );
+    }
+    orderTotal = result.discountedTotal;
+    discountApplied = { code: result.code, amount: result.discountAmount };
+  }
+
   const orderId = `ORD-${randomUUID()}`;
   const userKey = shopperKey(req);
 
@@ -61,11 +79,16 @@ export async function POST(req: NextRequest) {
   // metrics on top of this event (error rate, latency, conversion).
   await track('checkout-completed', userKey, orderTotal, {
     orderId,
+    subtotal,
+    discountCode: discountApplied?.code ?? null,
+    discountAmount: discountApplied?.amount ?? 0,
     itemCount: items.reduce((n, i) => n + i.quantity, 0),
   });
 
   return withShopper(NextResponse.json({
     orderId,
+    subtotal,
+    discountApplied,
     orderTotal,
     orderTotalFormatted: formatPrice(orderTotal),
     customer: body.customer,
