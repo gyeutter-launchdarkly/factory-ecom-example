@@ -1,0 +1,12 @@
+services:
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    env_file:
+      - path: .env.local
+        required: false
+    environment:
+      - NODE_ENV=production
+      - LD_SDK_KEY=${LD_SDK_KEY:-}
+      - DEPLOY_SHA=${DEPLOY_SHA:-dev}

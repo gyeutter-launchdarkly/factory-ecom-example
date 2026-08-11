@@ -1,0 +1,17 @@
+node_modules/
+.next/
+out/
+
+# environment — never commit real values
+.env
+.env.local
+.env*.local
+
+# Terraform state and secrets
+terraform/.terraform/
+terraform/*.tfstate
+terraform/*.tfstate.*
+terraform/terraform.tfvars
+
+# macOS
+.DS_Store

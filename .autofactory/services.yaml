@@ -1,0 +1,15 @@
+# AutoFactory services registry.
+# The research planner reads this to understand service topology and
+# compute blast radius. Missing sections degrade gracefully to warnings.
+
+services:
+  checkout-demo:
+    name: Meridian Checkout Demo
+    side: fullstack
+    repo: "."
+    description: "Next.js e-commerce app — product catalog, cart, and checkout"
+    # Paths the research planner should treat as high-risk (flag any changes here)
+    critical_paths:
+      - src/lib/pricing.ts             # pricing logic — affects every product price
+      - src/app/api/checkout/route.ts  # checkout endpoint — revenue critical
+      - src/lib/ld.ts                  # LD SDK integration
