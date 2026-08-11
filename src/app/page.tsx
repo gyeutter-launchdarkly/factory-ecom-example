@@ -15,6 +15,8 @@ interface Product {
   basePrice: number;
   sku?: string;
   image?: string;
+  rating?: number;
+  reviewCount?: number;
 }
 
 interface ProductsResponse {
@@ -110,6 +112,8 @@ export default function HomePage() {
             displayPrice={p.displayPrice}
             price={p.basePrice}
             showReviews={data.flags.showProductReviews}
+            rating={p.rating}
+            reviewCount={p.reviewCount}
           />
         ))}
       </div>
