@@ -11,18 +11,27 @@ interface ProductCardProps {
   displayPrice: string;
   price: number;
   showReviews?: boolean;
+  rating?: number;
+  reviewCount?: number;
 }
 
-// Static review data — only visible when the show-product-reviews flag is on.
-// The feature/product-ratings branch adds real per-product rating fields.
-const MOCK_REVIEWS: Record<string, { rating: number; count: number }> = {
-  'prod-001': { rating: 4.7, count: 284 },
-  'prod-002': { rating: 4.5, count: 193 },
-  'prod-003': { rating: 4.8, count: 421 },
-  'prod-004': { rating: 4.3, count: 97 },
-  'prod-005': { rating: 4.6, count: 152 },
-  'prod-006': { rating: 4.9, count: 68 },
-};
+// Half-star aware rating display, fed by the real per-product fields this
+// branch adds to products.ts.
+function StarRating({ rating, count }: { rating: number; count: number }) {
+  const full = Math.floor(rating);
+  const half = rating - full >= 0.5;
+  const empty = 5 - full - (half ? 1 : 0);
+  return (
+    <p className="text-[12px] text-muted mt-0.5">
+      <span className="text-rose">
+        {'★'.repeat(full)}
+        {half ? '⯨' : ''}
+        {'☆'.repeat(empty)}
+      </span>{' '}
+      {rating.toFixed(1)} ({count.toLocaleString()})
+    </p>
+  );
+}
 
 export function ProductCard({
   id,
@@ -33,9 +42,10 @@ export function ProductCard({
   displayPrice,
   price,
   showReviews,
+  rating,
+  reviewCount,
 }: ProductCardProps) {
   const { add } = useCart();
-  const reviews = MOCK_REVIEWS[id];
 
   const handleAdd = () => add({ productId: id, name, emoji, price, displayPrice });
 
@@ -62,14 +72,8 @@ export function ProductCard({
         <p className="text-[13px] text-muted leading-relaxed line-clamp-2">{description}</p>
 
         {/* Controlled by the show-product-reviews feature flag */}
-        {showReviews && reviews && (
-          <p className="text-[12px] text-muted mt-0.5">
-            <span className="text-rose">
-              {'★'.repeat(Math.round(reviews.rating))}
-              {'☆'.repeat(5 - Math.round(reviews.rating))}
-            </span>{' '}
-            {reviews.rating} ({reviews.count})
-          </p>
+        {showReviews && rating !== undefined && reviewCount !== undefined && (
+          <StarRating rating={rating} count={reviewCount} />
         )}
 
         <p className="text-[15px] mt-1.5">{displayPrice}</p>
