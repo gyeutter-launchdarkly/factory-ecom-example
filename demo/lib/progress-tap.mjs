@@ -90,10 +90,21 @@ rl.on('line', (line) => {
 
   // act prefixes lines with "[Workflow/job] ", so match anywhere, not anchored.
 
-  // The PR this run belongs to, so the pane can label the flow.
+  // The PR this run belongs to, so the pane can label the flow. The same line
+  // carries the provider (the coding agent backend: anthropic | cursor | vega).
   let m = line.match(/Phase 1:\s*PR #(\d+)/);
   if (m) {
     emit({ t: 'pr', number: Number(m[1]) });
+    const prov = line.match(/\[provider:\s*([a-z]+)\]/i);
+    if (prov) emit({ t: 'provider', provider: prov[1] });
+    return;
+  }
+
+  // Which model actually ran a given node, resolved from its LD AI config:
+  //   "[node] autofactory-research-planner anthropic model → 'claude-...'"
+  m = line.match(/\[node\]\s+(autofactory-[a-z0-9-]+)\s+([a-z]+)\s+model\s*→\s*'([^']+)'/i);
+  if (m) {
+    emit({ t: 'agent', key: m[1], provider: m[2], model: m[3] });
     return;
   }
 

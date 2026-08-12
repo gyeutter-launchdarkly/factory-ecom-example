@@ -39,8 +39,12 @@ type Run = {
   startedAt: number;
   finished: boolean;
   statuses: Record<string, Status>;
+  /** Routing tags each node emitted — its claims (flag_key, metric_keys, ...). */
+  tags: Record<string, Record<string, string>>;
+  /** Which model ran each node, resolved from its LaunchDarkly AI config. */
+  agents: Record<string, { provider: string; model: string }>;
+  provider: string | null;
   resources: Resource[];
-  verdict: { approved: boolean; risk: string | null } | null;
   note: { level: string; text: string } | null;
 };
 
@@ -52,10 +56,64 @@ function emptyRun(id: string, scenario: string, at: number): Run {
     startedAt: at,
     finished: false,
     statuses: {},
+    tags: {},
+    agents: {},
+    provider: null,
     resources: [],
-    verdict: null,
     note: null,
   };
+}
+
+// Per-node detail lines. Everything shown here comes from what the node
+// actually emitted: its routing tags (the claims the handoff verifier checks)
+// plus the model resolved from its LaunchDarkly AI config. Tag vocabulary per
+// packages/shared/src/handoffVerifier.ts.
+const TAG_LABELS: Record<string, string> = {
+  flag_key: 'flag',
+  metric_keys: 'metrics',
+  metric_event_keys: 'events',
+  tests_last_run: 'tests',
+  manifest_path: 'manifest',
+};
+
+// Shown elsewhere or too noisy for a box.
+const TAG_SKIP = new Set([
+  'flag_ready',
+  'risk_level',
+  'risk_score',
+  'review_approved',
+  'review_decision',
+  'skip_flagging',
+]);
+
+function shortModel(model: string): string {
+  // "claude-sonnet-4-5-20250929" -> "sonnet-4-5"
+  const m = model.match(/(opus|sonnet|haiku|fable)-([0-9]+(?:-[0-9]+)?)/i);
+  return m ? `${m[1].toLowerCase()}-${m[2]}` : model.replace(/^claude-/, '').slice(0, 18);
+}
+
+function detailsFor(run: Run, nodeKey: string): string[] {
+  const out: string[] = [];
+
+  const agent = run.agents[nodeKey];
+  if (agent) out.push(shortModel(agent.model));
+
+  const tags = run.tags[nodeKey] ?? {};
+  for (const [k, label] of Object.entries(TAG_LABELS)) {
+    const v = tags[k];
+    if (!v) continue;
+    const value = k === 'metric_keys' || k === 'metric_event_keys' ? v.split(',').map((x) => x.trim()).filter(Boolean).join(', ') : v;
+    out.push(`${label}: ${value}`);
+  }
+
+  // Anything else the node claimed that is not already covered.
+  for (const [k, v] of Object.entries(tags)) {
+    if (out.length >= 4) break;
+    if (k in TAG_LABELS || TAG_SKIP.has(k) || !v) continue;
+    out.push(`${k.replace(/_/g, ' ')}: ${v}`);
+  }
+
+  return out.slice(0, 4);
 }
 
 export function FactoryPane() {
@@ -100,6 +158,21 @@ export function FactoryPane() {
             break;
           case 'node':
             run.statuses = { ...run.statuses, [String(m.key)]: m.status as Status };
+            if (m.tags && typeof m.tags === 'object') {
+              run.tags = {
+                ...run.tags,
+                [String(m.key)]: { ...(run.tags[String(m.key)] ?? {}), ...(m.tags as Record<string, string>) },
+              };
+            }
+            break;
+          case 'agent':
+            run.agents = {
+              ...run.agents,
+              [String(m.key)]: { provider: String(m.provider), model: String(m.model) },
+            };
+            break;
+          case 'provider':
+            run.provider = String(m.provider);
             break;
           case 'resource':
             if (!run.resources.some((r) => r.key === m.key)) {
@@ -108,9 +181,6 @@ export function FactoryPane() {
                 { kind: String(m.kind), key: String(m.key), url: String(m.url) },
               ];
             }
-            break;
-          case 'verdict':
-            run.verdict = { approved: Boolean(m.approved), risk: (m.risk as string) ?? null };
             break;
           case 'note':
             run.note = { level: String(m.level), text: String(m.text) };
@@ -213,6 +283,10 @@ export function FactoryPane() {
               <span className="text-[13px] text-muted">waiting for a run</span>
             )}
 
+            {current?.provider && (
+              <span className="text-[12px] text-muted shrink-0">via {current.provider}</span>
+            )}
+
             {activeCount > 1 && (
               <span className="text-[12px] text-muted shrink-0">{activeCount} in flight</span>
             )}
@@ -248,12 +322,13 @@ export function FactoryPane() {
               <ol className="flex items-center gap-0 overflow-x-auto pb-1">
                 {CHAIN.map((node, i) => {
                   const st = statusOf(current, node.key);
+                  const details = detailsFor(current, node.key);
                   const isLast = i === CHAIN.length - 1;
                   return (
-                    <li key={node.key} className="flex items-center shrink-0">
+                    <li key={node.key} className="flex items-stretch shrink-0">
                       <div
                         className={[
-                          'rounded-2xl px-4 py-3 min-w-[116px] text-center transition-colors',
+                          'rounded-2xl px-4 py-3 w-[178px] transition-colors self-stretch flex flex-col',
                           st === 'done'
                             ? 'bg-ink text-cream'
                             : st === 'running'
@@ -263,21 +338,44 @@ export function FactoryPane() {
                                 : 'bg-shell text-muted',
                         ].join(' ')}
                       >
-                        <div className="text-[13px] font-medium leading-tight whitespace-nowrap">
-                          {node.title}
+                        <div className="flex items-baseline justify-between gap-2">
+                          <span className="text-[13px] font-medium leading-tight truncate">
+                            {node.title}
+                          </span>
+                          <span className="text-[11px] leading-none shrink-0 opacity-80">
+                            {st === 'done' && '✓'}
+                            {st === 'running' && <span className="animate-pulse">•••</span>}
+                            {st === 'failed' && '✕'}
+                            {st === 'skipped' && '–'}
+                            {st === 'pending' && <span className="opacity-50">○</span>}
+                          </span>
                         </div>
-                        <div className="text-[11px] mt-1 leading-none">
-                          {st === 'done' && '✓'}
-                          {st === 'running' && <span className="animate-pulse">running</span>}
-                          {st === 'failed' && '✕'}
-                          {st === 'skipped' && 'skipped'}
-                          {st === 'pending' && <span className="opacity-50">–</span>}
+
+                        {/* What this node actually did: model + emitted claims. */}
+                        <div className="mt-2 space-y-0.5 text-left">
+                          {details.length > 0 ? (
+                            details.map((d) => (
+                              <div
+                                key={d}
+                                className={`text-[10.5px] leading-snug truncate ${
+                                  st === 'done' ? 'opacity-70' : 'opacity-90'
+                                }`}
+                                title={d}
+                              >
+                                {d}
+                              </div>
+                            ))
+                          ) : (
+                            <div className="text-[10.5px] leading-snug opacity-40">
+                              {st === 'pending' ? 'queued' : st === 'running' ? 'working' : '—'}
+                            </div>
+                          )}
                         </div>
                       </div>
 
                       {!isLast && (
                         <div
-                          className={`h-px w-6 mx-1 shrink-0 ${
+                          className={`h-px w-6 mx-1 shrink-0 self-center ${
                             st === 'done' || st === 'skipped' ? 'bg-ink' : 'bg-hair'
                           }`}
                           aria-hidden
@@ -300,7 +398,7 @@ export function FactoryPane() {
                 </p>
               )}
 
-              {(current.resources.length > 0 || current.verdict) && (
+              {current.resources.length > 0 && (
                 <div className="mt-4 pt-4 border-t border-hair flex flex-wrap items-center gap-x-5 gap-y-2">
                   {current.resources.map((r) => (
                     <a
@@ -313,12 +411,6 @@ export function FactoryPane() {
                       {r.kind}: {r.key}
                     </a>
                   ))}
-                  {current.verdict && (
-                    <span className="text-[13px] text-muted ml-auto">
-                      {current.verdict.approved ? 'Review approved' : 'Changes requested'}
-                      {current.verdict.risk ? ` · risk ${current.verdict.risk}` : ''}
-                    </span>
-                  )}
                 </div>
               )}
             </div>

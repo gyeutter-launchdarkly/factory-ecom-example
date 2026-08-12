@@ -18,13 +18,16 @@ PROJECT="${LD_APP_PROJECT_KEY:-checkout-demo}"
 
 cd "$(dirname "$0")/.."
 
+# key : title : model : tags-json
+# Mirrors the real output shape: a "[node] ... model -> '...'" line per node,
+# and the routing tags each node emits on completion.
 NODES=(
-  "autofactory-research-planner:Research & plan"
-  "autofactory-flag-implementer:Flag implementation"
-  "autofactory-metrics-author:Metrics & instrumentation"
-  "autofactory-manifest-steward:Release manifest"
-  "autofactory-flag-testing:Flag tests"
-  "autofactory-code-reviewer:Code review"
+  "autofactory-research-planner:Research & plan:claude-opus-4-5-20251101:{}"
+  "autofactory-flag-implementer:Flag implementation:claude-sonnet-4-5-20250929:{\"flag_key\":\"SCENARIO\",\"flag_ready\":\"true\"}"
+  "autofactory-metrics-author:Metrics & instrumentation:claude-sonnet-4-5-20250929:{\"metric_keys\":\"SCENARIO-conversion,SCENARIO-error-rate\",\"metric_event_keys\":\"checkout-completed\"}"
+  "autofactory-manifest-steward:Release manifest:claude-haiku-4-5-20251001:{\"manifest_path\":\".release-flags/SCENARIO.yaml\"}"
+  "autofactory-flag-testing:Flag tests:claude-sonnet-4-5-20250929:{\"tests_last_run\":\"green\"}"
+  "autofactory-code-reviewer:Code review:claude-opus-4-5-20251101:{\"risk_level\":\"low\",\"review_approved\":\"true\"}"
 )
 
 echo "Replaying '$SCENARIO' as PR #${PR_NUMBER} at ${STEP_SECS}s/step."
@@ -34,11 +37,13 @@ echo "Watch the Factory pane at http://localhost:3000"
   echo "Phase 1: PR #${PR_NUMBER} → graph 'gha-auto-factory' [provider: anthropic]"
   i=0
   for entry in "${NODES[@]}"; do
-    key="${entry%%:*}"; title="${entry#*:}"
+    IFS=':' read -r key title model tags <<< "$entry"
+    tags="${tags//SCENARIO/$SCENARIO}"
     i=$((i + 1))
     echo "▶ step $i: $title ($key)"
+    echo "[node] $key anthropic model → '$model'"
     sleep "$STEP_SECS"
-    echo "■ step $i done: $title ($key) [ok] tags: {}"
+    echo "■ step $i done: $title ($key) [ok] tags: $tags"
 
     # Emit the resource links at the points the real chain reports them.
     if [ "$key" = "autofactory-flag-implementer" ]; then
