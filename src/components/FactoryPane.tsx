@@ -30,6 +30,21 @@ const CHAIN: ReadonlyArray<{ key: string; title: string }> = [
 
 const MAX_RUNS = 12;
 
+// A run with no events for this long, that never reported completion, is
+// reported as stalled rather than claimed to be running — the factory process
+// may have been killed, or act may be between phases.
+const STALE_MS = 90_000;
+
+// What the header indicator is allowed to claim.
+type Health = 'offline' | 'idle' | 'running' | 'stalled';
+
+const HEALTH_TITLE: Record<Health, string> = {
+  offline: 'Not connected to the progress stream',
+  idle: 'Connected. No factory run in progress',
+  running: 'A factory run is in progress',
+  stalled: 'A run started but has not reported for a while',
+};
+
 type Resource = { kind: string; key: string; url: string };
 
 type Run = {
@@ -37,6 +52,8 @@ type Run = {
   scenario: string;
   pr: number | null;
   startedAt: number;
+  /** Timestamp of this run's most recent event, used to detect a stalled run. */
+  lastEventAt: number;
   finished: boolean;
   statuses: Record<string, Status>;
   /** Routing tags each node emitted — its claims (flag_key, metric_keys, ...). */
@@ -54,6 +71,7 @@ function emptyRun(id: string, scenario: string, at: number): Run {
     scenario,
     pr: null,
     startedAt: at,
+    lastEventAt: at,
     finished: false,
     statuses: {},
     tags: {},
@@ -147,6 +165,7 @@ export function FactoryPane() {
 
       setRuns((prev) => {
         const run = prev[id] ? { ...prev[id] } : emptyRun(id, scenario, at);
+        run.lastEventAt = at;
 
         switch (m.t) {
           case 'run-start':
@@ -218,6 +237,13 @@ export function FactoryPane() {
     return () => es.close();
   }, []);
 
+  // Stall detection is time-based, so the view needs a heartbeat to re-evaluate.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 5000);
+    return () => clearInterval(t);
+  }, []);
+
   // Newest first, so the dropdown reads like a PR list.
   const ordered = useMemo(
     () => Object.values(runs).sort((a, b) => b.startedAt - a.startedAt),
@@ -231,7 +257,19 @@ export function FactoryPane() {
     ? CHAIN.filter((n) => ['done', 'skipped'].includes(statusOf(current, n.key))).length
     : 0;
   const running = current ? CHAIN.find((n) => statusOf(current, n.key) === 'running') : undefined;
-  const activeCount = ordered.filter((r) => !r.finished).length;
+  // "Running" means a run is unfinished AND has reported recently. Anything
+  // else is idle or stalled; connectivity alone never counts as activity.
+  const isRunning = (r: Run) => !r.finished && now - r.lastEventAt < STALE_MS;
+  const activeCount = ordered.filter(isRunning).length;
+  const stalledCount = ordered.filter((r) => !r.finished && !isRunning(r)).length;
+
+  const health: Health = !live
+    ? 'offline'
+    : activeCount > 0
+      ? 'running'
+      : stalledCount > 0
+        ? 'stalled'
+        : 'idle';
 
   const label = (r: Run) => `${r.pr ? `PR #${r.pr}` : 'local'} · ${r.scenario}`;
 
@@ -255,10 +293,24 @@ export function FactoryPane() {
         <div className="bg-white rounded-3xl shadow-lift overflow-hidden">
           <div className="flex items-center gap-3 px-5 py-3">
             <span
-              className={`w-2 h-2 rounded-pill shrink-0 ${live ? 'bg-rose animate-pulse' : 'bg-hair'}`}
+              className={[
+                'w-2 h-2 rounded-pill shrink-0',
+                health === 'running'
+                  ? 'bg-rose animate-pulse'
+                  : health === 'stalled'
+                    ? 'bg-rose'
+                    : health === 'idle'
+                      ? 'bg-muted/50'
+                      : 'border border-muted/50',
+              ].join(' ')}
               aria-hidden
             />
             <span className="text-[12px] uppercase tracking-[0.16em] shrink-0">AutoFactory</span>
+            {/* Say the state in words; a colour alone cannot distinguish
+                "connected" from "working". */}
+            <span className="text-[12px] text-muted shrink-0" title={HEALTH_TITLE[health]}>
+              {health}
+            </span>
 
             {/* One run per PR: pick which flow to show. */}
             {ordered.length > 0 ? (
@@ -275,7 +327,7 @@ export function FactoryPane() {
                 {ordered.map((r) => (
                   <option key={r.id} value={r.id}>
                     {label(r)}
-                    {r.finished ? '' : ' (running)'}
+                    {r.finished ? '' : isRunning(r) ? ' (running)' : ' (stalled)'}
                   </option>
                 ))}
               </select>
@@ -344,7 +396,9 @@ export function FactoryPane() {
                           </span>
                           <span className="text-[11px] leading-none shrink-0 opacity-80">
                             {st === 'done' && '✓'}
-                            {st === 'running' && <span className="animate-pulse">•••</span>}
+                            {st === 'running' && (
+                              <span className={isRunning(current) ? 'animate-pulse' : ''}>•••</span>
+                            )}
                             {st === 'failed' && '✕'}
                             {st === 'skipped' && '–'}
                             {st === 'pending' && <span className="opacity-50">○</span>}
