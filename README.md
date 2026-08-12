@@ -1,11 +1,31 @@
-# Meridian — LaunchDarkly AutoFactory Demo
+# LaunchDarkly AutoFactory Demo
 
-A minimal e-commerce store (product catalog, cart, checkout) used to demonstrate the
+DarkCommerce is a minimal e-commerce store (product catalog, cart, checkout) used to demonstrate the
 LaunchDarkly AutoFactory: judges, guarded releases, and feature management working
 together as a software production system.
 
-The app is the *target* — AutoFactory runs against it to create feature flags, wire
+The app is the *target*: AutoFactory runs against it to create feature flags, wire
 code, instrument metrics, write tests, and manage guarded rollouts.
+
+## What this is
+
+**Software factories**
+- A software factory is an automated pipeline that converts raw developer intent (a PR) into a release-ready artifact: flagged, instrumented, tested, and safe to ship.
+- The factory pattern moves repeatable engineering decisions out of per-PR judgment and into a governed, auditable chain of agents.
+- Each run is reproducible: the same graph, the same agent configs, the same release contract.
+
+**Build / deploy / release with LaunchDarkly**
+- **Build:** the factory runs at PR time, wires new behavior behind a feature flag, and writes instrumentation and tests before any code ships.
+- **Deploy:** code goes out with the flag off; no users are affected yet.
+- **Release:** Beacon turns the flag on in a guarded rollout after deploy, monitoring metrics and reverting automatically if guardrails trip.
+
+**LaunchDarkly primitives**
+- **AI configs + agent graph:** define the six-agent chain, its instructions, model selection, and routing; read at runtime so changes take effect without a redeploy.
+- **Feature flags:** each PR produces a string multivariate flag (`control` + `v1`) targeting off in all environments; Beacon uses it as the release gate.
+- **Guarded releases:** Beacon triggers a progressive rollout with metric-based killswitches attached to the flag.
+- **Metrics:** three per-flag metrics (error rate, latency, business signal) instrument the release and drive automatic revert.
+- **Judges:** quality-scoring AI configs that evaluate agent output against verified git evidence; scores record as per-variation metrics for model A/B comparison.
+- **Operational flags:** `auto-factory-approval-mode`, `auto-factory-risk-threshold`, `auto-factory-approval-gates`, and `auto-factory-ai-provider` control factory behavior at runtime without redeployment.
 
 ## How it works
 
@@ -58,7 +78,7 @@ make setup
 
 This runs `terraform apply` to create:
 - The **Checkout Demo** LD project with Production and Staging environments
-- The seed flag `show-product-reviews` (already wired into the app — agents discover it)
+- The seed flag `show-product-reviews` (already wired into the app; agents discover it)
 
 At the end it prints URLs and instructions for the next step.
 
@@ -89,7 +109,7 @@ npm install && npm run dev
 
 In this repo's GitHub settings (**Settings → Secrets and variables → Actions**):
 
-**Secrets** (sensitive — use the Secrets tab):
+**Secrets** (sensitive; use the Secrets tab):
 
 | Secret | Value | Where to find it |
 |--------|-------|------------------|
@@ -100,7 +120,7 @@ In this repo's GitHub settings (**Settings → Secrets and variables → Actions
 > **Important:** The `LD_SDK_KEY` GitHub secret is the **factory project's** key, not the
 > demo app's. The demo app's SDK key (`sdk-...` for `checkout-demo`) goes in `.env.local` only.
 
-**Variables** (non-sensitive — use the Variables tab):
+**Variables** (non-sensitive; use the Variables tab):
 
 | Variable | Value |
 |----------|-------|
@@ -128,23 +148,23 @@ make reset
 ```
 
 This:
-1. Runs `terraform destroy` then `terraform apply` — deletes the LD project and all
+1. Runs `terraform destroy` then `terraform apply`, deletes the LD project and all
    factory-created flags/metrics, then recreates it clean
 2. Resets `feature/*` branches from their `demo-seed/*` tags (removes factory commits)
 3. Closes any open PRs on feature branches
 
 ## Demo talking points
 
-**Judges** — after a factory run, open the AI configs in the factory project and show
+**Judges:** after a factory run, open the AI configs in the factory project and show
 the judge scores on the flag-implementer and metrics-author tabs. Each score is 0–1
 with reasoning, evaluated against the agent's actual git diff.
 > https://app.launchdarkly.com/[factory-project]/[env]/ai-configs
 
-**Guarded releases** — the `.release-flags/` manifest the factory commits declares the
+**Guarded releases:** the `.release-flags/` manifest the factory commits declares the
 flag key and rollout parameters. Phase 2 (Beacon) picks this up on deploy and starts a
 progressive release that auto-reverts on metric degradation.
 
-**Feature management** — flip `auto-factory-approval-mode` in the factory project from
+**Feature management:** flip `auto-factory-approval-mode` in the factory project from
 `yolo` to `risk-threshold` in the LD UI while the audience watches, then submit the
 `dynamic-pricing` PR. The chain pauses at the gate and comments which label to add.
-The approval is a flag change — no code deploy needed.
+The approval is a flag change; no code deploy needed.
