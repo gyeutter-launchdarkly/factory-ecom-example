@@ -28,6 +28,7 @@ const valid = {
     city: 'Test',
     zip: '12345',
   },
+  payment: { stripePaymentMethodId: 'pm_demo_4242_test' },
 };
 const post = (body: unknown) =>
   POST(

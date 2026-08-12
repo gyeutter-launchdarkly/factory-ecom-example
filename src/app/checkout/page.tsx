@@ -11,6 +11,12 @@ interface OrderResult {
   discountApplied?: { code: string; amount: number } | null;
 }
 
+// Simulates Stripe.js tokenisation in demo mode.
+// In production this would be replaced by loadStripe() + Elements.
+function mockTokenize(card: string): string {
+  return `pm_demo_${card.replace(/\s/g, '').slice(-4)}_${Date.now()}`;
+}
+
 export default function CheckoutPage() {
   const { items, total, clear, ready } = useCart();
   const router = useRouter();
@@ -65,6 +71,9 @@ export default function CheckoutPage() {
     setLoading(true);
     setError('');
     try {
+      // In production: const { paymentMethod } = await stripe.createPaymentMethod(...)
+      const stripePaymentMethodId = mockTokenize(form.cardNumber);
+
       const res = await fetch('/api/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -77,7 +86,7 @@ export default function CheckoutPage() {
             city: form.city,
             zip: form.zip,
           },
-          payment: { cardNumber: form.cardNumber },
+          payment: { stripePaymentMethodId },
           discountCode: form.discountCode || undefined,
         }),
       });
@@ -181,13 +190,23 @@ export default function CheckoutPage() {
             </div>
           </section>
 
+          {/* Stripe payment section */}
           <section>
-            <p className="text-[11px] uppercase tracking-[0.16em] text-muted mb-4">Payment</p>
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-[11px] uppercase tracking-[0.16em] text-muted">Payment</p>
+              <span className="flex items-center gap-1.5 text-[11px] text-muted">
+                Powered by
+                <span className="font-medium text-[#635BFF] tracking-wide">Stripe</span>
+              </span>
+            </div>
             <div className="grid grid-cols-2 gap-3">
-              {fieldInput({ label: 'Card number', field: 'cardNumber', placeholder: '1234 5678 9012 3456', span2: true })}
+              {fieldInput({ label: 'Card number', field: 'cardNumber', placeholder: '4242 4242 4242 4242', span2: true })}
               {fieldInput({ label: 'Expiry', field: 'expiry', placeholder: 'MM / YY' })}
               {fieldInput({ label: 'CVC', field: 'cvc', placeholder: '123' })}
             </div>
+            <p className="text-[12px] text-muted mt-2.5">
+              Demo mode, no real charges. Payment is mocked when STRIPE_SECRET_KEY is absent.
+            </p>
           </section>
 
           {/* Discount code. The AutoFactory flag will gate this section. */}
@@ -221,7 +240,7 @@ export default function CheckoutPage() {
             disabled={loading}
             className="w-full bg-ink text-cream py-4 rounded-pill text-[14px] font-medium hover:bg-rose hover:text-ink disabled:opacity-40 disabled:hover:bg-ink disabled:hover:text-cream transition-colors"
           >
-            {loading ? 'Placing order' : `Pay ${formatPrice(total)}`}
+            {loading ? 'Processing payment' : `Pay ${formatPrice(total)}`}
           </button>
         </form>
 
