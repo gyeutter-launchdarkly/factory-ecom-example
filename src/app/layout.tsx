@@ -1,11 +1,11 @@
 import type { Metadata } from 'next';
-import { Space_Grotesk } from 'next/font/google';
+import { Inter } from 'next/font/google';
 import './globals.css';
 import { CartProvider } from '@/components/CartProvider';
 import { Header } from '@/components/Header';
 import { FactoryPane } from '@/components/FactoryPane';
 
-const font = Space_Grotesk({ subsets: ['latin'], weight: ['400', '500', '700'] });
+const font = Inter({ subsets: ['latin'], weight: ['300', '400', '500', '600'] });
 
 export const metadata: Metadata = {
   title: 'DarkCommerce',
@@ -15,10 +15,11 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body className={`${font.className} bg-white min-h-screen text-[#0a0a0a]`}>
+      <body className={`${font.className} bg-cream min-h-screen text-ink antialiased`}>
         <CartProvider>
           <Header />
-          <main className="max-w-6xl mx-auto px-6 py-10">{children}</main>
+          {/* Bottom padding leaves room for the collapsed factory pane. */}
+          <main className="max-w-6xl mx-auto px-6 py-14 pb-28">{children}</main>
           <FactoryPane />
         </CartProvider>
       </body>

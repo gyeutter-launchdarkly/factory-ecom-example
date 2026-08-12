@@ -7,23 +7,35 @@ export function Header() {
   const { count } = useCart();
 
   return (
-    <header className="border-b-2 border-[#0a0a0a] px-6 py-4 flex items-center justify-between bg-white">
-      <Link href="/" className="text-sm font-bold tracking-[0.25em] uppercase hover:text-[#005AFF] transition-colors">
-        DARKCOMMERCE
-      </Link>
-      <nav className="flex items-center gap-8">
-        <Link href="/" className="text-xs font-bold uppercase tracking-widest hover:text-[#005AFF] transition-colors">
-          Shop
+    <header className="sticky top-0 z-30 bg-cream/90 backdrop-blur-sm border-b border-hair">
+      <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+        <Link
+          href="/"
+          className="text-[15px] font-medium tracking-[0.18em] uppercase hover:text-rose transition-colors"
+        >
+          DarkCommerce
         </Link>
-        <Link href="/cart" className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest hover:text-[#005AFF] transition-colors">
-          Cart
-          {count > 0 && (
-            <span className="bg-[#0a0a0a] text-white text-xs w-5 h-5 flex items-center justify-center font-bold">
-              {count}
-            </span>
-          )}
-        </Link>
-      </nav>
+
+        <nav className="flex items-center gap-7">
+          <Link
+            href="/"
+            className="text-[13px] text-muted hover:text-ink transition-colors"
+          >
+            Shop
+          </Link>
+          <Link
+            href="/cart"
+            className="flex items-center gap-2 text-[13px] text-muted hover:text-ink transition-colors"
+          >
+            Cart
+            {count > 0 && (
+              <span className="bg-blush text-ink text-[11px] min-w-5 h-5 px-1.5 rounded-pill flex items-center justify-center font-medium">
+                {count}
+              </span>
+            )}
+          </Link>
+        </nav>
+      </div>
     </header>
   );
 }

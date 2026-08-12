@@ -3,20 +3,35 @@
 @tailwind utilities;
 
 :root {
-  --ink: #0a0a0a;
-  --accent: #005AFF;
-  --border: 2px solid #0a0a0a;
+  --cream: #fdfbf9;
+  --blush: #f7ded8;
+  --rose: #e9a79b;
+  --ink: #1a1817;
+  --muted: #8c837d;
+  --hair: #eae3dd;
 }
 
 * {
   box-sizing: border-box;
 }
 
-/* Brutalist input reset */
-input {
-  border-radius: 0 !important;
+html {
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
-button {
-  border-radius: 0 !important;
+body {
+  background: var(--cream);
+  color: var(--ink);
+}
+
+/* Soft focus ring in the accent, replacing the default blue outline. */
+:where(input, textarea, select, button, a):focus-visible {
+  outline: 2px solid var(--rose);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: var(--blush);
+  color: var(--ink);
 }
