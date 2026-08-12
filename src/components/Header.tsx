@@ -9,7 +9,7 @@ export function Header() {
   return (
     <header className="border-b-2 border-[#0a0a0a] px-6 py-4 flex items-center justify-between bg-white">
       <Link href="/" className="text-sm font-bold tracking-[0.25em] uppercase hover:text-[#005AFF] transition-colors">
-        MERIDIAN
+        DARKCOMMERCE
       </Link>
       <nav className="flex items-center gap-8">
         <Link href="/" className="text-xs font-bold uppercase tracking-widest hover:text-[#005AFF] transition-colors">

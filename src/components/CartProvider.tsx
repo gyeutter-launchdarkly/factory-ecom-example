@@ -28,13 +28,13 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     try {
-      const stored = localStorage.getItem('meridian-cart');
+      const stored = localStorage.getItem('darkcommerce-cart');
       if (stored) setItems(JSON.parse(stored));
     } catch {}
   }, []);
 
   useEffect(() => {
-    localStorage.setItem('meridian-cart', JSON.stringify(items));
+    localStorage.setItem('darkcommerce-cart', JSON.stringify(items));
   }, [items]);
 
   const add = (item: Omit<CartLineItem, 'quantity'>) => {

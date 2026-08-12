@@ -7,7 +7,7 @@ import { Header } from '@/components/Header';
 const font = Space_Grotesk({ subsets: ['latin'], weight: ['400', '500', '700'] });
 
 export const metadata: Metadata = {
-  title: 'Meridian',
+  title: 'DarkCommerce',
   description: 'LaunchDarkly AutoFactory demo store',
 };
 
