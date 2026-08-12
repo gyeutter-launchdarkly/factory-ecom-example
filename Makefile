@@ -20,6 +20,7 @@ help:
 	@echo "make ci  SCENARIO=<name>    Run the factory locally via act (no GitHub queue)"
 	@echo ""
 	@echo "Scenarios: product-ratings  discount-codes  dynamic-pricing"
+	@echo "           tiered-pricing  express-checkout  stripe-checkout"
 
 ## First-time setup: init Terraform, provision LD resources, tag seed branches
 setup:
@@ -60,7 +61,7 @@ ci:
 
 ## Tag current feature/* tips as seeds (called by setup; re-run if you update a branch)
 _tag-seeds:
-	@for s in product-ratings discount-codes dynamic-pricing; do \
+	@for s in product-ratings discount-codes dynamic-pricing tiered-pricing express-checkout stripe-checkout; do \
 	  git tag -f demo-seed/$$s feature/$$s 2>/dev/null \
 	    && echo "  tagged demo-seed/$$s" \
 	    || echo "  warning: feature/$$s not found, skipping"; \

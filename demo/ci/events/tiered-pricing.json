@@ -1,0 +1,17 @@
+{
+  "action": "opened",
+  "pull_request": {
+    "number": 4,
+    "head": { "ref": "feature/tiered-pricing" },
+    "base": { "ref": "main" },
+    "title": "feat: add tiered quantity discounts",
+    "body": "Adds bulk discount tiers to calculateLineTotal: 3–4 units → 10% off, 5+ units → 15% off. ProductCard shows a discount nudge when the next add would unlock a tier. CartProvider applies discounts to the cart total.",
+    "labels": []
+  },
+  "repository": {
+    "name": "factory-ecom-example",
+    "full_name": "gyeutter-launchdarkly/factory-ecom-example",
+    "default_branch": "main"
+  },
+  "sender": { "login": "demo" }
+}

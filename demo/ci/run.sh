@@ -11,6 +11,7 @@ EVENT_FILE="demo/ci/events/${SCENARIO}.json"
 if [[ ! -f "$EVENT_FILE" ]]; then
   echo "No event file for scenario: $SCENARIO"
   echo "Available: product-ratings  discount-codes  dynamic-pricing"
+  echo "           tiered-pricing   express-checkout  stripe-checkout"
   exit 1
 fi
 

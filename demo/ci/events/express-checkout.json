@@ -1,0 +1,17 @@
+{
+  "action": "opened",
+  "pull_request": {
+    "number": 5,
+    "head": { "ref": "feature/express-checkout" },
+    "base": { "ref": "main" },
+    "title": "feat: add express checkout — Buy Now bypasses cart",
+    "body": "Adds a Buy Now button on every product card that routes to /express-checkout, a streamlined single-item checkout form (name, email, card only — no address). Adds /api/express-checkout route that tracks both checkout-completed and express-checkout-conversion events.",
+    "labels": []
+  },
+  "repository": {
+    "name": "factory-ecom-example",
+    "full_name": "gyeutter-launchdarkly/factory-ecom-example",
+    "default_branch": "main"
+  },
+  "sender": { "login": "demo" }
+}

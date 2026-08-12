@@ -1,0 +1,17 @@
+{
+  "action": "opened",
+  "pull_request": {
+    "number": 6,
+    "head": { "ref": "feature/stripe-checkout" },
+    "base": { "ref": "main" },
+    "title": "feat: swap payment processing to Stripe",
+    "body": "Replaces the mock cardNumber field with a Stripe-style payment flow: client-side tokenization (pm_xxx), Expiry + CVC fields, and a /api/checkout update that calls createAndConfirmPayment() and returns 402 on failure. The checkout button copy changes to 'Pay Now'. Uses a mock Stripe client for demo; real integration would set STRIPE_SECRET_KEY.",
+    "labels": []
+  },
+  "repository": {
+    "name": "factory-ecom-example",
+    "full_name": "gyeutter-launchdarkly/factory-ecom-example",
+    "default_branch": "main"
+  },
+  "sender": { "login": "demo" }
+}
