@@ -165,7 +165,7 @@ fi
 load_env
 
 # credentials
-step "Step 1 / 3 - Credentials"
+step "Step 1 / 2 - Credentials"
 
 ask_text LD_APP_PROJECT_KEY \
   "LaunchDarkly project key" \
@@ -184,6 +184,10 @@ ask_secret LD_API_KEY \
   "LaunchDarkly API key" \
   "https://app.launchdarkly.com/settings/authorization\n  Role: Admin"
 
+ask_secret LD_SDK_KEY \
+  "LaunchDarkly SDK key" \
+  "app.launchdarkly.com > your project > Environments > ${LD_ENVIRONMENT_KEY:-production} > SDK key"
+
 ask_secret ANTHROPIC_API_KEY \
   "Anthropic API key" \
   "https://console.anthropic.com/settings/keys"
@@ -195,22 +199,10 @@ ask_secret GITHUB_TOKEN \
 write_env
 
 # terraform
-step "Step 2 / 3 - Provision seed flag + LD View"
+step "Step 2 / 2 - Provision seed flag + LD View"
 echo -e "${D}  make setup  (Terraform in Docker, creates seed flag in your existing project)${R}\n"
 make setup
 create_ld_view
-
-# sdk key
-step "Step 3 / 3 - SDK key"
-echo ""
-echo -e "  ${B}Open the URL printed above${R}"
-echo -e "  ${D}Environments > ${LD_ENVIRONMENT_KEY:-production} > SDK key > Copy${R}"
-
-ask_secret LD_SDK_KEY \
-  "LaunchDarkly SDK key (${LD_ENVIRONMENT_KEY:-production})" \
-  "Paste the sdk-*** key from the URL above"
-
-write_env
 
 # done
 echo ""
