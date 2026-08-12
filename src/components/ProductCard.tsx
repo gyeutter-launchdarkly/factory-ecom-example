@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useCart } from './CartProvider';
 
 interface ProductCardProps {
@@ -39,11 +40,26 @@ export function ProductCard({
 }: ProductCardProps) {
   const { add } = useCart();
   const [added, setAdded] = useState(false);
+  const router = useRouter();
   const reviews = MOCK_REVIEWS[id];
 
   const handleAdd = () => {
     add({ productId: id, name, emoji, image, price, displayPrice });
     setAdded(true);
+  };
+
+  // Express checkout: skip the cart and go straight to a single-item checkout.
+  // The factory will gate this behind a feature flag so it can be rolled out
+  // progressively and monitored against checkout-completed rate.
+  const handleBuyNow = () => {
+    const params = new URLSearchParams({
+      productId: id,
+      name,
+      emoji,
+      displayPrice,
+      price: String(price),
+    });
+    router.push(`/express-checkout?${params}`);
   };
 
   return (
@@ -95,6 +111,16 @@ export function ProductCard({
         )}
 
         <p className="text-[15px] mt-1.5">{displayPrice}</p>
+
+        {/* Express checkout: skips the cart and goes straight to a one-item
+            checkout. The factory gates this behind a flag so it can be rolled
+            out progressively against the checkout-completed rate. */}
+        <button
+          onClick={handleBuyNow}
+          className="mt-2.5 w-full border border-ink text-ink text-[13px] font-medium py-2.5 rounded-pill hover:bg-ink hover:text-cream transition-colors"
+        >
+          Buy now
+        </button>
       </div>
     </div>
   );
