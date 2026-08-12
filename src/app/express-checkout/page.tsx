@@ -32,6 +32,17 @@ function ExpressCheckoutForm() {
   const set = (key: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((f) => ({ ...f, [key]: e.target.value }));
 
+  // Demo convenience, mirroring the standard checkout: fill the form in one
+  // click. Any card details are accepted; nothing is charged.
+  const fillDemo = () =>
+    setForm({
+      name: 'Jane Smith',
+      email: 'jane@example.com',
+      cardNumber: '4242 4242 4242 4242',
+      expiry: '12 / 34',
+      cvc: '123',
+    });
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -86,6 +97,13 @@ function ExpressCheckoutForm() {
       <div className="text-center mb-9">
         <p className="text-[11px] uppercase tracking-[0.2em] text-muted mb-3">Express checkout</p>
         <h1 className="text-[32px] font-light tracking-tight">Buy now</h1>
+        <button
+          type="button"
+          onClick={fillDemo}
+          className="mt-4 text-[12px] text-muted hover:text-ink underline decoration-hair hover:decoration-rose decoration-1 underline-offset-4 transition-colors"
+        >
+          Autofill demo details
+        </button>
       </div>
 
       {/* Product summary */}
