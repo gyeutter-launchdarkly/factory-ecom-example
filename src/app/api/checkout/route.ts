@@ -1,9 +1,9 @@
-import { randomUUID } from 'node:crypto';
 import { shopperKey, withShopper } from '@/lib/shopper';
 import { NextRequest, NextResponse } from 'next/server';
 import { resolveProduct } from '@/lib/catalog';
 import { calculateOrderTotal, calculateLineTotal, formatPrice } from '@/lib/pricing';
 import { track } from '@/lib/ld';
+import { createAndConfirmPayment } from '@/lib/stripe';
 import type { CartItem } from '@/lib/pricing';
 
 interface CheckoutBody {
@@ -15,8 +15,10 @@ interface CheckoutBody {
     city: string;
     zip: string;
   };
+  // stripePaymentMethodId replaces the raw cardNumber in the Stripe checkout flow.
+  // The Stripe.js client tokenises card details and sends back a pm_xxx ID.
   payment: {
-    cardNumber: string;
+    stripePaymentMethodId: string;
   };
 }
 
@@ -54,13 +56,38 @@ export async function POST(req: NextRequest) {
   }
 
   const orderTotal = calculateOrderTotal(items);
-  const orderId = `ORD-${randomUUID()}`;
   const userKey = shopperKey(req);
+
+  const amountCents = Math.round(orderTotal * 100);
+
+  // Charge via Stripe. Falls back to mock when STRIPE_SECRET_KEY is absent.
+  let paymentResult;
+  try {
+    paymentResult = await createAndConfirmPayment(
+      amountCents,
+      'usd',
+      body.payment.stripePaymentMethodId,
+    );
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Payment failed';
+    return NextResponse.json({ error: message }, { status: 402 });
+  }
+
+  if (paymentResult.status !== 'succeeded') {
+    return NextResponse.json(
+      { error: `Payment not completed: ${paymentResult.status}` },
+      { status: 402 },
+    );
+  }
+
+  const orderId = `ORD-${paymentResult.paymentIntentId}`;
 
   // Track checkout completion — the Metrics Author builds guarded-release
   // metrics on top of this event (error rate, latency, conversion).
   await track('checkout-completed', userKey, orderTotal, {
     orderId,
+    paymentIntentId: paymentResult.paymentIntentId,
+    paymentDemo: paymentResult.demo,
     itemCount: items.reduce((n, i) => n + i.quantity, 0),
   });
 
