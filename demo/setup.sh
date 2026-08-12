@@ -113,7 +113,7 @@ for arg in "$@"; do [[ "$arg" == "--local" ]] && IN_REPO=true; done
 clear
 echo -e "${B}"
 echo "  ╔══════════════════════════════════════════════════╗"
-echo "  ║   MERIDIAN  ×  LAUNCHDARKLY  AUTO FACTORY        ║"
+echo "  ║        LaunchDarkly Factory Demo                 ║"
 echo "  ╚══════════════════════════════════════════════════╝"
 echo -e "${R}"
 if $IN_REPO; then
@@ -189,10 +189,8 @@ echo -e "${GR}${B}"
 echo "  ╔══════════════════════════════════════════════════╗"
 echo "  ║   All set!  Launching demo app…                  ║"
 echo "  ║                                                  ║"
-echo "  ║   App  →  http://localhost:3000                  ║"
-echo "  ║                                                  ║"
-echo "  ║   Run the factory:                               ║"
-echo "  ║     make ci SCENARIO=dynamic-pricing             ║"
+echo "  ║   App       →  http://localhost:3000             ║"
+echo "  ║   Factory   →  make ci SCENARIO=dynamic-pricing  ║"
 echo "  ╚══════════════════════════════════════════════════╝"
 echo -e "${R}"
 make dev
