@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+# Block commits that contain real API key values.
+# Catches accidental staging of .env.local or hardcoded secrets.
+#
+# Installed by `make hooks` (also run as part of `make setup`).
+# Bypass a false positive with: git commit --no-verify
+
+PATTERNS=(
+  'sdk-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'
+  'api-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'
+  'sk-ant-[a-zA-Z0-9_-]{90,}'
+  'ghp_[a-zA-Z0-9]{36}'
+  'github_pat_[a-zA-Z0-9_]{82}'
+)
+
+STAGED=$(git diff --cached --name-only)
+[ -z "$STAGED" ] && exit 0
+
+# Added lines only. Use ERE throughout so '+' quoting behaves the same on
+# BSD grep (macOS) and GNU grep.
+ADDED=$(git diff --cached | grep -E '^\+' | grep -Ev '^\+\+\+')
+[ -z "$ADDED" ] && exit 0
+
+FOUND=0
+for pattern in "${PATTERNS[@]}"; do
+  match=$(printf '%s\n' "$ADDED" | grep -E "$pattern" || true)
+  if [ -n "$match" ]; then
+    echo "ERROR: possible secret detected in staged diff (pattern: $pattern)"
+    printf '%s\n' "$match" | head -3
+    FOUND=1
+  fi
+done
+
+if [ "$FOUND" -eq 1 ]; then
+  echo ""
+  echo "Commit blocked. Remove the secret and try again."
+  echo "If this is a false positive, use: git commit --no-verify"
+  exit 1
+fi

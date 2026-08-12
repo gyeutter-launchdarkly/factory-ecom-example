@@ -20,12 +20,20 @@ help:
 	@echo "make reset-ld               Delete only the auto-factory LD flags + metrics"
 	@echo "make run SCENARIO=<name>    Open a PR for a scenario (via GitHub API)"
 	@echo "make ci  SCENARIO=<name>    Run the factory locally via act (no GitHub queue)"
+	@echo "make hooks                  Install git hooks that block committing API keys"
 	@echo ""
 	@echo "Scenarios: product-ratings  discount-codes  dynamic-pricing"
 	@echo "           tiered-pricing  express-checkout  stripe-checkout"
 
+## Install the git hooks that block committing real API keys
+hooks:
+	@git config core.hooksPath .githooks
+	@chmod +x .githooks/*
+	@echo "Git hooks installed (core.hooksPath=.githooks)"
+
 ## First-time setup: create seed flag in existing project, tag seed branches
 setup:
+	@$(MAKE) hooks
 	$(TF_RUN) init
 	$(TF_RUN) apply -auto-approve
 	@$(MAKE) _tag-seeds
