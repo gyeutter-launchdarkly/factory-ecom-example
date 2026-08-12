@@ -1,3 +1,22 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+:root {
+  --ink: #0a0a0a;
+  --accent: #005AFF;
+  --border: 2px solid #0a0a0a;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* Brutalist input reset */
+input {
+  border-radius: 0 !important;
+}
+
+button {
+  border-radius: 0 !important;
+}

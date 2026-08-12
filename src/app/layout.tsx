@@ -1,10 +1,10 @@
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
+import { Space_Grotesk } from 'next/font/google';
 import './globals.css';
 import { CartProvider } from '@/components/CartProvider';
 import { Header } from '@/components/Header';
 
-const inter = Inter({ subsets: ['latin'] });
+const font = Space_Grotesk({ subsets: ['latin'], weight: ['400', '500', '700'] });
 
 export const metadata: Metadata = {
   title: 'Meridian',
@@ -14,10 +14,10 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body className={`${inter.className} bg-gray-50 min-h-screen`}>
+      <body className={`${font.className} bg-white min-h-screen text-[#0a0a0a]`}>
         <CartProvider>
           <Header />
-          <main className="max-w-5xl mx-auto px-6 py-8">{children}</main>
+          <main className="max-w-6xl mx-auto px-6 py-10">{children}</main>
         </CartProvider>
       </body>
     </html>
