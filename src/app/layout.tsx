@@ -14,7 +14,18 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" data-theme="light">
+      <head>
+        {/* Apply the stored theme before first paint so switching does not
+            flash the default. Light unless dark was explicitly chosen. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              "try{var t=localStorage.getItem('darkcommerce-theme');" +
+              "document.documentElement.dataset.theme=t==='dark'?'dark':'light'}catch(e){}",
+          }}
+        />
+      </head>
       <body className={`${font.className} bg-cream min-h-screen text-ink antialiased`}>
         <CartProvider>
           <Header />

@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useCart } from './CartProvider';
+import { ThemeToggle } from './ThemeToggle';
 
 export function Header() {
   const { count } = useCart();
@@ -16,7 +17,7 @@ export function Header() {
           DarkCommerce
         </Link>
 
-        <nav className="flex items-center gap-7">
+        <nav className="flex items-center gap-6">
           <Link
             href="/"
             className="text-[13px] text-muted hover:text-ink transition-colors"
@@ -34,6 +35,7 @@ export function Header() {
               </span>
             )}
           </Link>
+          <ThemeToggle />
         </nav>
       </div>
     </header>

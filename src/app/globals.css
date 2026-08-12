@@ -2,20 +2,49 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Dark by default. See tailwind.config.ts for why this is done with token
-   values and utility overrides rather than per-component class changes. */
-:root {
+/* Light is the default; dark is opted into via <html data-theme="dark">.
+   Values are bare "R G B" triples so Tailwind's opacity modifiers work — see
+   tailwind.config.ts. Switching themes touches no component classes. */
+:root,
+[data-theme='light'] {
+  color-scheme: light;
+
+  --c-ground: 253 251 249; /* #FDFBF9 page */
+  --c-surface: 255 255 255; /* #FFFFFF cards */
+  --c-shell: 246 241 237; /* #F6F1ED beds */
+  --c-blush: 247 222 216; /* #F7DED8 accent wash */
+  --c-rose: 233 167 155; /* #E9A79B accent bg */
+  --c-ink: 26 24 23; /* #1A1817 foreground */
+  --c-muted: 140 131 125; /* #8C837D secondary */
+  --c-hair: 234 227 221; /* #EAE3DD dividers */
+
+  /* Accent *text* needs more contrast against a pale ground than the accent
+     background tint does, so it is a separate value. */
+  --rose-text: #b4685c;
+
+  --shadow-soft: 0 1px 2px rgba(26, 24, 23, 0.04), 0 8px 24px -12px rgba(26, 24, 23, 0.1);
+  --shadow-lift: 0 2px 4px rgba(26, 24, 23, 0.05), 0 16px 40px -16px rgba(26, 24, 23, 0.16);
+}
+
+[data-theme='dark'] {
   color-scheme: dark;
 
-  --ground: #131010;
-  --surface: #1b1717;
-  --shell: #241f1e;
-  --blush: #30211f;
-  --rose: #7e443a;      /* accent background / border */
-  --rose-text: #e9a79b; /* accent text, light enough for the dark ground */
-  --ink: #f3eeea;
-  --muted: #9c918b;
-  --hair: #2c2624;
+  --c-ground: 19 16 16; /* #131010 */
+  --c-surface: 27 23 23; /* #1B1717 */
+  --c-shell: 36 31 30; /* #241F1E */
+  --c-blush: 48 33 31; /* #30211F */
+  --c-rose: 126 68 58; /* #7E443A deep, so light type reads on it */
+  --c-ink: 243 238 234; /* #F3EEEA */
+  --c-muted: 156 145 139; /* #9C918B */
+  --c-hair: 44 38 36; /* #2C2624 */
+
+  --rose-text: #e9a79b;
+
+  /* On a dark ground, elevation reads through a hairline rim plus depth. */
+  --shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.5), 0 10px 28px -14px rgba(0, 0, 0, 0.7),
+    inset 0 0 0 1px rgba(243, 238, 234, 0.045);
+  --shadow-lift: 0 2px 6px rgba(0, 0, 0, 0.55), 0 22px 48px -20px rgba(0, 0, 0, 0.8),
+    inset 0 0 0 1px rgba(243, 238, 234, 0.07);
 }
 
 * {
@@ -28,12 +57,11 @@ html {
 }
 
 body {
-  background: var(--ground);
-  color: var(--ink);
+  background: rgb(var(--c-ground));
+  color: rgb(var(--c-ink));
 }
 
-/* `rose` resolves to the deep accent so light type reads on `bg-rose`. Accent
-   text needs the lighter tint, so those two utilities are re-pointed here. */
+/* `rose` is the accent background; accent text uses the higher-contrast tint. */
 .text-rose {
   color: var(--rose-text);
 }
@@ -42,30 +70,29 @@ body {
   text-decoration-color: var(--rose-text);
 }
 
-/* Tailwind's built-in light red/amber scales are unreadable on a dark ground.
-   Error and warning states use them, so map that handful to dark equivalents
-   instead of touching every call site. */
-.bg-red-50 {
+/* Tailwind's built-in light red/amber scales are unreadable on a dark ground,
+   and error/warning states use them. Remap for dark only; light keeps the
+   originals. */
+[data-theme='dark'] .bg-red-50 {
   background-color: #2a1513;
 }
-.border-red-200 {
+[data-theme='dark'] .border-red-200 {
   border-color: #4d241f;
 }
-.border-red-300 {
+[data-theme='dark'] .border-red-300 {
   border-color: #5c2b25;
 }
-.text-red-700,
-.text-red-800 {
+[data-theme='dark'] .text-red-700,
+[data-theme='dark'] .text-red-800 {
   color: #f2a79d;
 }
-
-.bg-amber-50 {
+[data-theme='dark'] .bg-amber-50 {
   background-color: #2a2012;
 }
-.border-amber-200 {
+[data-theme='dark'] .border-amber-200 {
   border-color: #4d3a1c;
 }
-.text-amber-900 {
+[data-theme='dark'] .text-amber-900 {
   color: #edc98a;
 }
 
@@ -75,12 +102,10 @@ body {
 }
 
 ::selection {
-  background: var(--rose);
-  color: var(--ink);
+  background: rgb(var(--c-blush));
+  color: rgb(var(--c-ink));
 }
 
-/* Keep placeholder text quiet against the dark inputs. */
 ::placeholder {
-  color: var(--muted);
-  opacity: 0.55;
+  color: rgb(var(--c-muted) / 0.55);
 }
