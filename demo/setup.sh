@@ -182,7 +182,7 @@ ask_text LD_ENVIRONMENT_KEY \
 
 ask_secret LD_API_KEY \
   "LaunchDarkly API key" \
-  "https://app.launchdarkly.com/settings/authorization - Create token (Admin)"
+  "https://app.launchdarkly.com/settings/authorization\n  Role: Admin"
 
 ask_secret ANTHROPIC_API_KEY \
   "Anthropic API key" \
@@ -190,7 +190,7 @@ ask_secret ANTHROPIC_API_KEY \
 
 ask_secret GITHUB_TOKEN \
   "GitHub personal access token" \
-  "https://github.com/settings/tokens - Fine-grained - repo, pull_requests, checks (write)"
+  "https://github.com/settings/personal-access-tokens/new\n  Permissions:\n    Contents:      Read and write\n    Pull requests: Read and write\n    Checks:        Read and write"
 
 write_env
 
