@@ -19,7 +19,7 @@ function ExpressCheckoutForm() {
   const displayPrice = params.get('displayPrice') ?? '';
   const price = parseFloat(params.get('price') ?? '0');
 
-  const [form, setForm] = useState({ name: '', email: '', cardNumber: '' });
+  const [form, setForm] = useState({ name: '', email: '', cardNumber: '', expiry: '', cvc: '' });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [order, setOrder] = useState<OrderResult | null>(null);
@@ -124,19 +124,26 @@ function ExpressCheckoutForm() {
           <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-gray-400 mb-3 pb-2 border-b border-gray-200">
             Payment
           </p>
-          <div>
-            <label className="block text-[10px] font-bold uppercase tracking-[0.15em] text-gray-400 mb-1.5">
-              Card Number
-            </label>
-            <input
-              type="text"
-              value={form.cardNumber}
-              onChange={set('cardNumber')}
-              placeholder="4242 4242 4242 4242"
-              required
-              className="w-full border-2 border-[#0a0a0a] px-3 py-2.5 text-sm font-medium focus:outline-none focus:border-[#005AFF] transition-colors placeholder:text-gray-300"
-            />
-            <p className="text-[10px] text-gray-300 mt-1.5 uppercase tracking-widest">Demo — no real charges</p>
+          <div className="space-y-3">
+            {[
+              { label: 'Card Number', field: 'cardNumber' as const, placeholder: '•••• •••• •••• ••••' },
+              { label: 'Expiry', field: 'expiry' as const, placeholder: 'MM / YY' },
+              { label: 'CVC', field: 'cvc' as const, placeholder: '•••' },
+            ].map(({ label, field, placeholder }) => (
+              <div key={field}>
+                <label className="block text-[10px] font-bold uppercase tracking-[0.15em] text-gray-400 mb-1.5">
+                  {label}
+                </label>
+                <input
+                  type="text"
+                  value={form[field]}
+                  onChange={set(field)}
+                  placeholder={placeholder}
+                  required
+                  className="w-full border-2 border-[#0a0a0a] px-3 py-2.5 text-sm font-medium focus:outline-none focus:border-[#005AFF] transition-colors placeholder:text-gray-300"
+                />
+              </div>
+            ))}
           </div>
         </section>
 
