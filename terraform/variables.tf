@@ -5,13 +5,12 @@ variable "launchdarkly_access_token" {
 }
 
 variable "project_key" {
-  description = "Key for the demo LD project (created by Terraform; must be unique in your account)"
+  description = "Key of your existing LaunchDarkly project (must already exist — Terraform does not create it)"
   type        = string
-  default     = "checkout-demo"
 }
 
-variable "project_name" {
-  description = "Display name for the LD project"
+variable "environment_key" {
+  description = "Primary environment key to link in outputs (must already exist in the project)"
   type        = string
-  default     = "Checkout Demo"
+  default     = "production"
 }

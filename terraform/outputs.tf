@@ -1,19 +1,14 @@
 output "project_key" {
-  value       = launchdarkly_project.demo.key
+  value       = var.project_key
   description = "Set this as LD_APP_PROJECT_KEY in .env.local and as the LD_APP_PROJECT_KEY repo variable in GitHub"
 }
 
-output "production_sdk_key_url" {
-  value       = "https://app.launchdarkly.com/${var.project_key}/production/settings"
-  description = "Open this URL → SDK keys section → click '...' → Copy SDK key → paste as LD_SDK_KEY in .env.local"
-}
-
-output "staging_sdk_key_url" {
-  value       = "https://app.launchdarkly.com/${var.project_key}/staging/settings"
-  description = "Open this URL to find the staging environment SDK key"
+output "sdk_key_url" {
+  value       = "https://app.launchdarkly.com/${var.project_key}/${var.environment_key}/settings/sdk"
+  description = "Open this URL → SDK key section → Copy → paste as LD_SDK_KEY in .env.local"
 }
 
 output "flags_url" {
-  value       = "https://app.launchdarkly.com/${var.project_key}/production/features"
-  description = "Feature flags dashboard for the demo project — factory-created flags appear here after each run"
+  value       = "https://app.launchdarkly.com/${var.project_key}/${var.environment_key}/features?filterTags=auto-factory"
+  description = "AutoFactory flags view — bookmark this or save as an LD View in the sidebar"
 }

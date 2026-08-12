@@ -11,39 +11,16 @@ provider "launchdarkly" {
   access_token = var.launchdarkly_access_token
 }
 
-# ── Demo app project ──────────────────────────────────────────────────────────
-# Terraform owns this project entirely.
-# `terraform destroy` deletes the project and ALL resources within it —
-# including factory-created flags and metrics — making it the reset mechanism.
-# `terraform apply` recreates it in a clean state.
-resource "launchdarkly_project" "demo" {
-  key  = var.project_key
-  name = var.project_name
-
-  environments {
-    key   = "production"
-    name  = "Production"
-    color = "417505"
-    tags  = ["demo"]
-  }
-
-  environments {
-    key   = "staging"
-    name  = "Staging"
-    color = "F5A623"
-    tags  = ["demo"]
-  }
-
-  tags = ["demo", "autofactory"]
-}
-
 # ── Seed flag ─────────────────────────────────────────────────────────────────
+# Terraform manages only this flag in your existing project.
+# Factory-created flags are cleaned up separately via `make reset-ld`
+# (deletes all resources tagged auto-factory without touching the project).
+#
 # show-product-reviews is already wired into the app when agents arrive.
 # AutoFactory agents grep the source, find this flag's evaluation call in
-# src/app/api/products/route.ts, and follow the same pattern (boolVariation
-# from @launchdarkly/node-server-sdk) when implementing new flags.
+# src/app/api/products/route.ts, and follow the same boolVariation pattern.
 resource "launchdarkly_feature_flag" "show_product_reviews" {
-  project_key    = launchdarkly_project.demo.key
+  project_key    = var.project_key
   key            = "show-product-reviews"
   name           = "Show Product Reviews"
   description    = "Displays star ratings and review counts on product cards"
@@ -66,5 +43,5 @@ resource "launchdarkly_feature_flag" "show_product_reviews" {
     off_variation = 1 # false — reviews hidden (default)
   }
 
-  tags = ["demo", "frontend"]
+  tags = ["demo", "frontend", "auto-factory"]
 }

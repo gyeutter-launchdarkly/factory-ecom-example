@@ -32,7 +32,7 @@ load_env() {
     [[ "$key" =~ ^[[:space:]]*# ]] && continue
     [[ -z "${key// }" ]] && continue
     case "$key" in
-      LD_APP_PROJECT_KEY|LD_API_KEY|LD_SDK_KEY|ANTHROPIC_API_KEY|GITHUB_TOKEN)
+      LD_APP_PROJECT_KEY|LD_ENVIRONMENT_KEY|LD_API_KEY|LD_SDK_KEY|ANTHROPIC_API_KEY|GITHUB_TOKEN)
         printf -v "$key" '%s' "$val" ;;
     esac
   done < .env.local
@@ -78,12 +78,32 @@ ask_text() {
 write_env() {
   cat > .env.local <<EOF
 LD_APP_PROJECT_KEY=${LD_APP_PROJECT_KEY}
+LD_ENVIRONMENT_KEY=${LD_ENVIRONMENT_KEY:-production}
 LD_API_KEY=${LD_API_KEY}
 ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
 GITHUB_TOKEN=${GITHUB_TOKEN}
 LD_SDK_KEY=${LD_SDK_KEY:-placeholder}
 EOF
   ok "wrote .env.local"
+}
+
+# Create (or confirm) an 'AutoFactory' saved view in the LD flag list
+create_ld_view() {
+  echo -e "\n  ${D}Creating 'AutoFactory' saved view in LaunchDarkly…${R}"
+  local body
+  body=$(printf '{"name":"AutoFactory","description":"Flags and metrics created by the LaunchDarkly AutoFactory","filters":[{"attribute":"tags","negate":false,"operator":"in","values":["auto-factory"]}]}')
+  local code
+  code=$(/usr/bin/curl -s -o /dev/null -w "%{http_code}" \
+    -X POST \
+    -H "Authorization: ${LD_API_KEY}" \
+    -H "Content-Type: application/json" \
+    -d "$body" \
+    "https://app.launchdarkly.com/api/v2/projects/${LD_APP_PROJECT_KEY}/flag-filters" 2>/dev/null || echo "000")
+  case "$code" in
+    200|201) ok "Created 'AutoFactory' view" ;;
+    409)     ok "'AutoFactory' view already exists" ;;
+    *)       warn "Could not create LD view (HTTP $code) — in the LD UI: filter by tag 'auto-factory' → Save view" ;;
+  esac
 }
 
 # ── detect mode ───────────────────────────────────────────────────────────────
@@ -149,8 +169,13 @@ step "Step 1 / 3 — Credentials"
 
 ask_text LD_APP_PROJECT_KEY \
   "LaunchDarkly project key" \
-  "A new LD project will be created with this key" \
-  "factory-ecom-example"
+  "Your existing LD project key (must already exist in your account)" \
+  "${LD_APP_PROJECT_KEY:-}"
+
+ask_text LD_ENVIRONMENT_KEY \
+  "LaunchDarkly environment key" \
+  "The environment the demo app will use (e.g. production, test)" \
+  "${LD_ENVIRONMENT_KEY:-production}"
 
 ask_secret LD_API_KEY \
   "LaunchDarkly API key" \
@@ -167,18 +192,19 @@ ask_secret GITHUB_TOKEN \
 write_env
 
 # ── terraform ─────────────────────────────────────────────────────────────────
-step "Step 2 / 3 — Provision LaunchDarkly resources"
-echo -e "${D}  make setup  (Terraform in Docker — may pull image on first run)${R}\n"
+step "Step 2 / 3 — Provision seed flag + LD View"
+echo -e "${D}  make setup  (Terraform in Docker — creates seed flag in your existing project)${R}\n"
 make setup
+create_ld_view
 
 # ── sdk key ───────────────────────────────────────────────────────────────────
 step "Step 3 / 3 — SDK key"
 echo ""
 echo -e "  ${B}Open the URL printed above${R}"
-echo -e "  ${D}Environments → Production → SDK key → '...' → Copy${R}"
+echo -e "  ${D}Environments → ${LD_ENVIRONMENT_KEY:-production} → SDK key → Copy${R}"
 
 ask_secret LD_SDK_KEY \
-  "LaunchDarkly SDK key  (Production)" \
+  "LaunchDarkly SDK key  (${LD_ENVIRONMENT_KEY:-production})" \
   "Paste the sdk-*** key from the URL above"
 
 write_env

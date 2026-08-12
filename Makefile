@@ -8,21 +8,23 @@ SCENARIO ?= dynamic-pricing
 TF_RUN := docker compose run --rm \
   -e TF_VAR_launchdarkly_access_token='$(LD_API_KEY)' \
   -e TF_VAR_project_key='$(LD_APP_PROJECT_KEY)' \
+  -e TF_VAR_environment_key='$(or $(LD_ENVIRONMENT_KEY),production)' \
   terraform
 
-.PHONY: setup dev reset run ci _tag-seeds help
+.PHONY: setup dev reset reset-ld run ci _tag-seeds help
 
 help:
-	@echo "make setup                  First-time setup: provision LD resources + tag seed branches"
+	@echo "make setup                  First-time setup: create seed flag + LD View, tag branches"
 	@echo "make dev                    Run the app locally (Docker)"
-	@echo "make reset                  Full reset between demo runs"
+	@echo "make reset                  Full reset: delete auto-factory LD resources + reset branches"
+	@echo "make reset-ld               Delete only the auto-factory LD flags + metrics"
 	@echo "make run SCENARIO=<name>    Open a PR for a scenario (via GitHub API)"
 	@echo "make ci  SCENARIO=<name>    Run the factory locally via act (no GitHub queue)"
 	@echo ""
 	@echo "Scenarios: product-ratings  discount-codes  dynamic-pricing"
 	@echo "           tiered-pricing  express-checkout  stripe-checkout"
 
-## First-time setup: init Terraform, provision LD resources, tag seed branches
+## First-time setup: create seed flag in existing project, tag seed branches
 setup:
 	$(TF_RUN) init
 	$(TF_RUN) apply -auto-approve
@@ -32,22 +34,24 @@ setup:
 	@echo ""
 	@$(TF_RUN) output
 	@echo ""
-	@echo "Next: copy the production_sdk_key_url to grab LD_SDK_KEY, then 'make dev'"
+	@echo "Next: open the sdk_key_url above, copy the SDK key, add it as LD_SDK_KEY in .env.local"
 
 ## Run the app (production build in Docker, no local Node needed)
 dev:
 	docker compose up --build
 
-## Full reset: destroy + recreate LD project, reset git branches, close stale PRs
+## Full reset: delete auto-factory LD resources + restore feature branches
 reset:
-	@echo "=== Resetting LaunchDarkly resources ==="
-	$(TF_RUN) destroy -auto-approve
-	$(TF_RUN) apply -auto-approve
+	@$(MAKE) reset-ld
 	@echo ""
 	@echo "=== Resetting demo branches ==="
 	@./demo/reset-branches.sh
 	@echo ""
 	@echo "=== Reset complete — ready for next run ==="
+
+## Delete all auto-factory-tagged flags + metrics from the existing project
+reset-ld:
+	@./demo/reset-ld.sh
 
 ## Open a PR for a demo scenario (uses GitHub API, no gh CLI needed)
 ## Usage: make run SCENARIO=dynamic-pricing
