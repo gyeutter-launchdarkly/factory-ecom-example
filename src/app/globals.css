@@ -2,13 +2,20 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Dark by default. See tailwind.config.ts for why this is done with token
+   values and utility overrides rather than per-component class changes. */
 :root {
-  --cream: #fdfbf9;
-  --blush: #f7ded8;
-  --rose: #e9a79b;
-  --ink: #1a1817;
-  --muted: #8c837d;
-  --hair: #eae3dd;
+  color-scheme: dark;
+
+  --ground: #131010;
+  --surface: #1b1717;
+  --shell: #241f1e;
+  --blush: #30211f;
+  --rose: #7e443a;      /* accent background / border */
+  --rose-text: #e9a79b; /* accent text, light enough for the dark ground */
+  --ink: #f3eeea;
+  --muted: #9c918b;
+  --hair: #2c2624;
 }
 
 * {
@@ -21,17 +28,59 @@ html {
 }
 
 body {
-  background: var(--cream);
+  background: var(--ground);
   color: var(--ink);
 }
 
-/* Soft focus ring in the accent, replacing the default blue outline. */
+/* `rose` resolves to the deep accent so light type reads on `bg-rose`. Accent
+   text needs the lighter tint, so those two utilities are re-pointed here. */
+.text-rose {
+  color: var(--rose-text);
+}
+
+.decoration-rose {
+  text-decoration-color: var(--rose-text);
+}
+
+/* Tailwind's built-in light red/amber scales are unreadable on a dark ground.
+   Error and warning states use them, so map that handful to dark equivalents
+   instead of touching every call site. */
+.bg-red-50 {
+  background-color: #2a1513;
+}
+.border-red-200 {
+  border-color: #4d241f;
+}
+.border-red-300 {
+  border-color: #5c2b25;
+}
+.text-red-700,
+.text-red-800 {
+  color: #f2a79d;
+}
+
+.bg-amber-50 {
+  background-color: #2a2012;
+}
+.border-amber-200 {
+  border-color: #4d3a1c;
+}
+.text-amber-900 {
+  color: #edc98a;
+}
+
 :where(input, textarea, select, button, a):focus-visible {
-  outline: 2px solid var(--rose);
+  outline: 2px solid var(--rose-text);
   outline-offset: 2px;
 }
 
 ::selection {
-  background: var(--blush);
+  background: var(--rose);
   color: var(--ink);
+}
+
+/* Keep placeholder text quiet against the dark inputs. */
+::placeholder {
+  color: var(--muted);
+  opacity: 0.55;
 }

@@ -35,6 +35,20 @@ export default function CheckoutPage() {
   const set = (key: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((f) => ({ ...f, [key]: e.target.value }));
 
+  // Demo convenience: fill the whole form in one click so a walkthrough does
+  // not stall on typing. Any card details are accepted; nothing is charged.
+  const fillDemo = () =>
+    setForm({
+      name: 'Jane Smith',
+      email: 'jane@example.com',
+      address: '123 Market St',
+      city: 'San Francisco',
+      zip: '94105',
+      cardNumber: '4242 4242 4242 4242',
+      expiry: '12 / 34',
+      cvc: '123',
+    });
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -121,6 +135,13 @@ export default function CheckoutPage() {
     <div className="max-w-3xl mx-auto">
       <div className="text-center mb-10">
         <h1 className="text-[32px] font-light tracking-tight">Checkout</h1>
+        <button
+          type="button"
+          onClick={fillDemo}
+          className="mt-4 text-[12px] text-muted hover:text-ink underline decoration-hair hover:decoration-rose decoration-1 underline-offset-4 transition-colors"
+        >
+          Autofill demo details
+        </button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-10">
