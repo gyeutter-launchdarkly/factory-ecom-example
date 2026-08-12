@@ -24,3 +24,6 @@ act-secrets.*
 
 # macOS
 .DS_Store
+
+# Factory progress stream (written per run by demo/lib/progress-tap.mjs)
+.autofactory/run-progress.ndjson

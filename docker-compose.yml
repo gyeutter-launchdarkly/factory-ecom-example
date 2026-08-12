@@ -5,6 +5,10 @@ services:
     build: .
     ports:
       - "3000:3000"
+    volumes:
+      # The factory progress stream is written on the host by
+      # demo/lib/progress-tap.mjs; the in-app flowchart tails it read-only.
+      - ./.autofactory:/app/.autofactory:ro
     env_file:
       - path: .env.local
         required: false

@@ -3,6 +3,7 @@ import { Space_Grotesk } from 'next/font/google';
 import './globals.css';
 import { CartProvider } from '@/components/CartProvider';
 import { Header } from '@/components/Header';
+import { FactoryPane } from '@/components/FactoryPane';
 
 const font = Space_Grotesk({ subsets: ['latin'], weight: ['400', '500', '700'] });
 
@@ -18,6 +19,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <CartProvider>
           <Header />
           <main className="max-w-6xl mx-auto px-6 py-10">{children}</main>
+          <FactoryPane />
         </CartProvider>
       </body>
     </html>

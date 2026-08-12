@@ -55,6 +55,11 @@ dev:
 open:
 	@./demo/open-app.sh
 
+## Replay a fake factory run so you can rehearse the flowchart without burning
+## an Anthropic call. Usage: make demo-progress
+demo-progress:
+	@./demo/replay-progress.sh
+
 ## Full reset: delete auto-factory LD resources + restore feature branches
 reset:
 	@$(MAKE) reset-ld

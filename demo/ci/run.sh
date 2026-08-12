@@ -40,13 +40,20 @@ echo "    branch:  $BRANCH"
 echo "    event:   $EVENT_FILE"
 echo ""
 
+# Piped through the progress tap so the in-app flowchart can follow along.
+# The tap echoes everything through unchanged; PIPESTATUS preserves act's exit
+# code, which the pipe would otherwise mask.
+set +e
 docker compose run --rm ci \
   pull_request \
   --eventpath "$EVENT_FILE" \
   --secret-file "$SECRETS_FILE" \
   --var "LD_APP_PROJECT_KEY=$LD_APP_PROJECT_KEY" \
   -P "ubuntu-latest=ghcr.io/catthehacker/ubuntu:act-22.04" \
-  -W .github/workflows/auto-factory.yml
+  -W .github/workflows/auto-factory.yml 2>&1 | node demo/lib/progress-tap.mjs "$SCENARIO"
+ACT_STATUS=${PIPESTATUS[0]}
+set -e
 
 echo ""
 echo "=== Done. Check the branch for factory commits, and LD for new flags. ==="
+exit "$ACT_STATUS"
