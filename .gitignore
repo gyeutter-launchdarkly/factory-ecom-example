@@ -26,7 +26,7 @@ act-secrets.*
 .DS_Store
 
 # Factory progress stream (written per run by demo/lib/progress-tap.mjs)
-.autofactory/run-progress.ndjson
+.autofactory/runs.ndjson
 
 # TypeScript incremental build info (build artifact)
 tsconfig.tsbuildinfo

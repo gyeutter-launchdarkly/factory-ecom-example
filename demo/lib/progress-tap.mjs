@@ -4,9 +4,14 @@
  *
  * Reads the factory's stdout on stdin, echoes every line through unchanged (so
  * the terminal experience is identical), and appends a structured NDJSON event
- * stream to .autofactory/run-progress.ndjson for the in-app flowchart to read.
+ * stream to .autofactory/runs.ndjson for the in-app flowchart to read.
  *
  * Usage:  <factory command> 2>&1 | node demo/lib/progress-tap.mjs <scenario>
+ *
+ * One factory run per PR, so every event carries a `run` id and the log is
+ * append-only. Concurrent runs (several PRs in flight) interleave safely in the
+ * file because the reader groups by `run` rather than assuming a single flow.
+ * The log rotates once it passes ROTATE_BYTES so it cannot grow without bound.
  *
  * Two producers are recognised:
  *
@@ -21,30 +26,42 @@
  *               fills in, just all at once at the end rather than progressively.
  */
 
-import { appendFileSync, mkdirSync, writeFileSync } from 'node:fs';
+import { appendFileSync, mkdirSync, statSync, writeFileSync } from 'node:fs';
 import { createInterface } from 'node:readline';
 import { dirname, resolve } from 'node:path';
 
 const OUT = process.env.FACTORY_PROGRESS_FILE
   ? resolve(process.env.FACTORY_PROGRESS_FILE)
-  : resolve('.autofactory/run-progress.ndjson');
+  : resolve('.autofactory/runs.ndjson');
+
+const ROTATE_BYTES = 512 * 1024;
 
 const scenario = process.argv[2] ?? 'unknown';
+const runId = `${scenario}-${Date.now()}`;
 
 mkdirSync(dirname(OUT), { recursive: true });
-// Truncate: one file per run, so a stale run never bleeds into the next.
-writeFileSync(OUT, '');
+
+// Append-only, so runs for different PRs coexist. Rotate only when the log gets
+// large; the reader notices the file shrank and re-reads from the start.
+try {
+  if (statSync(OUT).size > ROTATE_BYTES) writeFileSync(OUT, '');
+} catch {
+  writeFileSync(OUT, '');
+}
 
 let seq = 0;
 function emit(event) {
   try {
-    appendFileSync(OUT, JSON.stringify({ seq: seq++, at: Date.now(), ...event }) + '\n');
+    appendFileSync(
+      OUT,
+      JSON.stringify({ run: runId, scenario, seq: seq++, at: Date.now(), ...event }) + '\n',
+    );
   } catch {
     // Never let telemetry break the factory run.
   }
 }
 
-emit({ t: 'run-start', scenario });
+emit({ t: 'run-start' });
 
 // Pull "autofactory-foo" out of a title like "Research & plan (autofactory-foo)",
 // or accept a bare key.
@@ -73,8 +90,15 @@ rl.on('line', (line) => {
 
   // act prefixes lines with "[Workflow/job] ", so match anywhere, not anchored.
 
+  // The PR this run belongs to, so the pane can label the flow.
+  let m = line.match(/Phase 1:\s*PR #(\d+)/);
+  if (m) {
+    emit({ t: 'pr', number: Number(m[1]) });
+    return;
+  }
+
   // phase1-cli: a step is starting.
-  let m = line.match(/▶\s*step\s+(\d+):\s*(.+)$/);
+  m = line.match(/▶\s*step\s+(\d+):\s*(.+)$/);
   if (m) {
     const key = keyOf(m[2]);
     if (key) emit({ t: 'node', key, status: 'running', index: Number(m[1]) });
@@ -85,7 +109,7 @@ rl.on('line', (line) => {
   m = line.match(/■\s*step\s+(\d+)\s+done:\s*(.+)$/);
   if (m) {
     const key = keyOf(m[2]);
-    const status = /\[(ok|success)\]/i.test(m[2]) ? 'done' : /\[failed\]/i.test(m[2]) ? 'failed' : 'done';
+    const status = /\[failed\]/i.test(m[2]) ? 'failed' : 'done';
     if (key) emit({ t: 'node', key, status, index: Number(m[1]), tags: parseTags(m[2]) });
     return;
   }
@@ -122,7 +146,7 @@ rl.on('line', (line) => {
   }
 
   // Flag / metric links the factory reports, so the pane can deep-link to LD.
-  m = line.match(/^\s*(Flag|Metric):\s*([a-z0-9-]+)\s*→\s*(\S+)/i);
+  m = line.match(/^\s*(?:\[[^\]]*\]\s*\|?\s*)?(Flag|Metric):\s*([a-z0-9-]+)\s*→\s*(\S+)/i);
   if (m) {
     emit({ t: 'resource', kind: m[1].toLowerCase(), key: m[2], url: m[3] });
     return;

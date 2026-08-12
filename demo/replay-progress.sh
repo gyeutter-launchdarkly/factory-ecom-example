@@ -3,11 +3,17 @@
 # the in-app flowchart (or check it after a UI change) without spending an
 # Anthropic call or waiting on act.
 #
-# Usage: ./demo/replay-progress.sh [scenario] [seconds-per-step]
+# Usage: ./demo/replay-progress.sh [scenario] [seconds-per-step] [pr-number]
+#
+# Run it twice with different scenarios and PR numbers to rehearse the pane's
+# PR dropdown with several flows in flight:
+#   ./demo/replay-progress.sh express-checkout 2 7 &
+#   ./demo/replay-progress.sh stripe-checkout  3 9 &
 set -euo pipefail
 
 SCENARIO="${1:-express-checkout}"
 STEP_SECS="${2:-2}"
+PR_NUMBER="${3:-1}"
 PROJECT="${LD_APP_PROJECT_KEY:-checkout-demo}"
 
 cd "$(dirname "$0")/.."
@@ -21,9 +27,11 @@ NODES=(
   "autofactory-code-reviewer:Code review"
 )
 
-echo "Replaying '$SCENARIO' at ${STEP_SECS}s/step. Watch the Factory pane at http://localhost:3000"
+echo "Replaying '$SCENARIO' as PR #${PR_NUMBER} at ${STEP_SECS}s/step."
+echo "Watch the Factory pane at http://localhost:3000"
 
 {
+  echo "Phase 1: PR #${PR_NUMBER} → graph 'gha-auto-factory' [provider: anthropic]"
   i=0
   for entry in "${NODES[@]}"; do
     key="${entry%%:*}"; title="${entry#*:}"

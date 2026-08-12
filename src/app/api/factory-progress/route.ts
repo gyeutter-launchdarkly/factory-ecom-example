@@ -10,14 +10,15 @@ import { resolve } from 'node:path';
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-const FILE = resolve(process.env.FACTORY_PROGRESS_FILE ?? '.autofactory/run-progress.ndjson');
+const FILE = resolve(process.env.FACTORY_PROGRESS_FILE ?? '.autofactory/runs.ndjson');
 const POLL_MS = 400;
 
 async function readFrom(offset: number): Promise<{ text: string; next: number }> {
   let handle;
   try {
     const info = await stat(FILE);
-    // The tap truncates on each new run; rewind so the new run streams from 0.
+    // The log is append-only across runs, but rotates when it gets large.
+    // A shrink means it rotated, so re-read from the start.
     if (info.size < offset) offset = 0;
     if (info.size === offset) return { text: '', next: offset };
     handle = await open(FILE, 'r');
