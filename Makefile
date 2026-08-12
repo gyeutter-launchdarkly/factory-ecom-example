@@ -11,7 +11,7 @@ TF_RUN := docker compose run --rm \
   -e TF_VAR_environment_key='$(or $(LD_ENVIRONMENT_KEY),production)' \
   terraform
 
-.PHONY: setup dev reset reset-ld run ci _tag-seeds help
+.PHONY: setup dev open hooks reset reset-ld run ci _tag-seeds help
 
 help:
 	@echo "make setup                  First-time setup: create seed flag + LD View, tag branches"
@@ -20,6 +20,7 @@ help:
 	@echo "make reset-ld               Delete only the auto-factory LD flags + metrics"
 	@echo "make run SCENARIO=<name>    Open a PR for a scenario (via GitHub API)"
 	@echo "make ci  SCENARIO=<name>    Run the factory locally via act (no GitHub queue)"
+	@echo "make open                   Print the app link and open it in a browser"
 	@echo "make hooks                  Install git hooks that block committing API keys"
 	@echo ""
 	@echo "Scenarios: product-ratings  discount-codes  dynamic-pricing"
@@ -45,8 +46,14 @@ setup:
 	@echo "Next: open the sdk_key_url above, copy the SDK key, add it as LD_SDK_KEY in .env.local"
 
 ## Run the app (production build in Docker, no local Node needed)
+## Opens the browser once it responds; set NO_OPEN=1 to just print the link.
 dev:
+	@./demo/open-app.sh &
 	docker compose up --build
+
+## Print the app link and open it in a browser (app must already be running)
+open:
+	@./demo/open-app.sh
 
 ## Full reset: delete auto-factory LD resources + restore feature branches
 reset:
