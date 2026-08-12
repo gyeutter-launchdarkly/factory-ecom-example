@@ -169,8 +169,11 @@ step "Step 1 / 3 — Credentials"
 
 ask_text LD_APP_PROJECT_KEY \
   "LaunchDarkly project key" \
-  "Your existing LD project key (must already exist in your account)" \
+  "Key or URL — e.g. my-project  or  https://app.launchdarkly.com/projects/my-project" \
   "${LD_APP_PROJECT_KEY:-}"
+# Accept a pasted URL and extract the key
+LD_APP_PROJECT_KEY=$(echo "$LD_APP_PROJECT_KEY" \
+  | sed -E 's|https?://app\.launchdarkly\.com/projects/([^/?]+).*|\1|')
 
 ask_text LD_ENVIRONMENT_KEY \
   "LaunchDarkly environment key" \
