@@ -190,7 +190,7 @@ ask_secret ANTHROPIC_API_KEY \
 
 ask_secret GITHUB_TOKEN \
   "GitHub personal access token" \
-  "https://github.com/settings/personal-access-tokens/new\n  Permissions:\n    Contents:      Read and write\n    Pull requests: Read and write\n    Checks:        Read and write"
+  "https://github.com/settings/personal-access-tokens/new\n  Permissions:\n    Contents:      Read and write\n    Pull requests: Read and write"
 
 write_env
 
