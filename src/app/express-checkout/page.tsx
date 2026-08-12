@@ -59,16 +59,23 @@ function ExpressCheckoutForm() {
   if (order) {
     return (
       <div className="max-w-md mx-auto text-center py-16">
-        <p className="text-4xl mb-6">✓</p>
-        <h1 className="text-4xl font-bold uppercase tracking-tight mb-2">Order Placed</h1>
-        <p className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-1 mt-6">Order ID</p>
-        <p className="font-mono text-sm mb-4">{order.orderId}</p>
-        <p className="text-3xl font-bold font-mono mb-10">{order.orderTotalFormatted}</p>
+        <div className="w-14 h-14 rounded-pill bg-blush text-ink flex items-center justify-center mx-auto mb-7 text-xl">
+          ✓
+        </div>
+        <h1 className="text-[30px] font-light tracking-tight">Thank you</h1>
+        <p className="mt-3 text-[14px] text-muted">Your order is on its way.</p>
+
+        <div className="mt-9 bg-white rounded-3xl shadow-soft px-6 py-6">
+          <p className="text-[11px] uppercase tracking-[0.16em] text-muted">Order</p>
+          <p className="text-[13px] mt-1">{order.orderId}</p>
+          <p className="text-[24px] font-light mt-4">{order.orderTotalFormatted}</p>
+        </div>
+
         <a
           href="/"
-          className="text-[10px] font-bold uppercase tracking-[0.2em] border-b-2 border-[#0a0a0a] pb-0.5 hover:text-[#005AFF] hover:border-[#005AFF] transition-colors"
+          className="mt-8 inline-block bg-ink text-cream text-[13px] font-medium px-7 py-3 rounded-pill hover:bg-rose hover:text-ink transition-colors"
         >
-          Continue Shopping →
+          Continue shopping
         </a>
       </div>
     );
@@ -76,35 +83,35 @@ function ExpressCheckoutForm() {
 
   return (
     <div className="max-w-lg mx-auto">
-      <div className="mb-8 pb-6 border-b-2 border-[#0a0a0a]">
-        <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-gray-400 mb-2">
-          Express Checkout
-        </p>
-        <h1 className="text-4xl font-bold uppercase tracking-tight">Buy Now</h1>
+      <div className="text-center mb-9">
+        <p className="text-[11px] uppercase tracking-[0.2em] text-muted mb-3">Express checkout</p>
+        <h1 className="text-[32px] font-light tracking-tight">Buy now</h1>
       </div>
 
       {/* Product summary */}
-      <div className="border-2 border-[#0a0a0a] p-5 mb-6 flex items-center gap-4">
-        <span className="text-4xl">{emoji}</span>
-        <div className="flex-1">
-          <p className="font-bold uppercase tracking-tight">{name}</p>
-          <p className="text-xs text-gray-400 font-mono mt-0.5">Qty: 1</p>
+      <div className="bg-white rounded-3xl shadow-soft px-5 py-5 mb-7 flex items-center gap-4">
+        <span className="w-14 h-14 rounded-2xl bg-shell flex items-center justify-center text-2xl shrink-0">
+          {emoji}
+        </span>
+        <div className="flex-1 min-w-0">
+          <p className="text-[14px] font-medium truncate">{name}</p>
+          <p className="text-[13px] text-muted mt-0.5">Qty 1</p>
         </div>
-        <span className="text-xl font-bold font-mono">{displayPrice}</span>
+        <span className="text-[16px] shrink-0">{displayPrice}</span>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <section>
-          <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-gray-400 mb-3 pb-2 border-b border-gray-200">
+          <p className="text-[11px] uppercase tracking-[0.16em] text-muted mb-4">
             Contact
           </p>
           <div className="space-y-3">
             {[
-              { label: 'Full Name', field: 'name' as const, placeholder: 'Jane Smith' },
+              { label: 'Full name', field: 'name' as const, placeholder: 'Jane Smith' },
               { label: 'Email', field: 'email' as const, placeholder: 'jane@example.com' },
             ].map(({ label, field, placeholder }) => (
               <div key={field}>
-                <label className="block text-[10px] font-bold uppercase tracking-[0.15em] text-gray-400 mb-1.5">
+                <label className="block text-[12px] text-muted mb-1.5">
                   {label}
                 </label>
                 <input
@@ -113,7 +120,7 @@ function ExpressCheckoutForm() {
                   onChange={set(field)}
                   placeholder={placeholder}
                   required
-                  className="w-full border-2 border-[#0a0a0a] px-3 py-2.5 text-sm font-medium focus:outline-none focus:border-[#005AFF] transition-colors placeholder:text-gray-300"
+                  className="w-full bg-white border border-hair rounded-2xl px-4 py-3 text-[14px] focus:outline-none focus:border-rose transition-colors placeholder:text-muted/50"
                 />
               </div>
             ))}
@@ -121,17 +128,17 @@ function ExpressCheckoutForm() {
         </section>
 
         <section>
-          <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-gray-400 mb-3 pb-2 border-b border-gray-200">
+          <p className="text-[11px] uppercase tracking-[0.16em] text-muted mb-4">
             Payment
           </p>
           <div className="space-y-3">
             {[
-              { label: 'Card Number', field: 'cardNumber' as const, placeholder: '•••• •••• •••• ••••' },
+              { label: 'Card number', field: 'cardNumber' as const, placeholder: '1234 5678 9012 3456' },
               { label: 'Expiry', field: 'expiry' as const, placeholder: 'MM / YY' },
-              { label: 'CVC', field: 'cvc' as const, placeholder: '•••' },
+              { label: 'CVC', field: 'cvc' as const, placeholder: '123' },
             ].map(({ label, field, placeholder }) => (
               <div key={field}>
-                <label className="block text-[10px] font-bold uppercase tracking-[0.15em] text-gray-400 mb-1.5">
+                <label className="block text-[12px] text-muted mb-1.5">
                   {label}
                 </label>
                 <input
@@ -140,28 +147,30 @@ function ExpressCheckoutForm() {
                   onChange={set(field)}
                   placeholder={placeholder}
                   required
-                  className="w-full border-2 border-[#0a0a0a] px-3 py-2.5 text-sm font-medium focus:outline-none focus:border-[#005AFF] transition-colors placeholder:text-gray-300"
+                  className="w-full bg-white border border-hair rounded-2xl px-4 py-3 text-[14px] focus:outline-none focus:border-rose transition-colors placeholder:text-muted/50"
                 />
               </div>
             ))}
           </div>
         </section>
 
-        <div className="border-t-2 border-[#0a0a0a] pt-4 flex justify-between items-baseline">
-          <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Total</span>
-          <span className="text-2xl font-bold font-mono">{formatPrice(price)}</span>
+        <div className="border-t border-hair pt-4 flex justify-between items-baseline">
+          <span className="text-[13px] text-muted">Total</span>
+          <span className="text-[20px] font-light">{formatPrice(price)}</span>
         </div>
 
         {error && (
-          <p className="text-red-600 text-sm font-medium border-2 border-red-600 px-3 py-2">{error}</p>
+          <p className="text-[13px] text-red-700 bg-red-50 border border-red-200 rounded-2xl px-4 py-3">
+            {error}
+          </p>
         )}
 
         <button
           type="submit"
           disabled={loading}
-          className="w-full bg-[#0a0a0a] text-white py-4 font-bold text-[10px] uppercase tracking-[0.25em] hover:bg-[#005AFF] disabled:opacity-40 transition-colors"
+          className="w-full bg-ink text-cream py-4 rounded-pill text-[14px] font-medium hover:bg-rose hover:text-ink disabled:opacity-40 disabled:hover:bg-ink disabled:hover:text-cream transition-colors"
         >
-          {loading ? 'Placing Order…' : 'Place Order →'}
+          {loading ? 'Placing order' : `Pay ${formatPrice(price)}`}
         </button>
       </form>
     </div>
