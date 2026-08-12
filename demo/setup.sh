@@ -186,7 +186,7 @@ ask_secret LD_API_KEY \
 
 ask_secret LD_SDK_KEY \
   "LaunchDarkly SDK key" \
-  "app.launchdarkly.com > your project > Environments > ${LD_ENVIRONMENT_KEY:-production} > SDK key"
+  "https://app.launchdarkly.com/settings/sdk-keys?projKey=${LD_APP_PROJECT_KEY}&envKey=${LD_ENVIRONMENT_KEY:-production}"
 
 ask_secret ANTHROPIC_API_KEY \
   "Anthropic API key" \
