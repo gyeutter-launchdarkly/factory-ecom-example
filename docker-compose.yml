@@ -17,6 +17,9 @@ services:
   # Usage: docker compose run --rm terraform <command>
   # The Makefile wraps this so TF_VAR_* are passed automatically.
   terraform:
+    # Profile keeps this out of `docker compose up` (i.e. `make dev`).
+    # `docker compose run` auto-enables the profile, so the Makefile still works.
+    profiles: ["tools"]
     image: hashicorp/terraform:1.9
     working_dir: /workspace/terraform
     volumes:
@@ -27,6 +30,9 @@ services:
   # Needs the Docker socket so act can spawn runner containers.
   # Usage: make ci SCENARIO=dynamic-pricing
   ci:
+    # Profile keeps this out of `docker compose up` — otherwise `make dev`
+    # would start act and run the whole factory workflow unprompted.
+    profiles: ["tools"]
     build:
       context: .
       dockerfile: demo/ci/Dockerfile
