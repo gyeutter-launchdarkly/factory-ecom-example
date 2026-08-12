@@ -1,6 +1,7 @@
 'use client';
 
 import { createContext, useContext, useEffect, useState } from 'react';
+import { getTieredDiscount } from '@/lib/pricing';
 
 export interface CartLineItem {
   productId: string;
@@ -63,7 +64,12 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const clear = () => setItems([]);
 
   const count = items.reduce((n, i) => n + i.quantity, 0);
-  const total = items.reduce((sum, i) => sum + i.price * i.quantity, 0);
+
+  // Apply tiered discounts when calculating total
+  const total = items.reduce((sum, i) => {
+    const discount = getTieredDiscount(i.quantity);
+    return sum + i.price * i.quantity * (1 - discount);
+  }, 0);
 
   return (
     <CartContext.Provider value={{ items, add, remove, update, clear, count, total }}>

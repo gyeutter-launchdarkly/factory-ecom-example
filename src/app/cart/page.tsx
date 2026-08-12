@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useCart } from '@/components/CartProvider';
-import { formatPrice } from '@/lib/pricing';
+import { formatPrice, getTieredDiscount } from '@/lib/pricing';
 
 export default function CartPage() {
   const { items, remove, update, total } = useCart();
@@ -43,6 +43,11 @@ export default function CartPage() {
             <div className="flex-1 min-w-0">
               <p className="text-[14px] font-medium truncate">{item.name}</p>
               <p className="text-[13px] text-muted mt-0.5">{item.displayPrice}</p>
+              {getTieredDiscount(item.quantity) > 0 && (
+                <p className="text-[12px] text-rose mt-0.5">
+                  {getTieredDiscount(item.quantity) * 100}% bulk discount
+                </p>
+              )}
             </div>
 
             <div className="flex items-center gap-1 bg-shell rounded-pill p-1">
