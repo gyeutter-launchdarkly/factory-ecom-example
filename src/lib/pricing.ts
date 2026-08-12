@@ -12,8 +12,20 @@ export function calculatePrice(product: Product): number {
   return product.basePrice;
 }
 
+// Returns the bulk discount rate for a given quantity.
+// Tiered discounts incentivise larger orders:
+//   3–4 items → 10 %  off
+//   5+  items → 15 %  off
+export function getTieredDiscount(quantity: number): number {
+  if (quantity >= 5) return 0.15;
+  if (quantity >= 3) return 0.10;
+  return 0;
+}
+
 export function calculateLineTotal(item: CartItem): number {
-  return calculatePrice(item.product) * item.quantity;
+  const unit = calculatePrice(item.product);
+  const discount = getTieredDiscount(item.quantity);
+  return unit * item.quantity * (1 - discount);
 }
 
 export function calculateOrderTotal(items: CartItem[]): number {
