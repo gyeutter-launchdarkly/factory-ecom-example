@@ -27,3 +27,6 @@ act-secrets.*
 
 # Factory progress stream (written per run by demo/lib/progress-tap.mjs)
 .autofactory/run-progress.ndjson
+
+# TypeScript incremental build info (build artifact)
+tsconfig.tsbuildinfo
