@@ -4,7 +4,7 @@
 
 services:
   checkout-demo:
-    name: Meridian Checkout Demo
+    name: DarkCommerce Checkout Demo
     side: fullstack
     repo: "."
     description: "Next.js e-commerce app — product catalog, cart, and checkout"

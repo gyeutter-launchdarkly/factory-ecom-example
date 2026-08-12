@@ -47,8 +47,8 @@ jobs:
             | sudo tar -xz -C /usr/local/bin ld-find-code-refs
 
       - name: LaunchDarkly AutoFactory Phase 1
-        # Replace <owner> with the GitHub org or user hosting launchdarkly-auto-factory
-        uses: <owner>/launchdarkly-auto-factory/packages/phase1-resource-factory@main
+        # Change the owner here if you host launchdarkly-auto-factory elsewhere.
+        uses: launchdarkly-labs/launchdarkly-auto-factory/packages/phase1-resource-factory@main
         with:
           ld_sdk_key: ${{ secrets.LD_SDK_KEY }}
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
