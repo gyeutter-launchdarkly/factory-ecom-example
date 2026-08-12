@@ -2,39 +2,45 @@
 
 import { useEffect, useRef, useState } from 'react';
 
-// Live AutoFactory flowchart. Subscribes to /api/factory-progress (SSE, fed by
-// demo/lib/progress-tap.mjs) and renders the agent chain as a flowchart:
-// completed steps filled, the running step accented, the rest outlined.
+// Live AutoFactory flowchart, docked to the bottom of the page. Subscribes to
+// /api/factory-progress (SSE, fed by demo/lib/progress-tap.mjs) and renders the
+// agent chain left to right: completed steps filled, the running step accented,
+// the rest outlined.
+//
+// Three visibility states so it can be shown and hidden on demand:
+//   expanded  full flowchart
+//   collapsed slim summary bar, click to expand
+//   hidden    fully out of the way, restored from a small corner pill
 
 type Status = 'pending' | 'running' | 'done' | 'failed' | 'skipped';
+type View = 'expanded' | 'collapsed' | 'hidden';
 
 // Chain order matches phase1-cli's NODE_TITLES. The Cursor extension's panel
 // omits manifest-steward; it is a real node, so it is included here.
-const CHAIN: ReadonlyArray<{ key: string; title: string; blurb: string }> = [
-  { key: 'autofactory-research-planner', title: 'Research & plan', blurb: 'classify change, blast radius' },
-  { key: 'autofactory-flag-implementer', title: 'Flag', blurb: 'create flag, wire the code' },
-  { key: 'autofactory-metrics-author', title: 'Metrics', blurb: 'guarded-release instrumentation' },
-  { key: 'autofactory-manifest-steward', title: 'Release manifest', blurb: 'record release intent' },
-  { key: 'autofactory-flag-testing', title: 'Tests', blurb: 'flag-on / flag-off' },
-  { key: 'autofactory-code-reviewer', title: 'Review', blurb: 'verdict + risk level' },
+const CHAIN: ReadonlyArray<{ key: string; title: string }> = [
+  { key: 'autofactory-research-planner', title: 'Research & plan' },
+  { key: 'autofactory-flag-implementer', title: 'Flag' },
+  { key: 'autofactory-metrics-author', title: 'Metrics' },
+  { key: 'autofactory-manifest-steward', title: 'Manifest' },
+  { key: 'autofactory-flag-testing', title: 'Tests' },
+  { key: 'autofactory-code-reviewer', title: 'Review' },
 ];
 
 type Resource = { kind: string; key: string; url: string };
 
 export function FactoryPane() {
-  const [open, setOpen] = useState(false);
+  const [view, setView] = useState<View>('collapsed');
   const [scenario, setScenario] = useState<string | null>(null);
   const [statuses, setStatuses] = useState<Record<string, Status>>({});
   const [resources, setResources] = useState<Resource[]>([]);
   const [verdict, setVerdict] = useState<{ approved: boolean; risk: string | null } | null>(null);
   const [note, setNote] = useState<{ level: string; text: string } | null>(null);
   const [live, setLive] = useState(false);
-  // Auto-open on the first run of the session, but never fight a manual close.
-  const userClosed = useRef(false);
+  // Respect a manual hide: a new run should not yank the pane back open.
+  const userHid = useRef(false);
 
   useEffect(() => {
     const es = new EventSource('/api/factory-progress');
-
     es.onopen = () => setLive(true);
     es.onerror = () => setLive(false);
 
@@ -53,14 +59,16 @@ export function FactoryPane() {
           setResources([]);
           setVerdict(null);
           setNote(null);
-          if (!userClosed.current) setOpen(true);
+          if (!userHid.current) setView('expanded');
           break;
         case 'node':
           setStatuses((s) => ({ ...s, [String(m.key)]: m.status as Status }));
           break;
         case 'resource':
           setResources((r) =>
-            r.some((x) => x.key === m.key) ? r : [...r, { kind: String(m.kind), key: String(m.key), url: String(m.url) }],
+            r.some((x) => x.key === m.key)
+              ? r
+              : [...r, { kind: String(m.kind), key: String(m.key), url: String(m.url) }],
           );
           break;
         case 'verdict':
@@ -76,142 +84,149 @@ export function FactoryPane() {
   }, []);
 
   const statusOf = (key: string): Status => statuses[key] ?? 'pending';
-  const runningIdx = CHAIN.findIndex((n) => statusOf(n.key) === 'running');
   const doneCount = CHAIN.filter((n) => ['done', 'skipped'].includes(statusOf(n.key))).length;
+  const running = CHAIN.find((n) => statusOf(n.key) === 'running');
 
-  return (
-    <>
-      {/* Toggle. Always available so the pane can be shown before a run starts. */}
+  // Fully hidden: leave a single unobtrusive pill to bring it back.
+  if (view === 'hidden') {
+    return (
       <button
         onClick={() => {
-          setOpen((o) => {
-            if (o) userClosed.current = true;
-            return !o;
-          });
+          userHid.current = false;
+          setView('expanded');
         }}
-        className="fixed right-0 top-1/2 -translate-y-1/2 z-50 border-2 border-[#0a0a0a] border-r-0 bg-white px-2 py-4 text-[10px] font-bold uppercase tracking-widest hover:bg-[#0a0a0a] hover:text-white transition-colors"
-        style={{ writingMode: 'vertical-rl' }}
-        aria-label="Toggle AutoFactory panel"
+        className="fixed bottom-5 right-5 z-40 bg-ink text-cream text-[12px] font-medium px-4 py-2.5 rounded-pill shadow-lift hover:bg-rose hover:text-ink transition-colors"
       >
         Factory {doneCount > 0 ? `${doneCount}/${CHAIN.length}` : ''}
       </button>
+    );
+  }
 
-      <aside
-        className={`fixed right-0 top-0 h-full w-[340px] z-40 bg-white border-l-2 border-[#0a0a0a] overflow-y-auto transition-transform duration-200 ${
-          open ? 'translate-x-0' : 'translate-x-full'
-        }`}
-      >
-        <div className="border-b-2 border-[#0a0a0a] px-4 py-3">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-[0.2em]">AutoFactory</span>
-            <span className={`text-[10px] font-mono ${live ? 'text-[#005AFF]' : 'text-neutral-400'}`}>
-              {live ? '● live' : '○ idle'}
-            </span>
-          </div>
-          <div className="mt-1 font-mono text-[11px] text-neutral-500">
-            {scenario ? scenario : 'waiting for a run'}
-          </div>
-        </div>
+  return (
+    <div className="fixed bottom-0 left-0 right-0 z-40">
+      <div className="mx-auto max-w-6xl px-4 pb-4">
+        <div className="bg-white rounded-3xl shadow-lift border border-hair overflow-hidden">
+          {/* Summary bar: always visible, doubles as the expand/collapse control. */}
+          <div className="flex items-center gap-3 px-5 py-3">
+            <button
+              onClick={() => setView(view === 'expanded' ? 'collapsed' : 'expanded')}
+              className="flex items-center gap-3 flex-1 min-w-0 text-left"
+              aria-expanded={view === 'expanded'}
+            >
+              <span
+                className={`w-2 h-2 rounded-pill shrink-0 ${
+                  live ? 'bg-rose animate-pulse' : 'bg-hair'
+                }`}
+                aria-hidden
+              />
+              <span className="text-[12px] uppercase tracking-[0.16em] shrink-0">AutoFactory</span>
+              <span className="text-[13px] text-muted truncate">
+                {scenario ?? 'waiting for a run'}
+                {running ? ` · ${running.title}` : ''}
+              </span>
+              <span className="ml-auto text-[12px] text-muted shrink-0 pr-1">
+                {doneCount}/{CHAIN.length}
+              </span>
+              <span className="text-muted text-[11px] shrink-0" aria-hidden>
+                {view === 'expanded' ? '▾' : '▴'}
+              </span>
+            </button>
 
-        <ol className="px-4 py-4">
-          {CHAIN.map((node, i) => {
-            const st = statusOf(node.key);
-            const isLast = i === CHAIN.length - 1;
-            return (
-              <li key={node.key} className="relative">
-                <div
-                  className={[
-                    'border-2 p-3 transition-colors',
-                    st === 'done'
-                      ? 'border-[#0a0a0a] bg-[#0a0a0a] text-white'
-                      : st === 'running'
-                        ? 'border-[#005AFF] bg-[#005AFF]/5'
-                        : st === 'failed'
-                          ? 'border-red-600 bg-red-50'
-                          : st === 'skipped'
-                            ? 'border-dashed border-neutral-300 text-neutral-400'
-                            : 'border-dashed border-neutral-300 text-neutral-400',
-                  ].join(' ')}
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <div className="text-[11px] font-bold uppercase tracking-wider truncate">
-                        {node.title}
-                      </div>
+            <button
+              onClick={() => {
+                userHid.current = true;
+                setView('hidden');
+              }}
+              className="text-muted/70 hover:text-ink text-lg leading-none w-6 shrink-0 transition-colors"
+              aria-label="Hide factory panel"
+            >
+              ×
+            </button>
+          </div>
+
+          {view === 'expanded' && (
+            <div className="border-t border-hair px-5 py-5">
+              {/* Horizontal flowchart; scrolls rather than wraps on narrow screens. */}
+              <ol className="flex items-center gap-0 overflow-x-auto pb-1">
+                {CHAIN.map((node, i) => {
+                  const st = statusOf(node.key);
+                  const isLast = i === CHAIN.length - 1;
+                  return (
+                    <li key={node.key} className="flex items-center shrink-0">
                       <div
-                        className={`text-[10px] leading-tight mt-0.5 ${
-                          st === 'done' ? 'text-neutral-300' : 'text-neutral-400'
-                        }`}
+                        className={[
+                          'rounded-2xl px-4 py-3 min-w-[116px] text-center transition-colors',
+                          st === 'done'
+                            ? 'bg-ink text-cream'
+                            : st === 'running'
+                              ? 'bg-blush text-ink ring-1 ring-rose'
+                              : st === 'failed'
+                                ? 'bg-red-50 text-red-800 ring-1 ring-red-300'
+                                : 'bg-shell text-muted',
+                        ].join(' ')}
                       >
-                        {node.blurb}
+                        <div className="text-[13px] font-medium leading-tight whitespace-nowrap">
+                          {node.title}
+                        </div>
+                        <div className="text-[11px] mt-1 leading-none">
+                          {st === 'done' && '✓'}
+                          {st === 'running' && <span className="animate-pulse">running</span>}
+                          {st === 'failed' && '✕'}
+                          {st === 'skipped' && 'skipped'}
+                          {st === 'pending' && <span className="opacity-50">–</span>}
+                        </div>
                       </div>
-                    </div>
-                    <span className="font-mono text-[11px] shrink-0">
-                      {st === 'done' && '✓'}
-                      {st === 'running' && <span className="text-[#005AFF] animate-pulse">●</span>}
-                      {st === 'failed' && <span className="text-red-600">✕</span>}
-                      {st === 'skipped' && '–'}
-                      {st === 'pending' && <span className="text-neutral-300">○</span>}
+
+                      {!isLast && (
+                        <div
+                          className={`h-px w-6 mx-1 shrink-0 ${
+                            st === 'done' || st === 'skipped' ? 'bg-ink' : 'bg-hair'
+                          }`}
+                          aria-hidden
+                        />
+                      )}
+                    </li>
+                  );
+                })}
+              </ol>
+
+              {note && (
+                <p
+                  className={`mt-4 text-[12px] rounded-2xl px-4 py-2.5 ${
+                    note.level === 'error'
+                      ? 'bg-red-50 text-red-800 border border-red-200'
+                      : 'bg-amber-50 text-amber-900 border border-amber-200'
+                  }`}
+                >
+                  {note.text}
+                </p>
+              )}
+
+              {(resources.length > 0 || verdict) && (
+                <div className="mt-4 pt-4 border-t border-hair flex flex-wrap items-center gap-x-5 gap-y-2">
+                  {resources.map((r) => (
+                    <a
+                      key={r.key}
+                      href={r.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-[13px] text-ink underline decoration-rose decoration-2 underline-offset-4 hover:text-rose transition-colors"
+                    >
+                      {r.kind}: {r.key}
+                    </a>
+                  ))}
+                  {verdict && (
+                    <span className="text-[13px] text-muted ml-auto">
+                      {verdict.approved ? 'Review approved' : 'Changes requested'}
+                      {verdict.risk ? ` · risk ${verdict.risk}` : ''}
                     </span>
-                  </div>
+                  )}
                 </div>
-
-                {/* Flowchart connector: solid once the step above has completed. */}
-                {!isLast && (
-                  <div className="flex justify-center py-1" aria-hidden>
-                    <div
-                      className={`w-0.5 h-4 ${
-                        st === 'done' || st === 'skipped'
-                          ? 'bg-[#0a0a0a]'
-                          : i === runningIdx
-                            ? 'bg-[#005AFF]'
-                            : 'bg-neutral-200'
-                      }`}
-                    />
-                  </div>
-                )}
-              </li>
-            );
-          })}
-        </ol>
-
-        {note && (
-          <div
-            className={`mx-4 mb-4 border-2 p-2 text-[10px] font-mono ${
-              note.level === 'error' ? 'border-red-600 bg-red-50 text-red-800' : 'border-amber-500 bg-amber-50 text-amber-900'
-            }`}
-          >
-            {note.text}
-          </div>
-        )}
-
-        {resources.length > 0 && (
-          <div className="border-t-2 border-[#0a0a0a] px-4 py-3">
-            <div className="text-[10px] font-bold uppercase tracking-widest mb-2">Created in LaunchDarkly</div>
-            {resources.map((r) => (
-              <a
-                key={r.key}
-                href={r.url}
-                target="_blank"
-                rel="noreferrer"
-                className="block font-mono text-[11px] text-[#005AFF] hover:underline truncate"
-              >
-                {r.kind}: {r.key}
-              </a>
-            ))}
-          </div>
-        )}
-
-        {verdict && (
-          <div className="border-t-2 border-[#0a0a0a] px-4 py-3">
-            <div className="text-[10px] font-bold uppercase tracking-widest">Review</div>
-            <div className="mt-1 font-mono text-[11px]">
-              {verdict.approved ? '✓ approved' : '✕ changes requested'}
-              {verdict.risk ? ` · risk: ${verdict.risk}` : ''}
+              )}
             </div>
-          </div>
-        )}
-      </aside>
-    </>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }

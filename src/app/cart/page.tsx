@@ -9,55 +9,64 @@ export default function CartPage() {
 
   if (items.length === 0) {
     return (
-      <div className="py-20 text-center">
-        <p className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-6">Cart is empty</p>
-        <Link href="/" className="text-[10px] font-bold uppercase tracking-[0.2em] border-b-2 border-[#0a0a0a] pb-0.5 hover:text-[#005AFF] hover:border-[#005AFF] transition-colors">
-          Continue Shopping →
+      <div className="py-24 text-center">
+        <p className="text-[15px] text-muted mb-6">Your bag is empty.</p>
+        <Link
+          href="/"
+          className="inline-block bg-ink text-cream text-[13px] font-medium px-7 py-3 rounded-pill hover:bg-rose hover:text-ink transition-colors"
+        >
+          Start shopping
         </Link>
       </div>
     );
   }
 
   return (
-    <div className="max-w-xl mx-auto">
-      <div className="mb-8 pb-6 border-b-2 border-[#0a0a0a]">
-        <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-gray-400 mb-2">
+    <div className="max-w-2xl mx-auto">
+      <div className="text-center mb-10">
+        <h1 className="text-[32px] font-light tracking-tight">Your bag</h1>
+        <p className="mt-2 text-[13px] text-muted">
           {items.length} item{items.length !== 1 ? 's' : ''}
         </p>
-        <h1 className="text-4xl font-bold uppercase tracking-tight">Your Cart</h1>
       </div>
 
-      <div className="border-2 border-[#0a0a0a]">
+      <div className="bg-white rounded-3xl shadow-soft overflow-hidden">
         {items.map((item, i) => (
           <div
             key={item.productId}
-            className={`flex items-center gap-4 p-5 ${i < items.length - 1 ? 'border-b-2 border-[#0a0a0a]' : ''}`}
+            className={`flex items-center gap-4 px-5 py-5 ${i < items.length - 1 ? 'border-b border-hair' : ''}`}
           >
-            <span className="text-3xl w-10 text-center">{item.emoji}</span>
+            <span className="w-14 h-14 rounded-2xl bg-shell flex items-center justify-center text-2xl shrink-0">
+              {item.emoji}
+            </span>
+
             <div className="flex-1 min-w-0">
-              <p className="font-bold uppercase tracking-tight text-sm">{item.name}</p>
-              <p className="text-xs text-gray-400 font-mono mt-0.5">{item.displayPrice}</p>
+              <p className="text-[14px] font-medium truncate">{item.name}</p>
+              <p className="text-[13px] text-muted mt-0.5">{item.displayPrice}</p>
             </div>
-            <div className="flex items-center gap-0 border-2 border-[#0a0a0a]">
+
+            <div className="flex items-center gap-1 bg-shell rounded-pill p-1">
               <button
                 onClick={() => update(item.productId, item.quantity - 1)}
-                className="w-8 h-8 flex items-center justify-center text-[#0a0a0a] hover:bg-[#0a0a0a] hover:text-white transition-colors font-bold text-lg"
+                className="w-7 h-7 rounded-pill flex items-center justify-center text-muted hover:bg-white hover:text-ink transition-colors"
+                aria-label="Decrease quantity"
               >
                 −
               </button>
-              <span className="w-8 h-8 flex items-center justify-center text-sm font-bold border-x-2 border-[#0a0a0a]">
-                {item.quantity}
-              </span>
+              <span className="w-6 text-center text-[13px] font-medium">{item.quantity}</span>
               <button
                 onClick={() => update(item.productId, item.quantity + 1)}
-                className="w-8 h-8 flex items-center justify-center text-[#0a0a0a] hover:bg-[#0a0a0a] hover:text-white transition-colors font-bold text-lg"
+                className="w-7 h-7 rounded-pill flex items-center justify-center text-muted hover:bg-white hover:text-ink transition-colors"
+                aria-label="Increase quantity"
               >
                 +
               </button>
             </div>
+
             <button
               onClick={() => remove(item.productId)}
-              className="text-gray-300 hover:text-[#0a0a0a] text-xl transition-colors w-6 text-center font-bold"
+              className="text-muted/60 hover:text-ink text-lg transition-colors w-6 text-center"
+              aria-label={`Remove ${item.name}`}
             >
               ×
             </button>
@@ -65,21 +74,21 @@ export default function CartPage() {
         ))}
       </div>
 
-      <div className="mt-6 flex justify-between items-baseline border-b-2 border-[#0a0a0a] pb-4">
-        <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-400">Total</span>
-        <span className="text-3xl font-bold font-mono">{formatPrice(total)}</span>
+      <div className="mt-6 flex justify-between items-baseline px-1">
+        <span className="text-[13px] text-muted">Subtotal</span>
+        <span className="text-[22px] font-light">{formatPrice(total)}</span>
       </div>
 
       <Link
         href="/checkout"
-        className="mt-6 block w-full bg-[#0a0a0a] text-white text-center py-4 font-bold text-[10px] uppercase tracking-[0.25em] hover:bg-[#005AFF] transition-colors"
+        className="mt-7 block w-full bg-ink text-cream text-center py-4 rounded-pill text-[14px] font-medium hover:bg-rose hover:text-ink transition-colors"
       >
-        Proceed to Checkout →
+        Checkout
       </Link>
 
-      <div className="mt-4 text-center">
-        <Link href="/" className="text-[10px] font-bold uppercase tracking-widest text-gray-400 hover:text-[#0a0a0a] transition-colors">
-          ← Continue Shopping
+      <div className="mt-5 text-center">
+        <Link href="/" className="text-[13px] text-muted hover:text-ink transition-colors">
+          Continue shopping
         </Link>
       </div>
     </div>

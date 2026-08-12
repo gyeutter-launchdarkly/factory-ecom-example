@@ -69,18 +69,23 @@ export default function CheckoutPage() {
   if (order) {
     return (
       <div className="max-w-md mx-auto text-center py-16">
-        <p className="text-4xl mb-6">✓</p>
-        <h1 className="text-4xl font-bold uppercase tracking-tight mb-2">Order Placed</h1>
-        <p className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-1 mt-6">
-          Order ID
-        </p>
-        <p className="font-mono text-sm mb-4">{order.orderId}</p>
-        <p className="text-3xl font-bold font-mono mb-10">{order.orderTotalFormatted}</p>
+        <div className="w-14 h-14 rounded-pill bg-blush text-ink flex items-center justify-center mx-auto mb-7 text-xl">
+          ✓
+        </div>
+        <h1 className="text-[30px] font-light tracking-tight">Thank you</h1>
+        <p className="mt-3 text-[14px] text-muted">Your order is on its way.</p>
+
+        <div className="mt-9 bg-white rounded-3xl shadow-soft px-6 py-6">
+          <p className="text-[11px] uppercase tracking-[0.16em] text-muted">Order</p>
+          <p className="text-[13px] mt-1">{order.orderId}</p>
+          <p className="text-[24px] font-light mt-4">{order.orderTotalFormatted}</p>
+        </div>
+
         <a
           href="/"
-          className="text-[10px] font-bold uppercase tracking-[0.2em] border-b-2 border-[#0a0a0a] pb-0.5 hover:text-[#005AFF] hover:border-[#005AFF] transition-colors"
+          className="mt-8 inline-block bg-ink text-cream text-[13px] font-medium px-7 py-3 rounded-pill hover:bg-rose hover:text-ink transition-colors"
         >
-          Continue Shopping →
+          Continue shopping
         </a>
       </div>
     );
@@ -100,44 +105,36 @@ export default function CheckoutPage() {
     span2?: boolean;
   }) => (
     <div className={span2 ? 'col-span-2' : ''}>
-      <label className="block text-[10px] font-bold uppercase tracking-[0.15em] text-gray-400 mb-1.5">
-        {label}
-      </label>
+      <label className="block text-[12px] text-muted mb-1.5">{label}</label>
       <input
         type={type}
         value={form[field]}
         onChange={set(field)}
         placeholder={placeholder}
         required
-        className="w-full border-2 border-[#0a0a0a] px-3 py-2.5 text-sm font-medium focus:outline-none focus:border-[#005AFF] transition-colors placeholder:text-gray-300"
+        className="w-full bg-white border border-hair rounded-2xl px-4 py-3 text-[14px] focus:outline-none focus:border-rose transition-colors placeholder:text-muted/50"
       />
     </div>
   );
 
   return (
-    <div className="max-w-2xl mx-auto">
-      <div className="mb-8 pb-6 border-b-2 border-[#0a0a0a]">
-        <h1 className="text-4xl font-bold uppercase tracking-tight">Checkout</h1>
+    <div className="max-w-3xl mx-auto">
+      <div className="text-center mb-10">
+        <h1 className="text-[32px] font-light tracking-tight">Checkout</h1>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
-        {/* Form — 3 cols */}
-        <form onSubmit={handleSubmit} className="lg:col-span-3 space-y-6">
-
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-10">
+        <form onSubmit={handleSubmit} className="lg:col-span-3 space-y-8">
           <section>
-            <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-gray-400 mb-4 pb-2 border-b border-gray-200">
-              Contact
-            </p>
+            <p className="text-[11px] uppercase tracking-[0.16em] text-muted mb-4">Contact</p>
             <div className="grid grid-cols-2 gap-3">
-              <Field label="Full Name" field="name" placeholder="Jane Smith" span2 />
+              <Field label="Full name" field="name" placeholder="Jane Smith" span2 />
               <Field label="Email" field="email" type="email" placeholder="jane@example.com" span2 />
             </div>
           </section>
 
           <section>
-            <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-gray-400 mb-4 pb-2 border-b border-gray-200">
-              Shipping
-            </p>
+            <p className="text-[11px] uppercase tracking-[0.16em] text-muted mb-4">Shipping</p>
             <div className="grid grid-cols-2 gap-3">
               <Field label="Address" field="address" placeholder="123 Main St" span2 />
               <Field label="City" field="city" placeholder="San Francisco" />
@@ -146,18 +143,16 @@ export default function CheckoutPage() {
           </section>
 
           <section>
-            <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-gray-400 mb-4 pb-2 border-b border-gray-200">
-              Payment
-            </p>
+            <p className="text-[11px] uppercase tracking-[0.16em] text-muted mb-4">Payment</p>
             <div className="grid grid-cols-2 gap-3">
-              <Field label="Card Number" field="cardNumber" placeholder="•••• •••• •••• ••••" span2 />
+              <Field label="Card number" field="cardNumber" placeholder="1234 5678 9012 3456" span2 />
               <Field label="Expiry" field="expiry" placeholder="MM / YY" />
-              <Field label="CVC" field="cvc" placeholder="•••" />
+              <Field label="CVC" field="cvc" placeholder="123" />
             </div>
           </section>
 
           {error && (
-            <p className="text-red-600 text-sm font-medium border-2 border-red-600 px-3 py-2">
+            <p className="text-[13px] text-red-700 bg-red-50 border border-red-200 rounded-2xl px-4 py-3">
               {error}
             </p>
           )}
@@ -165,33 +160,32 @@ export default function CheckoutPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-[#0a0a0a] text-white py-4 font-bold text-[10px] uppercase tracking-[0.25em] hover:bg-[#005AFF] disabled:opacity-40 transition-colors"
+            className="w-full bg-ink text-cream py-4 rounded-pill text-[14px] font-medium hover:bg-rose hover:text-ink disabled:opacity-40 disabled:hover:bg-ink disabled:hover:text-cream transition-colors"
           >
-            {loading ? 'Placing Order…' : 'Place Order →'}
+            {loading ? 'Placing order' : `Pay ${formatPrice(total)}`}
           </button>
         </form>
 
-        {/* Order summary — 2 cols */}
         <aside className="lg:col-span-2">
-          <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-gray-400 mb-4 pb-2 border-b-2 border-[#0a0a0a]">
-            Summary
-          </p>
-          <div className="space-y-3">
-            {items.map((i) => (
-              <div key={i.productId} className="flex justify-between text-sm">
-                <span className="text-gray-600 truncate pr-2">
-                  {i.emoji} {i.name}
-                  {i.quantity > 1 && (
-                    <span className="text-gray-400 font-mono ml-1">×{i.quantity}</span>
-                  )}
-                </span>
-                <span className="font-mono font-medium shrink-0">{formatPrice(i.price * i.quantity)}</span>
-              </div>
-            ))}
-          </div>
-          <div className="mt-4 pt-4 border-t-2 border-[#0a0a0a] flex justify-between items-baseline">
-            <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Total</span>
-            <span className="text-2xl font-bold font-mono">{formatPrice(total)}</span>
+          <div className="bg-white rounded-3xl shadow-soft px-5 py-5">
+            <p className="text-[11px] uppercase tracking-[0.16em] text-muted mb-4">Summary</p>
+
+            <div className="space-y-3">
+              {items.map((i) => (
+                <div key={i.productId} className="flex justify-between text-[13px] gap-2">
+                  <span className="text-muted truncate">
+                    {i.emoji} {i.name}
+                    {i.quantity > 1 && <span className="text-muted/70"> ×{i.quantity}</span>}
+                  </span>
+                  <span className="shrink-0">{formatPrice(i.price * i.quantity)}</span>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-5 pt-4 border-t border-hair flex justify-between items-baseline">
+              <span className="text-[13px] text-muted">Total</span>
+              <span className="text-[20px] font-light">{formatPrice(total)}</span>
+            </div>
           </div>
         </aside>
       </div>

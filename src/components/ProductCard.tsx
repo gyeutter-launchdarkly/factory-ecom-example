@@ -40,35 +40,39 @@ export function ProductCard({
   const handleAdd = () => add({ productId: id, name, emoji, price, displayPrice });
 
   return (
-    <div className="flex flex-col group">
-      {/* Image area */}
-      <div className="border-b-2 border-[#0a0a0a] p-10 flex items-center justify-center bg-[#f8f8f8] group-hover:bg-[#0a0a0a] transition-colors duration-200">
-        <span className="text-6xl select-none">{emoji}</span>
+    <div className="group flex flex-col">
+      {/* Product bed: soft shell that warms to blush on hover. */}
+      <div className="relative rounded-3xl bg-shell group-hover:bg-blush transition-colors duration-300 aspect-[4/3] flex items-center justify-center overflow-hidden">
+        <span className="text-6xl select-none transition-transform duration-300 group-hover:scale-[1.06]">
+          {emoji}
+        </span>
+
+        {/* Add button reveals on hover, sits on the image like most modern stores. */}
+        <button
+          onClick={handleAdd}
+          className="absolute bottom-3 left-3 right-3 bg-ink text-cream text-[12px] font-medium py-2.5 rounded-pill opacity-0 translate-y-1 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-200 hover:bg-rose hover:text-ink"
+        >
+          Add to bag
+        </button>
       </div>
 
-      {/* Content */}
-      <div className="p-5 flex flex-col gap-2 flex-1">
-        <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-400">{category}</p>
-        <h3 className="font-bold text-[#0a0a0a] uppercase tracking-tight leading-tight">{name}</h3>
-        <p className="text-sm text-gray-500 flex-1 leading-relaxed">{description}</p>
+      <div className="pt-4 flex flex-col gap-1">
+        <p className="text-[11px] uppercase tracking-[0.14em] text-muted">{category}</p>
+        <h3 className="text-[15px] font-medium leading-snug">{name}</h3>
+        <p className="text-[13px] text-muted leading-relaxed line-clamp-2">{description}</p>
 
         {/* Controlled by the show-product-reviews feature flag */}
         {showReviews && reviews && (
-          <p className="text-xs text-gray-400 font-mono">
-            {'★'.repeat(Math.round(reviews.rating))}{'☆'.repeat(5 - Math.round(reviews.rating))}
-            {' '}({reviews.count})
+          <p className="text-[12px] text-muted mt-0.5">
+            <span className="text-rose">
+              {'★'.repeat(Math.round(reviews.rating))}
+              {'☆'.repeat(5 - Math.round(reviews.rating))}
+            </span>{' '}
+            {reviews.rating} ({reviews.count})
           </p>
         )}
 
-        <div className="flex items-end justify-between pt-4 mt-auto border-t-2 border-[#0a0a0a]">
-          <span className="text-2xl font-bold font-mono">{displayPrice}</span>
-          <button
-            onClick={handleAdd}
-            className="bg-[#0a0a0a] text-white text-[10px] font-bold uppercase tracking-[0.2em] px-5 py-2.5 hover:bg-[#005AFF] transition-colors"
-          >
-            Add
-          </button>
-        </div>
+        <p className="text-[15px] mt-1.5">{displayPrice}</p>
       </div>
     </div>
   );
