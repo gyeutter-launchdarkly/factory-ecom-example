@@ -136,6 +136,11 @@ echo "  +--------------------------------------------------+"
 echo "  |        LaunchDarkly Factory Demo                 |"
 echo "  +--------------------------------------------------+"
 echo -e "${R}"
+echo -e "  ${D}What you'll need:${R}"
+echo -e "  ${D}  - LaunchDarkly Project with Guardian & AgentControl${R}"
+echo -e "  ${D}  - Anthropic API Key${R}"
+echo -e "  ${D}  - GitHub access${R}"
+echo ""
 if $IN_REPO; then
   echo -e "${D}  Mode: already in repo, skipping clone${R}"
 else
