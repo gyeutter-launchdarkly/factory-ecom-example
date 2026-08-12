@@ -1,6 +1,7 @@
 'use client';
 
 import { useCart } from './CartProvider';
+import { getTieredDiscount } from '@/lib/pricing';
 
 interface ProductCardProps {
   id: string;
@@ -34,8 +35,12 @@ export function ProductCard({
   price,
   showReviews,
 }: ProductCardProps) {
-  const { add } = useCart();
+  const { add, items } = useCart();
   const reviews = MOCK_REVIEWS[id];
+  const cartItem = items.find((i) => i.productId === id);
+  const currentQty = cartItem?.quantity ?? 0;
+  const nextQty = currentQty + 1;
+  const nextDiscount = getTieredDiscount(nextQty);
 
   const handleAdd = () => add({ productId: id, name, emoji, price, displayPrice });
 
@@ -60,6 +65,13 @@ export function ProductCard({
         <p className="text-[11px] uppercase tracking-[0.14em] text-muted">{category}</p>
         <h3 className="text-[15px] font-medium leading-snug">{name}</h3>
         <p className="text-[13px] text-muted leading-relaxed line-clamp-2">{description}</p>
+
+        {/* Tier discount nudge — shown when adding one more would unlock a discount */}
+        {nextDiscount > 0 && (
+          <p className="text-[12px] text-rose">
+            {nextQty >= 5 ? `Buy ${nextQty}, save 15%` : `Buy ${nextQty}, save 10%`}
+          </p>
+        )}
 
         {/* Controlled by the show-product-reviews feature flag */}
         {showReviews && reviews && (
