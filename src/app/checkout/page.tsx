@@ -20,6 +20,8 @@ export default function CheckoutPage() {
     city: '',
     zip: '',
     cardNumber: '',
+    expiry: '',
+    cvc: '',
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -148,9 +150,10 @@ export default function CheckoutPage() {
               Payment
             </p>
             <div className="grid grid-cols-2 gap-3">
-              <Field label="Card Number" field="cardNumber" placeholder="4242 4242 4242 4242" span2 />
+              <Field label="Card Number" field="cardNumber" placeholder="•••• •••• •••• ••••" span2 />
+              <Field label="Expiry" field="expiry" placeholder="MM / YY" />
+              <Field label="CVC" field="cvc" placeholder="•••" />
             </div>
-            <p className="text-[10px] text-gray-300 mt-2 uppercase tracking-widest">Demo — no real charges</p>
           </section>
 
           {error && (
