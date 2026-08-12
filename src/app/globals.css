@@ -22,6 +22,20 @@
      background tint does, so it is a separate value. */
   --rose-text: #b4685c;
 
+  /* Factory step status. Semantic, deliberately outside the brand palette:
+     green = done, blue = in progress, grey = to do, red = failed. */
+  --st-done-bg: #e7f4ec;
+  --st-done-fg: #14663a;
+  --st-done-line: #4fa877;
+  --st-run-bg: #e6eefc;
+  --st-run-fg: #1a4fa0;
+  --st-run-ring: #6f9bea;
+  --st-todo-bg: #f1eeeb;
+  --st-todo-fg: #8c837d;
+  --st-fail-bg: #fbeae8;
+  --st-fail-fg: #9b2c22;
+  --st-fail-ring: #e0a49c;
+
   --shadow-soft: 0 1px 2px rgba(26, 24, 23, 0.04), 0 8px 24px -12px rgba(26, 24, 23, 0.1);
   --shadow-lift: 0 2px 4px rgba(26, 24, 23, 0.05), 0 16px 40px -16px rgba(26, 24, 23, 0.16);
 }
@@ -39,6 +53,18 @@
   --c-hair: 44 38 36; /* #2C2624 */
 
   --rose-text: #e9a79b;
+
+  --st-done-bg: #16301f;
+  --st-done-fg: #86d6a4;
+  --st-done-line: #3f8a60;
+  --st-run-bg: #16233c;
+  --st-run-fg: #9dc0f5;
+  --st-run-ring: #3f66b0;
+  --st-todo-bg: #241f1e;
+  --st-todo-fg: #9c918b;
+  --st-fail-bg: #341917;
+  --st-fail-fg: #f2a79d;
+  --st-fail-ring: #7d3b34;
 
   /* On a dark ground, elevation reads through a hairline rim plus depth. */
   --shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.5), 0 10px 28px -14px rgba(0, 0, 0, 0.7),
@@ -108,4 +134,30 @@ body {
 
 ::placeholder {
   color: rgb(var(--c-muted) / 0.55);
+}
+
+/* Factory flowchart step states. */
+.step-done {
+  background-color: var(--st-done-bg);
+  color: var(--st-done-fg);
+}
+.step-running {
+  background-color: var(--st-run-bg);
+  color: var(--st-run-fg);
+  box-shadow: inset 0 0 0 1px var(--st-run-ring);
+}
+.step-todo {
+  background-color: var(--st-todo-bg);
+  color: var(--st-todo-fg);
+}
+.step-failed {
+  background-color: var(--st-fail-bg);
+  color: var(--st-fail-fg);
+  box-shadow: inset 0 0 0 1px var(--st-fail-ring);
+}
+.step-line-done {
+  background-color: var(--st-done-line);
+}
+.step-line-todo {
+  background-color: rgb(var(--c-hair));
 }

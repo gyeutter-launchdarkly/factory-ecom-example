@@ -15,6 +15,10 @@ SCENARIO="${1:-express-checkout}"
 STEP_SECS="${2:-2}"
 PR_NUMBER="${3:-1}"
 PROJECT="${LD_APP_PROJECT_KEY:-checkout-demo}"
+# Repo slug so the replayed run gets a working PR link, same as the real runners.
+: "${FACTORY_REPO:=$(git remote get-url origin 2>/dev/null \
+    | sed -E 's#(git@github.com:|https://github.com/)##; s#\.git$##' || true)}"
+export FACTORY_REPO
 
 cd "$(dirname "$0")/.."
 
@@ -50,7 +54,10 @@ echo "Watch the Factory pane at http://localhost:3000"
       echo "Flag: ${SCENARIO} → https://app.launchdarkly.com/${PROJECT}/flags/${SCENARIO}"
     fi
     if [ "$key" = "autofactory-metrics-author" ]; then
-      echo "Metric: ${SCENARIO}-conversion → https://app.launchdarkly.com/${PROJECT}/metrics/${SCENARIO}-conversion/details"
+      # One line per metric, matching phase1-cli which loops over metric_keys.
+      for mk in "${SCENARIO}-conversion" "${SCENARIO}-error-rate"; do
+        echo "Metric: ${mk} → https://app.launchdarkly.com/${PROJECT}/metrics/${mk}/details"
+      done
     fi
   done
 

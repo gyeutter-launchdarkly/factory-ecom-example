@@ -35,6 +35,15 @@ echo "$GITHUB_TOKEN_LINE" >> "$SECRETS_FILE"
 # Repository variable
 LD_APP_PROJECT_KEY=$(grep "^LD_APP_PROJECT_KEY=" .env.local 2>/dev/null | cut -d= -f2- || echo "checkout-demo")
 
+# Repo slug so the progress pane can deep-link the PR. Prefer the event payload,
+# fall back to the git remote.
+FACTORY_REPO=$(jq -r '.repository.full_name // empty' "$EVENT_FILE" 2>/dev/null || true)
+if [[ -z "$FACTORY_REPO" ]]; then
+  FACTORY_REPO=$(git remote get-url origin 2>/dev/null \
+    | sed -E 's#(git@github.com:|https://github.com/)##; s#\.git$##' || true)
+fi
+export FACTORY_REPO
+
 echo "=== Running factory locally (scenario: $SCENARIO) ==="
 echo "    branch:  $BRANCH"
 echo "    event:   $EVENT_FILE"

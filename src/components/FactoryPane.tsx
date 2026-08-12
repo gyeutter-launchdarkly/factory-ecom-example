@@ -38,6 +38,15 @@ const STALE_MS = 90_000;
 // What the header indicator is allowed to claim.
 type Health = 'offline' | 'idle' | 'running' | 'stalled';
 
+// Semantic step colours: green done, blue in progress, grey to do, red failed.
+const STEP_CLASS: Record<Status, string> = {
+  done: 'step-done',
+  running: 'step-running',
+  failed: 'step-failed',
+  skipped: 'step-todo',
+  pending: 'step-todo',
+};
+
 const HEALTH_TITLE: Record<Health, string> = {
   offline: 'Not connected to the progress stream',
   idle: 'Connected. No factory run in progress',
@@ -61,6 +70,8 @@ type Run = {
   /** Which model ran each node, resolved from its LaunchDarkly AI config. */
   agents: Record<string, { provider: string; model: string }>;
   provider: string | null;
+  /** owner/repo, for PR deep links. Absent means no link is offered. */
+  repo: string | null;
   resources: Resource[];
   note: { level: string; text: string } | null;
 };
@@ -77,6 +88,7 @@ function emptyRun(id: string, scenario: string, at: number): Run {
     tags: {},
     agents: {},
     provider: null,
+    repo: null,
     resources: [],
     note: null,
   };
@@ -110,28 +122,46 @@ function shortModel(model: string): string {
   return m ? `${m[1].toLowerCase()}-${m[2]}` : model.replace(/^claude-/, '').slice(0, 18);
 }
 
-function detailsFor(run: Run, nodeKey: string): string[] {
-  const out: string[] = [];
+type Detail = { text: string; url?: string };
+
+/** URL the factory itself reported for a flag/metric key, if any. */
+function resourceUrl(run: Run, key: string): string | undefined {
+  return run.resources.find((r) => r.key === key)?.url;
+}
+
+function detailsFor(run: Run, nodeKey: string): Detail[] {
+  const out: Detail[] = [];
 
   const agent = run.agents[nodeKey];
-  if (agent) out.push(shortModel(agent.model));
+  if (agent) out.push({ text: shortModel(agent.model) });
 
   const tags = run.tags[nodeKey] ?? {};
-  for (const [k, label] of Object.entries(TAG_LABELS)) {
-    const v = tags[k];
-    if (!v) continue;
-    const value = k === 'metric_keys' || k === 'metric_event_keys' ? v.split(',').map((x) => x.trim()).filter(Boolean).join(', ') : v;
-    out.push(`${label}: ${value}`);
+
+  // Flags and metrics link to LaunchDarkly using the URLs the factory printed,
+  // so the pane never has to synthesise an app URL.
+  if (tags.flag_key) {
+    out.push({ text: `flag: ${tags.flag_key}`, url: resourceUrl(run, tags.flag_key) });
   }
+  for (const key of ['metric_keys', 'metric_event_keys'] as const) {
+    const raw = tags[key];
+    if (!raw) continue;
+    const prefix = key === 'metric_keys' ? 'metric' : 'event';
+    for (const k of raw.split(',').map((x) => x.trim()).filter(Boolean)) {
+      if (out.length >= 5) break;
+      out.push({ text: `${prefix}: ${k}`, url: resourceUrl(run, k) });
+    }
+  }
+  if (tags.tests_last_run) out.push({ text: `tests: ${tags.tests_last_run}` });
+  if (tags.manifest_path) out.push({ text: `manifest: ${tags.manifest_path.split('/').pop()}` });
 
   // Anything else the node claimed that is not already covered.
   for (const [k, v] of Object.entries(tags)) {
-    if (out.length >= 4) break;
+    if (out.length >= 5) break;
     if (k in TAG_LABELS || TAG_SKIP.has(k) || !v) continue;
-    out.push(`${k.replace(/_/g, ' ')}: ${v}`);
+    out.push({ text: `${k.replace(/_/g, ' ')}: ${v}` });
   }
 
-  return out.slice(0, 4);
+  return out.slice(0, 5);
 }
 
 export function FactoryPane() {
@@ -192,6 +222,9 @@ export function FactoryPane() {
             break;
           case 'provider':
             run.provider = String(m.provider);
+            break;
+          case 'repo':
+            run.repo = String(m.repo);
             break;
           case 'resource':
             if (!run.resources.some((r) => r.key === m.key)) {
@@ -335,6 +368,19 @@ export function FactoryPane() {
               <span className="text-[13px] text-muted">waiting for a run</span>
             )}
 
+            {/* PR deep link, only when the runner told us the repo slug. */}
+            {current?.pr && current.repo && (
+              <a
+                href={`https://github.com/${current.repo}/pull/${current.pr}`}
+                target="_blank"
+                rel="noreferrer"
+                className="text-[12px] text-muted hover:text-ink underline decoration-dotted underline-offset-2 shrink-0"
+                title={`Open PR #${current.pr} on GitHub`}
+              >
+                PR #{current.pr} on GitHub
+              </a>
+            )}
+
             {current?.provider && (
               <span className="text-[12px] text-muted shrink-0">via {current.provider}</span>
             )}
@@ -371,24 +417,15 @@ export function FactoryPane() {
 
           {view === 'expanded' && current && (
             <div className="border-t border-hair px-5 py-5">
-              <ol className="flex items-center gap-0 overflow-x-auto pb-1">
+              <ol className="flex items-start gap-0 overflow-x-auto pb-1">
                 {CHAIN.map((node, i) => {
                   const st = statusOf(current, node.key);
                   const details = detailsFor(current, node.key);
                   const isLast = i === CHAIN.length - 1;
                   return (
-                    <li key={node.key} className="flex items-stretch shrink-0">
+                    <li key={node.key} className="flex items-start shrink-0">
                       <div
-                        className={[
-                          'rounded-2xl px-4 py-3 w-[178px] transition-colors self-stretch flex flex-col',
-                          st === 'done'
-                            ? 'bg-ink text-cream'
-                            : st === 'running'
-                              ? 'bg-blush text-ink ring-1 ring-rose'
-                              : st === 'failed'
-                                ? 'bg-red-50 text-red-800 ring-1 ring-red-300'
-                                : 'bg-shell text-muted',
-                        ].join(' ')}
+                        className={`rounded-2xl px-4 py-3 w-[186px] transition-colors flex flex-col ${STEP_CLASS[st]}`}
                       >
                         <div className="flex items-baseline justify-between gap-2">
                           <span className="text-[13px] font-medium leading-tight truncate">
@@ -408,19 +445,30 @@ export function FactoryPane() {
                         {/* What this node actually did: model + emitted claims. */}
                         <div className="mt-2 space-y-0.5 text-left">
                           {details.length > 0 ? (
-                            details.map((d) => (
-                              <div
-                                key={d}
-                                className={`text-[10.5px] leading-snug truncate ${
-                                  st === 'done' ? 'opacity-70' : 'opacity-90'
-                                }`}
-                                title={d}
-                              >
-                                {d}
-                              </div>
-                            ))
+                            details.map((d) =>
+                              d.url ? (
+                                <a
+                                  key={d.text}
+                                  href={d.url}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="block text-[10.5px] leading-snug truncate underline decoration-dotted underline-offset-2 hover:decoration-solid"
+                                  title={`${d.text} — open in LaunchDarkly`}
+                                >
+                                  {d.text}
+                                </a>
+                              ) : (
+                                <div
+                                  key={d.text}
+                                  className="text-[10.5px] leading-snug truncate opacity-80"
+                                  title={d.text}
+                                >
+                                  {d.text}
+                                </div>
+                              ),
+                            )
                           ) : (
-                            <div className="text-[10.5px] leading-snug opacity-40">
+                            <div className="text-[10.5px] leading-snug opacity-50">
                               {st === 'pending' ? 'queued' : st === 'running' ? 'working' : '—'}
                             </div>
                           )}
@@ -429,8 +477,8 @@ export function FactoryPane() {
 
                       {!isLast && (
                         <div
-                          className={`h-px w-6 mx-1 shrink-0 self-center ${
-                            st === 'done' || st === 'skipped' ? 'bg-ink' : 'bg-hair'
+                          className={`h-px w-5 mx-1 shrink-0 mt-6 ${
+                            st === 'done' || st === 'skipped' ? 'step-line-done' : 'step-line-todo'
                           }`}
                           aria-hidden
                         />

@@ -63,6 +63,11 @@ function emit(event) {
 
 emit({ t: 'run-start' });
 
+// Repo slug for PR deep links. Set by the runner scripts (they know it from the
+// event payload or the git remote); absent means the pane omits the PR link
+// rather than guessing a URL.
+if (process.env.FACTORY_REPO) emit({ t: 'repo', repo: process.env.FACTORY_REPO });
+
 // Pull "autofactory-foo" out of a title like "Research & plan (autofactory-foo)",
 // or accept a bare key.
 function keyOf(text) {
