@@ -1,6 +1,7 @@
 node_modules/
 .next/
 out/
+next-env.d.ts
 
 # environment — never commit real values
 .env
@@ -9,9 +10,17 @@ out/
 
 # Terraform state and secrets
 terraform/.terraform/
+terraform/.terraform.lock.hcl
 terraform/*.tfstate
 terraform/*.tfstate.*
+terraform/*.tfstate.backup
 terraform/terraform.tfvars
+terraform/override.tf
+terraform/override.tf.json
+
+# act secrets (written by demo/ci/run.sh, deleted on exit but gitignore as safety net)
+/tmp/act-secrets.*
+act-secrets.*
 
 # macOS
 .DS_Store
