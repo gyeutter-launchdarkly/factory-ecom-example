@@ -87,11 +87,26 @@ EOF
 }
 
 # ── detect mode ───────────────────────────────────────────────────────────────
-# If we're already inside the repo (or --local passed), skip the clone step
+# Skip clone if:  (a) already inside the repo, (b) repo dir exists here,
+#                 (c) script is being run from inside the repo tree
 IN_REPO=false
+
+# Case (a): running from inside factory-ecom-example
 if grep -qs "factory-ecom-example" .git/config 2>/dev/null; then
   IN_REPO=true
+
+# Case (b): repo already cloned as a subdirectory of CWD
+elif [[ -d "$REPO_DIR/.git" ]]; then
+  cd "$REPO_DIR"
+  IN_REPO=true
+
+# Case (c): script path is inside the repo (e.g. bash demo/setup.sh from repo root)
+elif [[ -f "$(dirname "$0")/../.git/config" ]] && \
+     grep -qs "factory-ecom-example" "$(dirname "$0")/../.git/config" 2>/dev/null; then
+  cd "$(dirname "$0")/.."
+  IN_REPO=true
 fi
+
 for arg in "$@"; do [[ "$arg" == "--local" ]] && IN_REPO=true; done
 
 # ── banner ────────────────────────────────────────────────────────────────────
