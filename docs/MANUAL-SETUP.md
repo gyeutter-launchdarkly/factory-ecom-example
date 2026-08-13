@@ -16,7 +16,7 @@ Fill in six values:
 | `LD_APP_PROJECT_KEY` | Your LaunchDarkly project key |
 | `LD_ENVIRONMENT_KEY` | Environment the demo uses (default `production`) |
 | `LD_API_KEY` | LaunchDarkly API token, Admin role (`api-...`) |
-| `LD_SDK_KEY` | LaunchDarkly SDK key (`sdk-...`) — flag evaluation *and* the factory's AI config lookups |
+| `LD_SDK_KEY` | LaunchDarkly SDK key (`sdk-...`), used for flag evaluation *and* the factory's AI config lookups |
 | `ANTHROPIC_API_KEY` | Anthropic API key (`sk-ant-...`) |
 | `GITHUB_TOKEN` | GitHub PAT, Contents + Pull requests *Read and write* |
 
@@ -32,7 +32,7 @@ make setup
 Creates the seed flag `show-product-reviews` in your existing project (via Terraform in
 Docker), installs the git hooks, and tags the current `feature/*` tips as `demo-seed/*`.
 
-This never creates or destroys a project — yours must already exist, bootstrapped with the
+This never creates or destroys a project. Yours must already exist, bootstrapped with the
 AutoFactory AI configs.
 
 ## 3. LaunchDarkly View
