@@ -51,7 +51,7 @@ trips the approval gate.
 
 ## Setup
 
-### Recommended: the wizard
+### Automated setup via TUI
 
 From anywhere (clones the repo into the current directory first):
 
@@ -70,8 +70,8 @@ It collects your credentials, writes `.env.local`, provisions the seed flag, cre
 GitHub Action, and launches the app. Re-running it shows each existing value masked and
 offers to keep or replace it, so it is safe to run again.
 
-**After the wizard, `make ci` needs no further setup.** `make run` (real PRs) also needs
-nothing extra *if* the `gh` CLI is installed — otherwise the wizard prints the four
+**After the TUI, `make ci` needs no further setup.** `make run` (real PRs) also needs
+nothing extra *if* the `gh` CLI is installed — otherwise the TUI prints the four
 GitHub settings to add by hand.
 
 ### What you need
@@ -87,7 +87,7 @@ GitHub settings to add by hand.
 - **[GitHub PAT](https://github.com/settings/personal-access-tokens/new)** — Contents and
   Pull requests, both *Read and write*
 - **Docker**, running
-- Optional: **[gh CLI](https://cli.github.com)** (`brew install gh`), so the wizard can
+- Optional: **[gh CLI](https://cli.github.com)** (`brew install gh`), so the TUI can
   configure the GitHub Action for you
 
 ### Credentials it asks for
@@ -111,7 +111,7 @@ Both live in the same project, distinguished by naming:
 | Factory agents | `autofactory-*` AI configs | `autofactory-research-planner` |
 | Flags the factory creates | named after the feature, tagged `auto-factory` | `express-checkout` |
 
-The wizard creates an **AutoFactory** View filtered to the `auto-factory` tag, so the
+The TUI creates an **AutoFactory** View filtered to the `auto-factory` tag, so the
 flags each run produces collect in one place. The factory's own configuration sorts
 together under its `auto-factory-` name prefix.
 
@@ -120,13 +120,13 @@ blocks commits containing real key patterns; `make hooks` installs it.
 
 ### Manual setup
 
-If you would rather not use the wizard: copy `.env.example` to `.env.local`, fill in the
+If you would rather not use the TUI: copy `.env.example` to `.env.local`, fill in the
 six values from the table above, then run `make setup` (seed flag + seed tags + git hooks)
 and `make dev`.
 
 ### GitHub Action settings
 
-The wizard sets these when `gh` is available. To set them by hand, go to
+The TUI sets these when `gh` is available. To set them by hand, go to
 **Settings → Secrets and variables → Actions**:
 
 **Secrets:**
@@ -173,7 +173,7 @@ See the **Demo talk track** below for what to say at each step.
 make reset
 ```
 
-Or, equivalently, re-run the wizard — it offers to reset before setting up:
+Or, equivalently, re-run the TUI — it offers to reset before setting up:
 
 ```bash
 bash demo/setup.sh              # prompts: reset first?
@@ -204,7 +204,7 @@ Have two windows side by side: the store at http://localhost:3000 and LaunchDark
 
 - `make dev` — app up, browser opens automatically
 - In LaunchDarkly, open the project and filter to the `auto-factory` tag (the setup
-  wizard creates this View). It should be empty except the seed flag.
+  TUI creates this View). It should be empty except the seed flag.
 - Pick a scenario. **`express-checkout`** is the best opener: the clearest visual change,
   a whole new page and a Buy Now button.
 
