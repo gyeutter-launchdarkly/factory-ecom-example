@@ -16,11 +16,14 @@ it.
 
 Primitives:
 
-- **AI configs** define the chain, read at runtime
-- **Multivariate flag** per PR (`control` + `v1`, off everywhere), the release gate
-- **Metrics** drive the automatic revert
-- **Judges** score agent output against the git diff
-- **`auto-factory-*` flags** control the factory itself
+- **CodeControl**
+  - **Feature flags**
+    - one multivariate flag per PR (`control` + `v1`, off everywhere), the release gate
+    - `auto-factory-*` flags control the factory itself
+  - **Metrics** drive the automatic revert
+- **AgentControl**
+  - **AI configs** define the agent chain, read at runtime
+  - **Judges** score agent output against the git diff
 
 ## Scenarios
 
