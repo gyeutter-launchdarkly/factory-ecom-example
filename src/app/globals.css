@@ -85,6 +85,7 @@ html {
 body {
   background: rgb(var(--c-ground));
   color: rgb(var(--c-ink));
+  font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
 }
 
 /* `rose` is the accent background; accent text uses the higher-contrast tint. */

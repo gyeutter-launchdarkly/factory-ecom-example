@@ -1,11 +1,16 @@
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
+// Self-hosted Inter. next/font/google fetches the CSS at build time and its
+// loader dies on an unexpected response, which breaks `docker compose build`
+// even when Google is reachable. These ship the woff2 files in node_modules, so
+// the build needs no network.
+import '@fontsource/inter/latin-300.css';
+import '@fontsource/inter/latin-400.css';
+import '@fontsource/inter/latin-500.css';
+import '@fontsource/inter/latin-600.css';
 import './globals.css';
 import { CartProvider } from '@/components/CartProvider';
 import { Header } from '@/components/Header';
 import { FactoryPane } from '@/components/FactoryPane';
-
-const font = Inter({ subsets: ['latin'], weight: ['300', '400', '500', '600'] });
 
 export const metadata: Metadata = {
   title: 'DarkCommerce',
@@ -26,7 +31,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           }}
         />
       </head>
-      <body className={`${font.className} bg-cream min-h-screen text-ink antialiased`}>
+      <body className="bg-cream min-h-screen text-ink antialiased">
         <CartProvider>
           <Header />
           {/* Bottom padding leaves room for the collapsed factory pane. */}
