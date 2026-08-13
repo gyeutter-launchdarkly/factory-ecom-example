@@ -33,7 +33,8 @@ Creates the seed flag `show-product-reviews` in your existing project (via Terra
 Docker), installs the git hooks, and tags the current `feature/*` tips as `demo-seed/*`.
 
 This never creates or destroys a project. Yours must already exist, bootstrapped with the
-AutoFactory AI configs.
+AutoFactory AI configs
+([how](https://github.com/launchdarkly-labs/launchdarkly-auto-factory/blob/main/INSTALL-CLAUDE-CODE.md)).
 
 ## 3. LaunchDarkly View
 

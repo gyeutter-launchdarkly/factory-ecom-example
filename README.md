@@ -56,7 +56,7 @@ You need:
 - **LaunchDarkly**: an existing project. Your workspace must have Guarded Releases and
   AgentControl enabled.
   - bootstrapped with the AutoFactory AI configs
-    ([how](../launchdarkly-auto-factory/INSTALL-CLAUDE-CODE.md)); the demo never creates or
+    ([how](https://github.com/launchdarkly-labs/launchdarkly-auto-factory/blob/main/INSTALL-CLAUDE-CODE.md)); the demo never creates or
     destroys projects
   - [SDK key](https://app.launchdarkly.com/settings/sdk-keys)
   - [API token](https://app.launchdarkly.com/settings/authorization), Admin
