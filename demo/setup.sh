@@ -124,10 +124,17 @@ configure_github() {
   fi
 
   local failed=0
+  # gh reads the value from stdin when no --body is given. Avoid --body-file:
+  # not every gh version has it, and avoid --body: the value would appear in the
+  # process list.
   _gh_secret() {
-    printf '%s' "$2" \
-      | gh_keyring secret set "$1" --repo "$slug" --body-file - &>/dev/null \
-      && ok "secret $1" || { warn "could not set secret $1"; failed=1; }
+    local err
+    if err=$(printf '%s' "$2" | gh_keyring secret set "$1" --repo "$slug" 2>&1); then
+      ok "secret $1"
+    else
+      warn "could not set secret $1: ${err//$'\n'/ }"
+      failed=1
+    fi
   }
   _gh_secret LD_SDK_KEY "$LD_SDK_KEY"
   _gh_secret LD_API_KEY "$LD_API_KEY"
