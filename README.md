@@ -46,17 +46,23 @@ trips the approval gate.
 ## Setup
 
 ```bash
-# from anywhere; clones into the current directory
+# first time, from anywhere; clones into the current directory
 bash <(curl -fsSL https://raw.githubusercontent.com/gyeutter-launchdarkly/factory-ecom-example/main/demo/setup.sh)
 
 # already cloned
 bash demo/setup.sh
+
+# before a demo: reset to a clean state and reuse saved credentials, no prompts
+bash demo/setup.sh --fresh
 ```
 
-Collects credentials, writes `.env.local`, provisions the seed flag, creates the
-`auto-factory` View, installs the secret-blocking git hook, configures the GitHub Action,
-starts the app, opens the demo menu. Safe to re-run: values come back masked, keep or
-replace. Nothing else to wire up.
+Collects credentials, writes `.env.local`, provisions the seed flag, checks the AutoFactory
+agent graph exists in your project (and offers to create it), installs the secret-blocking
+git hook, configures the GitHub Action, starts the app, opens the demo menu.
+
+`--fresh` is the one to run before a demo: it deletes the factory's flags and metrics,
+closes open PRs, rewinds the feature branches, clears the run history, reuses your saved
+credentials, and asks nothing.
 
 You need:
 

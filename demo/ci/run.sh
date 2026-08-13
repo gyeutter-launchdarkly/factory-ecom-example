@@ -16,8 +16,19 @@ if [[ ! -f "$EVENT_FILE" ]]; then
 fi
 
 # Checkout the feature branch so the workspace has the right code
-CURRENT_BRANCH=$(git branch --show-current)
-if [[ "$CURRENT_BRANCH" != "$BRANCH" ]]; then
+# Return to the starting branch on exit, so later commits do not land on a
+# feature branch that `make reset` will later rewind.
+STARTING_BRANCH=$(git branch --show-current)
+restore_branch() {
+  local now
+  now=$(git branch --show-current 2>/dev/null || true)
+  if [[ -n "$STARTING_BRANCH" && "$now" != "$STARTING_BRANCH" ]]; then
+    git checkout -q "$STARTING_BRANCH" 2>/dev/null && echo "  back on $STARTING_BRANCH"
+  fi
+}
+trap 'rm -f "$SECRETS_FILE"; restore_branch' EXIT
+
+if [[ "$STARTING_BRANCH" != "$BRANCH" ]]; then
   echo "Switching to $BRANCH"
   git stash --include-untracked 2>/dev/null || true
   git checkout "$BRANCH"
@@ -30,7 +41,6 @@ ACT_TMP=".autofactory/tmp"
 mkdir -p "$ACT_TMP"
 SECRETS_FILE=$(mktemp "$ACT_TMP/secrets.XXXXXX")
 chmod 600 "$SECRETS_FILE"
-trap 'rm -f "$SECRETS_FILE"' EXIT
 
 # One project serves both the app and the factory, so a single SDK key covers
 # flag evaluation and the factory's AI config lookups.

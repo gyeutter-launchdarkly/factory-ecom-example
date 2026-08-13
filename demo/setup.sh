@@ -6,7 +6,8 @@
 #   Already here: bash demo/setup.sh
 #
 # Flags:
-#   --reset      reset the demo first, without asking
+#   --fresh      the usual one: reset, reuse saved credentials, no prompts
+#   --reset      reset first, without asking (still prompts for credentials)
 #   --no-reset   skip the reset prompt entirely
 set -euo pipefail
 
@@ -47,6 +48,10 @@ load_env() {
 ask_secret() {
   local __var="$1" __label="$2" __hint="$3"
   local __cur="${!__var:-}" __val=""
+  if $ASSUME_KEEP && [[ -n "$__cur" && "$__cur" != "placeholder" ]]; then
+    ok "$__label (saved)"
+    return
+  fi
   echo -e "\n  ${B}$__label${R}"
   if [[ -n "$__cur" && "$__cur" != "placeholder" ]]; then
     echo -e "  ${D}current  $(mask "$__cur")${R}"
@@ -65,6 +70,10 @@ ask_secret() {
 ask_text() {
   local __var="$1" __label="$2" __hint="$3" __default="${4:-}"
   local __cur="${!__var:-$__default}" __val=""
+  if $ASSUME_KEEP && [[ -n "$__cur" ]]; then
+    ok "$__label ($__cur)"
+    return
+  fi
   echo -e "\n  ${B}$__label${R}"
   echo -e "  ${D}$__hint${R}"
   if [[ -n "$__cur" ]]; then
@@ -237,7 +246,8 @@ create_ld_view() {
   case "$code" in
     200|201) ok "Created AutoFactory view" ;;
     409)     ok "AutoFactory view already exists" ;;
-    *)       warn "Could not create LD view (HTTP $code) - in the LD UI: filter by tag auto-factory, then save as a view" ;;
+    *)       echo -e "  ${D}Saved view not created automatically (HTTP $code). In the LD UI:"
+             echo -e "  filter flags by tag 'auto-factory', then Save as view.${R}" ;;
   esac
 }
 
@@ -264,11 +274,14 @@ fi
 
 DO_RESET=false
 NO_RESET=false
+ASSUME_KEEP=false
 for arg in "$@"; do
   case "$arg" in
     --local)    IN_REPO=true ;;
     --reset)    DO_RESET=true ;;
     --no-reset) NO_RESET=true ;;
+    # One command to get a clean demo: reset, reuse saved credentials, no prompts.
+    --fresh)    DO_RESET=true; ASSUME_KEEP=true ;;
   esac
 done
 
@@ -379,7 +392,7 @@ configure_github
 echo ""
 echo -e "${GR}${B}"
 echo "  +--------------------------------------------------+"
-echo "  |   All set!  Starting the app...                  |"
+echo "  |   Ready. Starting the app...                     |"
 echo "  +--------------------------------------------------+"
 echo -e "${R}"
 

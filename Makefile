@@ -46,7 +46,6 @@ setup:
 	@echo ""
 	@$(TF_RUN) output
 	@echo ""
-	@echo "Next: open the sdk_key_url above, copy the SDK key, add it as LD_SDK_KEY in .env.local"
 
 ## Run the app (production build in Docker, no local Node needed)
 ## Opens the browser once it responds; set NO_OPEN=1 to just print the link.
