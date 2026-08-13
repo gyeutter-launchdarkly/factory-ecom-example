@@ -6,9 +6,9 @@
 #   Already here: bash demo/setup.sh
 #
 # Flags:
-#   --fresh      the usual one: reset, reuse saved credentials, no prompts
-#   --reset      reset first, without asking (still prompts for credentials)
-#   --no-reset   skip the reset prompt entirely
+#   --fresh      take every default without asking: reset, keep saved credentials
+#   --no-reset   keep the current demo state (skip the reset)
+#   --reset      same as the default; kept so older notes still work
 set -euo pipefail
 
 REPO_URL="https://github.com/gyeutter-launchdarkly/factory-ecom-example.git"
@@ -376,8 +376,8 @@ if $DO_RESET; then
 elif ! $NO_RESET && [[ -f .env.local ]] && [[ -n "${LD_API_KEY:-}" ]]; then
   echo ""
   ans=""
-  read -r -p "  Reset the demo before setting up (delete factory flags, close PRs, rewind branches)? [y/N] " ans </dev/tty
-  [[ "$ans" =~ ^[Yy]$ ]] && reset_demo
+  read -r -p "  Reset the demo first (delete factory flags, close PRs, rewind branches)? [Y/n] " ans </dev/tty
+  [[ "${ans:-Y}" =~ ^[Nn]$ ]] || reset_demo
 fi
 
 # terraform

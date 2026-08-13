@@ -52,7 +52,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/gyeutter-launchdarkly/factor
 # already cloned
 bash demo/setup.sh
 
-# before a demo: reset to a clean state and reuse saved credentials, no prompts
+# --fresh answers every prompt with its default, for a zero-keystroke run
 bash demo/setup.sh --fresh
 ```
 
@@ -60,9 +60,10 @@ Collects credentials, writes `.env.local`, provisions the seed flag, checks the 
 agent graph exists in your project (and offers to create it), installs the secret-blocking
 git hook, configures the GitHub Action, starts the app, opens the demo menu.
 
-`--fresh` is the one to run before a demo: it deletes the factory's flags and metrics,
-closes open PRs, rewinds the feature branches, clears the run history, reuses your saved
-credentials, and asks nothing.
+Re-running it offers to reset first, and that **defaults to yes**: it deletes the factory's
+flags and metrics, closes open PRs, rewinds the feature branches, and clears the run
+history. Saved credentials come back masked so you can just press enter through them.
+`--fresh` takes every default without asking; `--no-reset` keeps the current state.
 
 You need:
 
