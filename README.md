@@ -1,78 +1,66 @@
 # LaunchDarkly AutoFactory Demo
 
-DarkCommerce is a minimal e-commerce store (product catalog, cart, checkout) used to demonstrate the
-LaunchDarkly AutoFactory: judges, guarded releases, and feature management working
-together as a software production system.
-
-The app is the *target*: AutoFactory runs against it to create feature flags, wire
-code, instrument metrics, write tests, and manage guarded rollouts.
+DarkCommerce is a minimal e-commerce store (catalog, cart, checkout) used as the *target*
+for the LaunchDarkly AutoFactory. Open a PR and a six-agent chain creates the feature flag,
+wires it into the code, instruments metrics, writes tests, and records the rollout intent.
 
 ## What this is
 
-**Software factories**
-- A software factory is an automated pipeline that converts raw developer intent (a PR) into a release-ready artifact: flagged, instrumented, tested, and safe to ship.
-- The factory pattern moves repeatable engineering decisions out of per-PR judgment and into a governed, auditable chain of agents.
-- Each run is reproducible: the same graph, the same agent configs, the same release contract.
+A software factory turns developer intent (a PR) into a release-ready artifact: flagged,
+instrumented, tested. It moves repeatable engineering decisions out of per-PR judgment and
+into a governed chain of agents, so each run is reproducible.
 
-**Build / deploy / release with LaunchDarkly**
-- **Build:** the factory runs at PR time, wires new behavior behind a feature flag, and writes instrumentation and tests before any code ships.
-- **Deploy:** code goes out with the flag off; no users are affected yet.
-- **Release:** Beacon turns the flag on in a guarded rollout after deploy, monitoring metrics and reverting automatically if guardrails trip.
+Split across build, deploy, and release:
 
-**LaunchDarkly primitives**
-- **AI configs + agent graph:** define the six-agent chain, its instructions, model selection, and routing; read at runtime so changes take effect without a redeploy.
-- **Feature flags:** each PR produces a string multivariate flag (`control` + `v1`) targeting off in all environments; Beacon uses it as the release gate.
-- **Guarded releases:** Beacon triggers a progressive rollout with metric-based killswitches attached to the flag.
-- **Metrics:** three per-flag metrics (error rate, latency, business signal) instrument the release and drive automatic revert.
-- **Judges:** quality-scoring AI configs that evaluate agent output against verified git evidence; scores record as per-variation metrics for model A/B comparison.
-- **Operational flags:** `auto-factory-approval-mode`, `auto-factory-risk-threshold`, `auto-factory-approval-gates`, and `auto-factory-ai-provider` control factory behavior at runtime without redeployment.
+- **Build** — the factory runs at PR time, behind a flag, before anything ships
+- **Deploy** — code goes out with the flag off; no users affected
+- **Release** — Beacon (Phase 2) starts a guarded rollout after deploy, reverting
+  automatically if metrics degrade
 
-## How it works
+The LaunchDarkly primitives it leans on: **AI configs** define the agent chain and are read
+at runtime, so changes need no redeploy. Each PR produces a **multivariate flag**
+(`control` + `v1`, off everywhere) that Beacon uses as the release gate. **Metrics** drive
+the automatic revert. **Judges** score agent output against the real git diff. And
+`auto-factory-*` **operational flags** control the factory's own behaviour at runtime.
 
-Six pre-staged feature branches represent realistic engineering changes at different risk
-levels. When you open a PR from one of them, the AutoFactory agent chain runs:
+## Scenarios
+
+Six pre-staged branches, at different risk levels:
 
 | Branch | Change | Risk | Demo-ready |
 |--------|--------|------|------------|
-| `feature/tiered-pricing` | Quantity discounts in the cart | Medium | Yes |
 | `feature/express-checkout` | Buy Now, bypassing the cart | Medium | Yes |
 | `feature/stripe-checkout` | Swap payment processing to Stripe (mocked) | Medium | Yes |
+| `feature/tiered-pricing` | Quantity discounts in the cart | Medium | Yes |
 | `feature/product-ratings` | Star ratings on product cards | Low | Needs rebase |
 | `feature/discount-codes` | Discount code field at checkout | Medium | Needs rebase |
 | `feature/dynamic-pricing` | Demand-based price multiplier | High (~0.8) | Needs rebase |
 
-The last three were written against an older version of the UI. Their diffs revert the
-current design, so rebase them onto `main` before demoing them.
+The last three predate the current UI; their diffs revert it, so rebase before demoing.
+`make menu` marks each branch's state for you.
 
-Pricing scenarios touch paths that `.autofactory/services.yaml` marks critical
-(`src/lib/pricing.ts`, `src/app/api/checkout/route.ts`), so they score higher blast
-radius. With `auto-factory-approval-mode` set to `risk-threshold`, `dynamic-pricing`
-trips the approval gate.
+Pricing scenarios touch paths `.autofactory/services.yaml` marks critical
+(`src/lib/pricing.ts`, `src/app/api/checkout/route.ts`), so they score higher blast radius.
+With `auto-factory-approval-mode` set to `risk-threshold`, `dynamic-pricing` trips the
+approval gate.
 
 ## Setup
 
-### Automated setup via TUI
-
-From anywhere (clones the repo into the current directory first):
-
 ```bash
+# from anywhere (clones into the current directory first)
 bash <(curl -fsSL https://raw.githubusercontent.com/gyeutter-launchdarkly/factory-ecom-example/main/demo/setup.sh)
-```
 
-Already cloned the repo:
-
-```bash
+# already cloned the repo
 bash demo/setup.sh
 ```
 
-It collects your credentials, writes `.env.local`, provisions the seed flag, creates the
-`auto-factory` View in LaunchDarkly, installs the secret-blocking git hook, configures the
-GitHub Action, starts the app, and drops you into the demo menu. Re-running it shows each existing value masked and
-offers to keep or replace it, so it is safe to run again.
+The TUI collects credentials, writes `.env.local`, provisions the seed flag, creates the
+`auto-factory` View, installs the secret-blocking git hook, configures the GitHub Action,
+starts the app, and drops you into the demo menu. Re-running shows each value masked and
+offers to keep or replace it.
 
-**After the TUI, `make ci` needs no further setup.** `make run` (real PRs) also needs
-nothing extra *if* the `gh` CLI is installed — otherwise the TUI prints the four
-GitHub settings to add by hand.
+**Nothing else to wire up.** The TUI configures the GitHub Action too, so both `make ci`
+and `make run` work straight afterwards.
 
 ### What you need
 
@@ -87,290 +75,130 @@ GitHub settings to add by hand.
 - **[GitHub PAT](https://github.com/settings/personal-access-tokens/new)** — Contents and
   Pull requests, both *Read and write*
 - **Docker**, running
-- Optional: **[gh CLI](https://cli.github.com)** (`brew install gh`), so the TUI can
-  configure the GitHub Action for you
+- **[gh CLI](https://cli.github.com)** (`brew install gh`), so the TUI can configure the
+  GitHub Action for you
 
-### Credentials it asks for
+One project holds both the factory's configuration and the flags it creates, told apart by
+naming: `auto-factory-*` flags are the factory's own config, `autofactory-*` AI configs are
+its agents, and the flags it creates are named after the feature and tagged `auto-factory`.
 
-| Prompt | Goes to | Notes |
-|--------|---------|-------|
-| Project key | `LD_APP_PROJECT_KEY` | Accepts a pasted project URL |
-| Environment key | `LD_ENVIRONMENT_KEY` | Defaults to `production` |
-| LaunchDarkly API key | `LD_API_KEY` | Creates flags, metrics, and the View |
-| SDK key | `LD_SDK_KEY` | Flag evaluation *and* the factory's AI config lookups |
-| Anthropic API key | `ANTHROPIC_API_KEY` | Runs the agents |
-| GitHub PAT | `GITHUB_TOKEN` | PR comments, check runs, pushed commits |
+Setting up by hand instead, or curious what the TUI did? See
+[docs/MANUAL-SETUP.md](docs/MANUAL-SETUP.md).
 
-### Telling factory resources apart from product flags
-
-Both live in the same project, distinguished by naming:
-
-| Kind | Naming | Example |
-|------|--------|---------|
-| Factory configuration | `auto-factory-*` flags | `auto-factory-approval-mode` |
-| Factory agents | `autofactory-*` AI configs | `autofactory-research-planner` |
-| Flags the factory creates | named after the feature, tagged `auto-factory` | `express-checkout` |
-
-The TUI creates an **AutoFactory** View filtered to the `auto-factory` tag, so the
-flags each run produces collect in one place. The factory's own configuration sorts
-together under its `auto-factory-` name prefix.
-
-Everything lands in `.env.local`, which is gitignored. A pre-commit hook additionally
-blocks commits containing real key patterns; `make hooks` installs it.
-
-### Manual setup
-
-If you would rather not use the TUI: copy `.env.example` to `.env.local`, fill in the
-six values from the table above, then run `make setup` (seed flag + seed tags + git hooks)
-and `make dev`.
-
-### GitHub Action settings
-
-The TUI sets these when `gh` is available. To set them by hand, go to
-**Settings → Secrets and variables → Actions**:
-
-**Secrets:**
-
-| Secret | Value |
-|--------|-------|
-| `LD_SDK_KEY` | Your LaunchDarkly SDK key (`sdk-...`) |
-| `LD_API_KEY` | Your LaunchDarkly API token (`api-...`) |
-| `ANTHROPIC_API_KEY` | Your Anthropic API key (`sk-ant-...`) |
-
-**Variables:**
-
-| Variable | Value |
-|----------|-------|
-| `LD_APP_PROJECT_KEY` | Your LaunchDarkly project key |
-
-The workflow points at `launchdarkly-labs/launchdarkly-auto-factory`. If you host the
-factory repo somewhere else, change the owner in the `uses:` line of
-`.github/workflows/auto-factory.yml`.
-
-## Running a demo
-
-### Stay in the TUI
-
-The setup script ends in a demo menu, and you can return to it any time:
+## Running it
 
 ```bash
-make menu          # or: bash demo/menu.sh
+make menu          # interactive: pick a scenario, run, reset, check branch status
 ```
 
-From there you can pick a scenario and run it locally or as a real PR, start or open the
-app, replay a fake run to rehearse, reset between demos, and check which branches are
-current. The scenario list marks each branch `ready` or `needs rebase` — computed by
-checking whether `main` is an ancestor of it, so it stays accurate as branches are
-rebased, and it warns before running one that would revert the UI.
-
-### Or run directly
-
-Two ways to run the factory:
+Or directly:
 
 ```bash
-make ci  SCENARIO=express-checkout   # local, via act in Docker. No queue, no cold start.
+make ci  SCENARIO=express-checkout   # local, via act. No queue, no GitHub setup.
 make run SCENARIO=express-checkout   # opens a real PR; runs in GitHub Actions.
 ```
 
-Use `make ci` in front of an audience — it starts immediately and needs no GitHub setup.
-Use `make run` when the point is the GitHub integration.
-
-`make run` pushes the branch, opens a PR (title and body come from
-`demo/ci/events/<scenario>.json`, the same payload `make ci` feeds act), and then on
-GitHub:
-
-1. The `pull_request: opened` event fires `.github/workflows/auto-factory.yml`
-2. The action checks out the PR head and runs the six-agent chain
-3. It creates the flag and metrics in LaunchDarkly, tagged `auto-factory`
-4. It commits flag wiring, metrics, tests, and the release manifest **to the PR branch**
-5. It posts a summary comment and a check run on the PR
-
-Because step 4 pushes to the branch, it would normally re-fire the workflow via
-`synchronize`; the workflow guards against that with
+`make ci` is better in front of an audience: it starts immediately. `make run` is for when
+the GitHub integration is the point — it pushes the branch, opens a PR (title and body from
+`demo/ci/events/<scenario>.json`, the same payload `make ci` feeds act), and then on GitHub
+the action runs the chain, creates the flag and metrics, **commits flag wiring, metrics,
+tests, and the release manifest to the PR branch**, and posts a summary comment and check
+run. That push would re-fire the workflow, so it guards with
 `if: github.actor != 'github-actions[bot]'`. If the `AUTOFACTORY_REQUIRE_LABEL` repo
-variable is `true`, nothing runs until you add the `autofactory` label — which is itself a
-nice thing to demo.
+variable is `true`, nothing runs until you add the `autofactory` label.
 
-`make run` uses the `gh` CLI when present and falls back to the GitHub REST API with the
-PAT from `.env.local`, so it works either way.
+Either way, the store's bottom pane shows the six agents as a live flowchart with links
+into LaunchDarkly.
 
-Either way the store's bottom pane shows the six agents as a live flowchart, with the
-created flag and metrics linking straight into LaunchDarkly. The flags also collect under
-the `auto-factory` View in your project.
+**Merges do not trigger anything.** Phase 1 is the PR-time half. The post-merge half is
+Beacon, driven by a *deploy* notification rather than the merge: `auto-factory-notify`
+POSTs the deployed SHA range to Beacon's `/flag-releases`, which finds the new
+`.release-flags/` manifests and starts the guarded rollout. So the chain is merge → deploy
+→ notify → release, and merging alone does nothing unless Beacon is running.
 
-See the **Demo talk track** below for what to say at each step.
-
-### What it does not respond to
-
-The workflow triggers on `opened`, `synchronize`, `reopened`, and `labeled` — **not** on
-merge. That is deliberate: Phase 1 is the PR-time half of the factory. The post-merge half
-is Beacon (Phase 2), and it is driven by a *deploy* notification rather than the merge —
-`auto-factory-notify` POSTs the deployed SHA range to Beacon's `/flag-releases`, which
-discovers the new `.release-flags/` manifests in that range and starts the guarded
-rollout. So the real chain is merge → deploy → notify → guarded release, and nothing
-happens on merge alone unless you are running Beacon and something calls the notifier.
-
-## Resetting between runs
+## Resetting
 
 ```bash
-make reset
+make reset                    # or: bash demo/setup.sh --reset
 ```
 
-Or, equivalently, re-run the TUI — it offers to reset before setting up:
-
-```bash
-bash demo/setup.sh              # prompts: reset first?
-bash demo/setup.sh --reset      # reset without asking
-bash demo/setup.sh --no-reset   # skip the prompt
-```
-
-Either way this:
-1. Deletes every LaunchDarkly flag and metric tagged `auto-factory` via the REST API,
-   preserving the `show-product-reviews` seed flag. Your project is never destroyed and
-   the factory's own `auto-factory-*` configuration is untouched, so this is safe to run
-   against a shared project.
-2. **Closes any open `feature/*` PRs.** Worth doing before the branch rewind — a PR left
-   open gets rewritten in place by the force-push, and the factory can re-run on it,
-   bleeding one demo's results into the next.
-3. Rewinds all six `feature/*` branches to their `demo-seed/*` tags, force-pushing to drop
-   the factory's commits.
-
-Use `make reset-ld` for the LaunchDarkly side only, leaving branches and PRs alone.
+Deletes every flag and metric tagged `auto-factory` (keeping the seed flag and the
+factory's own `auto-factory-*` config), closes open `feature/*` PRs, then rewinds the
+branches to their `demo-seed/*` tags. Closing the PRs matters: a PR left open is rewritten
+in place by the force-push and the factory can re-run on it, bleeding one demo into the
+next. `make reset-ld` does the LaunchDarkly side only.
 
 ## Demo talk track
 
-Step by step, with what to show where. Budget 10–15 minutes.
+10–15 minutes. Store at http://localhost:3000 and LaunchDarkly side by side.
+`express-checkout` is the best opener — a whole new page and a Buy Now button.
 
-Have two windows side by side: the store at http://localhost:3000 and LaunchDarkly.
+**1. One hand-written flag.** In LaunchDarkly find `show-product-reviews`, the only flag
+that exists yet. Toggle it on, refresh the store, review counts appear.
 
-### 0. Before you start
+> "This is the one flag a human wrote, evaluated in `src/app/api/products/route.ts`.
+> Everything else, the factory writes by copying *this* pattern."
 
-- `make dev` — app up, browser opens automatically
-- In LaunchDarkly, open the project and filter to the `auto-factory` tag (the setup
-  TUI creates this View). It should be empty except the seed flag.
-- Pick a scenario. **`express-checkout`** is the best opener: the clearest visual change,
-  a whole new page and a Buy Now button.
+That sets up step 3: the research agent greps for the existing idiom and imitates it, which
+is why the generated code fits.
 
-### 1. Set the scene: one hand-written flag (web app + LD)
+**2. The before.** Walk the flow about to change. For `express-checkout`: grid, add to bag,
+cart, checkout. The only way to buy is through the cart.
 
-Show the store. In LaunchDarkly, find **`show-product-reviews`** — the only flag that
-exists before the demo. Toggle it on, refresh the store, review counts appear on the
-product cards.
+**3. Trigger it.** `make menu` → 1 → `express-checkout`.
 
-> "This is the one flag a human wrote. It's evaluated in `src/app/api/products/route.ts`.
-> Everything else you're about to see, the factory writes itself — and it writes it by
-> copying *this* pattern."
+**4. Narrate the chain** in the store's bottom pane — green done, blue running, grey to do.
+Each box names the model that ran it and what it produced.
 
-That last point is the setup for step 3: the research agent greps the repo for the
-existing flag-evaluation idiom and imitates it, which is why the generated code fits.
-
-### 2. Show the "before" (web app)
-
-Walk the flow the scenario is about to change. For `express-checkout`: product grid,
-add to bag, cart, checkout. Note that the only way to buy is through the cart.
-
-### 3. Trigger the factory (terminal)
-
-```bash
-make ci SCENARIO=express-checkout    # local via act, no queue wait
-# or
-make run SCENARIO=express-checkout   # opens a real PR, runs in GitHub Actions
-```
-
-Use `make ci` for a live audience — no queue, no cold start. Use `make run` when the
-point is the GitHub integration (PR comment, check run, commits pushed to the branch).
-
-### 4. Narrate the chain (factory pane, bottom of the store)
-
-The pane at the bottom of the store shows the six agents as a flowchart: green done,
-blue in progress, grey still to do. Each box names the model that ran it and what it
-produced, and the flag and metric names are links into LaunchDarkly.
-
-| Agent | What to say |
-|-------|-------------|
-| Research & plan | Reads `.autofactory/services.yaml`, classifies the change, computes blast radius |
-| Flag | Creates the flag in LaunchDarkly and wires it into the code |
-| Metrics | Creates guarded-release metrics and the instrumentation to feed them |
-| Manifest | Writes `.release-flags/*.yaml` — the rollout intent Phase 2 picks up |
+| Agent | What it does |
+|-------|--------------|
+| Research & plan | Reads `services.yaml`, classifies the change, computes blast radius |
+| Flag | Creates the flag and wires it into the code |
+| Metrics | Guarded-release metrics plus the instrumentation to feed them |
+| Manifest | Writes `.release-flags/*.yaml`, the rollout intent Beacon picks up |
 | Tests | Flag-on / flag-off tests |
 | Review | Verdict and risk level |
 
-Good beat during Research & plan: `services.yaml` marks `src/lib/pricing.ts` and
-`src/app/api/checkout/route.ts` as critical paths, so pricing scenarios get flagged as
-high blast radius. The agent knows what's revenue-critical because someone told it once.
+Good beat: `services.yaml` marks pricing and checkout critical, so pricing scenarios score
+higher blast radius. The agent knows what's revenue-critical because someone told it once.
 
-If you have several PRs in flight, the dropdown in the pane switches between their flows.
+**5. What landed.** Click the flag link in the pane, or open the `auto-factory` View: the
+new flag nobody typed, the metric wired to the `checkout-completed` event the app already
+tracks, and the manifest committed to the branch.
 
-### 5. Show what landed (LD UI)
+**6. Flip it.** Turn the flag on in LaunchDarkly, refresh the store, the feature appears.
 
-Click the flag link straight from the pane, or open the `auto-factory` View. Show:
-
-- the new flag, tagged `auto-factory`, nobody typed it
-- the metric, wired to the `checkout-completed` event the app already tracks in
-  `src/app/api/checkout/route.ts`
-- the `.release-flags/` manifest committed to the branch
-
-### 6. The payoff: flip it (LD UI + web app)
-
-Turn the new flag on in LaunchDarkly. Refresh the store. The feature appears.
-
-> "The agent created that flag, wired it, and gave it metrics. I'm turning it on from
+> "The agent created that flag, wired it, gave it metrics. I'm turning it on from
 > LaunchDarkly — no deploy, no code change."
 
-This is the strongest moment in the demo. Don't rush it.
+Strongest moment in the demo. Don't rush it.
 
-### 7. Reset
+**7. Reset.** `make menu` → 6.
 
-```bash
-make reset                 # or: bash demo/setup.sh --reset
-```
-
-Deletes the factory's flags and metrics, closes the feature PRs, and rewinds the
-branches.
-
-### Scenario notes
-
-`tiered-pricing`, `express-checkout`, and `stripe-checkout` are current and safe to demo.
-
-`product-ratings`, `discount-codes`, and `dynamic-pricing` were written against an older
-version of the UI and have not been rebased. Their diffs revert the current design, so
-**don't demo them** until they're rebased onto `main`.
-
-### Rehearsing without a real run
+### Rehearsing
 
 ```bash
-make demo-progress
-```
-
-Replays a synthetic run into the factory pane so you can practise the narration without
-spending an Anthropic call. Run it twice with different PR numbers to rehearse the
-dropdown:
-
-```bash
-./demo/replay-progress.sh express-checkout 2 7 &
+make demo-progress                              # synthetic run, no Anthropic call
+./demo/replay-progress.sh express-checkout 2 7 & # two at once, to show the PR dropdown
 ./demo/replay-progress.sh stripe-checkout  3 9 &
 ```
 
 ### Known rough edge
 
-On the `make ci` (act) path the factory action emits nothing per step — it prints all its
-per-node output only after the whole chain finishes. The flowchart therefore sits at
-`stalled` for most of the run and then fills in at the end. Steps animate live only on
-the `phase1-cli` path. If you want a live-filling chart in front of an audience, rehearse
-with `make demo-progress` and be ready to explain that the real run reports in a batch.
+On the `make ci` (act) path the action emits nothing per step — it prints all per-node
+output only after the chain finishes. The flowchart therefore sits at `stalled` for most of
+the run, then fills in at once. Steps animate live only on the `phase1-cli` path. Rehearse
+with `make demo-progress` and be ready to explain that a real run reports in a batch.
 
-## Demo talking points
+## Further talking points
 
-**Judges:** after a factory run, open the AI configs in the factory project and show
-the judge scores on the flag-implementer and metrics-author tabs. Each score is 0–1
-with reasoning, evaluated against the agent's actual git diff.
-> https://app.launchdarkly.com/[factory-project]/[env]/ai-configs
+**Judges** — after a run, open the AI configs and show the judge scores on the
+flag-implementer and metrics-author tabs: 0–1 with reasoning, scored against the agent's
+actual git diff.
 
-**Guarded releases:** the `.release-flags/` manifest the factory commits declares the
-flag key and rollout parameters. Phase 2 (Beacon) picks this up on deploy and starts a
-progressive release that auto-reverts on metric degradation.
+**Guarded releases** — the `.release-flags/` manifest declares the flag key and rollout
+parameters; Beacon picks it up on deploy and auto-reverts on metric degradation.
 
-**Feature management:** flip `auto-factory-approval-mode` in the factory project from
-`yolo` to `risk-threshold` in the LD UI while the audience watches, then submit the
-`dynamic-pricing` PR. The chain pauses at the gate and comments which label to add.
-The approval is a flag change; no code deploy needed.
+**Feature management** — flip `auto-factory-approval-mode` from `yolo` to `risk-threshold`
+in the LD UI while the audience watches, then run `dynamic-pricing`. The chain pauses at
+the gate and comments which label to add. The approval is a flag change, not a deploy.

@@ -109,21 +109,10 @@ configure_github() {
 
   echo -e "\n  ${D}Configuring GitHub Action secrets for ${slug}...${R}"
 
-  if ! command -v gh &>/dev/null; then
-    warn "gh CLI not installed, so the GitHub Action was not configured."
-    echo -e "  ${D}'make ci' works now. For 'make run' (real PRs), either install gh"
-    echo -e "  (brew install gh) and re-run this script, or set these by hand at"
-    echo -e "  https://github.com/${slug}/settings/secrets/actions :${R}"
-    echo -e "  ${D}  secret   LD_SDK_KEY          = <your LD SDK key>"
-    echo -e "  ${D}  secret   LD_API_KEY          = <your LD API token>"
-    echo -e "  ${D}  secret   ANTHROPIC_API_KEY   = <your Anthropic key>"
-    echo -e "  ${D}  variable LD_APP_PROJECT_KEY  = ${LD_APP_PROJECT_KEY}${R}"
-    return 0
-  fi
-
   if ! GH_TOKEN="$GITHUB_TOKEN" gh auth status &>/dev/null; then
-    warn "gh is installed but the token was not accepted; skipping."
-    echo -e "  ${D}'make ci' still works. Check the PAT has repo access.${R}"
+    warn "gh did not accept the token; skipping GitHub Action setup."
+    echo -e "  ${D}'make ci' still works. Check the PAT has repo access, then"
+    echo -e "  re-run this script or see docs/MANUAL-SETUP.md.${R}"
     return 0
   fi
 
@@ -224,8 +213,7 @@ echo -e "  ${D}    - SDK key${R}"
 echo -e "  ${D}    - API token (Admin)${R}"
 echo -e "  ${D}  Anthropic API key${R}"
 echo -e "  ${D}  GitHub PAT${R}"
-echo -e "  ${D}  Docker, running${R}"
-echo -e "  ${D}  Optional: gh CLI, to auto-configure the GitHub Action${R}"
+echo -e "  ${D}  Docker running, gh CLI installed${R}"
 echo ""
 if $IN_REPO; then
   echo -e "${D}  Mode: already in repo, skipping clone${R}"
@@ -235,7 +223,7 @@ fi
 
 # preflight
 step "Preflight"
-for cmd in git curl docker; do
+for cmd in git curl docker jq gh; do
   command -v "$cmd" &>/dev/null && ok "$cmd" || die "$cmd is required but not installed"
 done
 docker info &>/dev/null 2>&1 && ok "Docker running" \
