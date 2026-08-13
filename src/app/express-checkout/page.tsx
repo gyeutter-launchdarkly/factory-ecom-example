@@ -73,8 +73,7 @@ function ExpressCheckoutForm() {
         <div className="w-14 h-14 rounded-pill bg-blush text-ink flex items-center justify-center mx-auto mb-7 text-xl">
           ✓
         </div>
-        <h1 className="text-[30px] font-light tracking-tight">Thank you</h1>
-        <p className="mt-3 text-[14px] text-muted">Your order is on its way.</p>
+        <h1 className="text-[30px] font-light tracking-tight">Order confirmed</h1>
 
         <div className="mt-9 bg-white rounded-3xl shadow-soft px-6 py-6">
           <p className="text-[11px] uppercase tracking-[0.16em] text-muted">Order</p>
