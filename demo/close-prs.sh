@@ -42,6 +42,9 @@ if [[ -z "$open_prs" ]]; then
   exit 0
 fi
 
+# Issues are not created by the demo, and are disabled on the reference repo, so
+# there is nothing to clean there.
+
 while IFS=$'\t' read -r number ref; do
   [[ -z "$number" ]] && continue
   code=$(api -o /dev/null -w "%{http_code}" -X PATCH \

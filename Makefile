@@ -84,6 +84,11 @@ reset:
 	@echo "=== Closing open feature PRs ==="
 	@./demo/close-prs.sh
 	@echo ""
+	@echo "=== Clearing the factory progress stream ==="
+	@rm -f .autofactory/runs.ndjson
+	@rm -rf .autofactory/tmp
+	@echo "  cleared (the pane's run dropdown starts empty)"
+	@echo ""
 	@echo "=== Resetting demo branches ==="
 	@./demo/reset-branches.sh
 	@echo ""
