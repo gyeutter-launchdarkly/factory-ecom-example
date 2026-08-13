@@ -15,7 +15,7 @@ interface Product {
 
 interface ProductsResponse {
   products: Product[];
-  flags: { showProductReviews: boolean };
+  flags: { showProductReviews: boolean; enableExpressCheckout: boolean };
 }
 
 export default function HomePage() {
@@ -52,6 +52,7 @@ export default function HomePage() {
             displayPrice={p.displayPrice}
             price={p.basePrice}
             showReviews={data.flags.showProductReviews}
+            showBuyNow={data.flags.enableExpressCheckout}
           />
         ))}
       </div>

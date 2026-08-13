@@ -12,6 +12,7 @@ interface ProductCardProps {
   displayPrice: string;
   price: number;
   showReviews?: boolean;
+  showBuyNow?: boolean;
 }
 
 // Static review data — only visible when the show-product-reviews flag is on.
@@ -34,6 +35,7 @@ export function ProductCard({
   displayPrice,
   price,
   showReviews,
+  showBuyNow,
 }: ProductCardProps) {
   const { add } = useCart();
   const router = useRouter();
@@ -91,14 +93,16 @@ export function ProductCard({
         <p className="text-[15px] mt-1.5">{displayPrice}</p>
 
         {/* Express checkout: skips the cart and goes straight to a one-item
-            checkout. The factory gates this behind a flag so it can be rolled
-            out progressively against the checkout-completed rate. */}
-        <button
-          onClick={handleBuyNow}
-          className="mt-2.5 w-full border border-ink text-ink text-[13px] font-medium py-2.5 rounded-pill hover:bg-ink hover:text-cream transition-colors"
-        >
-          Buy now
-        </button>
+            checkout. Gated behind enable-express-checkout flag (v1).
+            When flag is off (control), the button is hidden — existing behavior. */}
+        {showBuyNow && (
+          <button
+            onClick={handleBuyNow}
+            className="mt-2.5 w-full border border-ink text-ink text-[13px] font-medium py-2.5 rounded-pill hover:bg-ink hover:text-cream transition-colors"
+          >
+            Buy now
+          </button>
+        )}
       </div>
     </div>
   );

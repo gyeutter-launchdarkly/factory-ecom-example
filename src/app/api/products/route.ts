@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { PRODUCTS } from '@/lib/products';
-import { boolVariation } from '@/lib/ld';
+import { boolVariation, stringVariation } from '@/lib/ld';
 import { calculatePrice, formatPrice } from '@/lib/pricing';
 
 export async function GET() {
@@ -10,10 +10,16 @@ export async function GET() {
   // discover it via grep and follow it when implementing new flags.
   const showProductReviews = await boolVariation('show-product-reviews', 'anonymous', false);
 
+  // Feature flag: enable-express-checkout
+  // Gates the Buy Now button, /express-checkout page, and /api/express-checkout.
+  // Variation 'v1' = express checkout enabled; 'control' = hidden (existing behavior).
+  const expressCheckoutVariation = await stringVariation('enable-express-checkout', 'anonymous', 'control');
+  const enableExpressCheckout = expressCheckoutVariation === 'v1';
+
   const products = PRODUCTS.map((p) => ({
     ...p,
     displayPrice: formatPrice(calculatePrice(p)),
   }));
 
-  return NextResponse.json({ products, flags: { showProductReviews } });
+  return NextResponse.json({ products, flags: { showProductReviews, enableExpressCheckout } });
 }

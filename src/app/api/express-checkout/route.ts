@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getProduct } from '@/lib/products';
 import { calculatePrice, formatPrice } from '@/lib/pricing';
-import { track } from '@/lib/ld';
+import { track, stringVariation } from '@/lib/ld';
 
 // Express checkout: single-item, address-free order flow.
 // Skips the full cart and shipping fields — reduces friction for impulse buys.
@@ -21,6 +21,14 @@ interface ExpressCheckoutBody {
 }
 
 export async function POST(req: NextRequest) {
+  // Gate the entire endpoint behind the enable-express-checkout flag.
+  // Returns 404 when flag is off (control) — guards against direct URL access
+  // while the button is hidden on the frontend.
+  const expressVariation = await stringVariation('enable-express-checkout', 'anonymous', 'control');
+  if (expressVariation !== 'v1') {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  }
+
   let body: ExpressCheckoutBody;
   try {
     body = await req.json();
