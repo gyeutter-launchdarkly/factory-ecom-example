@@ -23,6 +23,30 @@ is_current() {
   git merge-base --is-ancestor main "feature/$1" 2>/dev/null
 }
 
+# True when the branch is missing commits from main that touched the app itself.
+# Missing only tooling or docs commits is harmless: the branch's diff cannot
+# revert app code it never touched.
+needs_attention() {
+  is_current "$1" && return 1
+  local changed
+  changed=$(git diff --name-only "feature/$1"...main -- src 2>/dev/null | head -1)
+  [[ -n "$changed" ]]
+}
+
+# Bring a branch up to date without asking. Rebasing onto main is safe and fast,
+# and doing it silently keeps a demo moving.
+autosync() {
+  is_current "$1" && return 0
+  if git rebase main "feature/$1" >/dev/null 2>&1; then
+    git checkout -q main 2>/dev/null || true
+    make _tag-seeds >/dev/null 2>&1
+    return 0
+  fi
+  git rebase --abort >/dev/null 2>&1 || true
+  git checkout -q main 2>/dev/null || true
+  return 1
+}
+
 app_state() {
   if curl -sf -o /dev/null --max-time 2 http://localhost:3000/ 2>/dev/null; then
     echo "running"
@@ -159,10 +183,10 @@ pick_scenario() {
   for s in "${list[@]}"; do
     local title mark
     title=$(jq -r '.pull_request.title' "$EVENTS_DIR/$s.json")
-    if is_current "$s"; then
-      mark="${GR}ready${R}"
-    else
+    if needs_attention "$s"; then
       mark="${YE}needs rebase${R}"
+    else
+      mark="${GR}ready${R}"
     fi
     printf "    %d) %-18s %-46s %b\n" "$i" "$s" "${title:0:46}" "$mark" >&2
     i=$((i + 1))
@@ -179,27 +203,25 @@ pick_scenario() {
   fi
 
   local chosen="${list[$((choice - 1))]}"
+
   if ! is_current "$chosen"; then
-    echo "" >&2
-    echo -e "  ${YE}!${R}  feature/$chosen is behind main by $(git rev-list --count "feature/$chosen"..main 2>/dev/null) commit(s)." >&2
-    echo -e "  ${D}If any of those touched the UI, its diff will revert them mid-demo.${R}" >&2
-    local ans=""
-    read -r -p "  Rebase it now? [Y/n] " ans </dev/tty 2>/dev/null || return 1
-    if [[ ! "${ans:-Y}" =~ ^[Nn]$ ]]; then
+    if needs_attention "$chosen"; then
       echo "" >&2
-      if git rebase main "feature/$chosen" >/dev/null 2>&1; then
-        git checkout -q main 2>/dev/null || true
-        make _tag-seeds >/dev/null 2>&1
-        echo -e "  ${GR}v${R}  rebased feature/$chosen and re-tagged its seed" >&2
-      else
-        git rebase --abort >/dev/null 2>&1 || true
-        git checkout -q main 2>/dev/null || true
-        echo -e "  ${YE}!${R}  rebase hit conflicts; resolve by hand:" >&2
-        echo -e "  ${D}    git rebase main feature/$chosen${R}" >&2
-        return 1
-      fi
+      echo -e "  ${YE}!${R}  main has app changes feature/$chosen does not." >&2
+      echo -e "  ${D}Running it as-is would revert them mid-demo.${R}" >&2
+      local ans=""
+      read -r -p "  Rebase it now? [Y/n] " ans </dev/tty 2>/dev/null || return 1
+      [[ "${ans:-Y}" =~ ^[Nn]$ ]] && return 1
+    fi
+    # Either it only missed tooling commits, or you asked for the rebase.
+    if ! autosync "$chosen"; then
+      echo "" >&2
+      echo -e "  ${YE}!${R}  rebase hit conflicts; resolve by hand:" >&2
+      echo -e "  ${D}    git rebase main feature/$chosen${R}" >&2
+      return 1
     fi
   fi
+
   printf '%s' "$chosen"
 }
 
