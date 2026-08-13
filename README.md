@@ -67,7 +67,7 @@ bash demo/setup.sh
 
 It collects your credentials, writes `.env.local`, provisions the seed flag, creates the
 `auto-factory` View in LaunchDarkly, installs the secret-blocking git hook, configures the
-GitHub Action, and launches the app. Re-running it shows each existing value masked and
+GitHub Action, starts the app, and drops you into the demo menu. Re-running it shows each existing value masked and
 offers to keep or replace it, so it is safe to run again.
 
 **After the TUI, `make ci` needs no further setup.** `make run` (real PRs) also needs
@@ -149,6 +149,22 @@ factory repo somewhere else, change the owner in the `uses:` line of
 
 ## Running a demo
 
+### Stay in the TUI
+
+The setup script ends in a demo menu, and you can return to it any time:
+
+```bash
+make menu          # or: bash demo/menu.sh
+```
+
+From there you can pick a scenario and run it locally or as a real PR, start or open the
+app, replay a fake run to rehearse, reset between demos, and check which branches are
+current. The scenario list marks each branch `ready` or `needs rebase` — computed by
+checking whether `main` is an ancestor of it, so it stays accurate as branches are
+rebased, and it warns before running one that would revert the UI.
+
+### Or run directly
+
 Two ways to run the factory:
 
 ```bash
@@ -157,15 +173,42 @@ make run SCENARIO=express-checkout   # opens a real PR; runs in GitHub Actions.
 ```
 
 Use `make ci` in front of an audience — it starts immediately and needs no GitHub setup.
-Use `make run` when the point is the GitHub integration: the action fires on the PR, and
-afterwards the PR carries a summary comment, a check run, and new commits (flag wiring,
-metrics, tests).
+Use `make run` when the point is the GitHub integration.
+
+`make run` pushes the branch, opens a PR (title and body come from
+`demo/ci/events/<scenario>.json`, the same payload `make ci` feeds act), and then on
+GitHub:
+
+1. The `pull_request: opened` event fires `.github/workflows/auto-factory.yml`
+2. The action checks out the PR head and runs the six-agent chain
+3. It creates the flag and metrics in LaunchDarkly, tagged `auto-factory`
+4. It commits flag wiring, metrics, tests, and the release manifest **to the PR branch**
+5. It posts a summary comment and a check run on the PR
+
+Because step 4 pushes to the branch, it would normally re-fire the workflow via
+`synchronize`; the workflow guards against that with
+`if: github.actor != 'github-actions[bot]'`. If the `AUTOFACTORY_REQUIRE_LABEL` repo
+variable is `true`, nothing runs until you add the `autofactory` label — which is itself a
+nice thing to demo.
+
+`make run` uses the `gh` CLI when present and falls back to the GitHub REST API with the
+PAT from `.env.local`, so it works either way.
 
 Either way the store's bottom pane shows the six agents as a live flowchart, with the
 created flag and metrics linking straight into LaunchDarkly. The flags also collect under
 the `auto-factory` View in your project.
 
 See the **Demo talk track** below for what to say at each step.
+
+### What it does not respond to
+
+The workflow triggers on `opened`, `synchronize`, `reopened`, and `labeled` — **not** on
+merge. That is deliberate: Phase 1 is the PR-time half of the factory. The post-merge half
+is Beacon (Phase 2), and it is driven by a *deploy* notification rather than the merge —
+`auto-factory-notify` POSTs the deployed SHA range to Beacon's `/flag-releases`, which
+discovers the new `.release-flags/` manifests in that range and starts the guarded
+rollout. So the real chain is merge → deploy → notify → guarded release, and nothing
+happens on merge alone unless you are running Beacon and something calls the notifier.
 
 ## Resetting between runs
 

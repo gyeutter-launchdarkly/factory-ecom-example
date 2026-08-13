@@ -312,10 +312,12 @@ configure_github
 echo ""
 echo -e "${GR}${B}"
 echo "  +--------------------------------------------------+"
-echo "  |   All set!  Launching demo app...                |"
-echo "  |                                                  |"
-echo "  |   App       ->  http://localhost:3000            |"
-echo "  |   Factory   ->  make ci SCENARIO=dynamic-pricing |"
+echo "  |   All set!  Starting the app...                  |"
 echo "  +--------------------------------------------------+"
 echo -e "${R}"
-make dev
+
+# Start detached and hand over to the demo menu, so scenarios can be run from
+# here rather than dropping back to the shell for `make ci`/`make run`.
+docker compose up -d --build
+./demo/open-app.sh || true
+exec ./demo/menu.sh
