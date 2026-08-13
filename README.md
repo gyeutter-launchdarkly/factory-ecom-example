@@ -126,8 +126,9 @@ In this repo's GitHub settings (**Settings → Secrets and variables → Actions
 |----------|-------|
 | `LD_APP_PROJECT_KEY` | `checkout-demo` (or whatever you set in `.env.local`) |
 
-Finally, edit `.github/workflows/auto-factory.yml` and replace `<owner>` with the GitHub
-org or user hosting the `launchdarkly-auto-factory` repo.
+The workflow points at `launchdarkly-labs/launchdarkly-auto-factory`. If you host the
+factory repo somewhere else, change the owner in the `uses:` line of
+`.github/workflows/auto-factory.yml`.
 
 ## Running a demo
 
@@ -148,10 +149,135 @@ make reset
 ```
 
 This:
-1. Runs `terraform destroy` then `terraform apply`, deletes the LD project and all
-   factory-created flags/metrics, then recreates it clean
-2. Resets `feature/*` branches from their `demo-seed/*` tags (removes factory commits)
-3. Closes any open PRs on feature branches
+1. Deletes every LaunchDarkly flag and metric tagged `auto-factory` via the REST API,
+   preserving the `show-product-reviews` seed flag. Your project is never destroyed, so
+   this is safe to run against a shared project.
+2. Resets all six `feature/*` branches from their `demo-seed/*` tags, force-pushing to
+   drop the factory's commits.
+
+Use `make reset-ld` for the LaunchDarkly side only, leaving branches alone.
+
+Open PRs are **not** closed automatically — close them yourself, or leave them and let
+the force-push update them in place.
+
+## Demo talk track
+
+Step by step, with what to show where. Budget 10–15 minutes.
+
+Have two windows side by side: the store at http://localhost:3000 and LaunchDarkly.
+
+### 0. Before you start
+
+- `make dev` — app up, browser opens automatically
+- In LaunchDarkly, open the project and filter to the `auto-factory` tag (the setup
+  wizard creates this View). It should be empty except the seed flag.
+- Pick a scenario. **`express-checkout`** is the best opener: the clearest visual change,
+  a whole new page and a Buy Now button.
+
+### 1. Set the scene: one hand-written flag (web app + LD)
+
+Show the store. In LaunchDarkly, find **`show-product-reviews`** — the only flag that
+exists before the demo. Toggle it on, refresh the store, review counts appear on the
+product cards.
+
+> "This is the one flag a human wrote. It's evaluated in `src/app/api/products/route.ts`.
+> Everything else you're about to see, the factory writes itself — and it writes it by
+> copying *this* pattern."
+
+That last point is the setup for step 3: the research agent greps the repo for the
+existing flag-evaluation idiom and imitates it, which is why the generated code fits.
+
+### 2. Show the "before" (web app)
+
+Walk the flow the scenario is about to change. For `express-checkout`: product grid,
+add to bag, cart, checkout. Note that the only way to buy is through the cart.
+
+### 3. Trigger the factory (terminal)
+
+```bash
+make ci SCENARIO=express-checkout    # local via act, no queue wait
+# or
+make run SCENARIO=express-checkout   # opens a real PR, runs in GitHub Actions
+```
+
+Use `make ci` for a live audience — no queue, no cold start. Use `make run` when the
+point is the GitHub integration (PR comment, check run, commits pushed to the branch).
+
+### 4. Narrate the chain (factory pane, bottom of the store)
+
+The pane at the bottom of the store shows the six agents as a flowchart: green done,
+blue in progress, grey still to do. Each box names the model that ran it and what it
+produced, and the flag and metric names are links into LaunchDarkly.
+
+| Agent | What to say |
+|-------|-------------|
+| Research & plan | Reads `.autofactory/services.yaml`, classifies the change, computes blast radius |
+| Flag | Creates the flag in LaunchDarkly and wires it into the code |
+| Metrics | Creates guarded-release metrics and the instrumentation to feed them |
+| Manifest | Writes `.release-flags/*.yaml` — the rollout intent Phase 2 picks up |
+| Tests | Flag-on / flag-off tests |
+| Review | Verdict and risk level |
+
+Good beat during Research & plan: `services.yaml` marks `src/lib/pricing.ts` and
+`src/app/api/checkout/route.ts` as critical paths, so pricing scenarios get flagged as
+high blast radius. The agent knows what's revenue-critical because someone told it once.
+
+If you have several PRs in flight, the dropdown in the pane switches between their flows.
+
+### 5. Show what landed (LD UI)
+
+Click the flag link straight from the pane, or open the `auto-factory` View. Show:
+
+- the new flag, tagged `auto-factory`, nobody typed it
+- the metric, wired to the `checkout-completed` event the app already tracks in
+  `src/app/api/checkout/route.ts`
+- the `.release-flags/` manifest committed to the branch
+
+### 6. The payoff: flip it (LD UI + web app)
+
+Turn the new flag on in LaunchDarkly. Refresh the store. The feature appears.
+
+> "The agent created that flag, wired it, and gave it metrics. I'm turning it on from
+> LaunchDarkly — no deploy, no code change."
+
+This is the strongest moment in the demo. Don't rush it.
+
+### 7. Reset
+
+```bash
+make reset
+```
+
+### Scenario notes
+
+`tiered-pricing`, `express-checkout`, and `stripe-checkout` are current and safe to demo.
+
+`product-ratings`, `discount-codes`, and `dynamic-pricing` were written against an older
+version of the UI and have not been rebased. Their diffs revert the current design, so
+**don't demo them** until they're rebased onto `main`.
+
+### Rehearsing without a real run
+
+```bash
+make demo-progress
+```
+
+Replays a synthetic run into the factory pane so you can practise the narration without
+spending an Anthropic call. Run it twice with different PR numbers to rehearse the
+dropdown:
+
+```bash
+./demo/replay-progress.sh express-checkout 2 7 &
+./demo/replay-progress.sh stripe-checkout  3 9 &
+```
+
+### Known rough edge
+
+On the `make ci` (act) path the factory action emits nothing per step — it prints all its
+per-node output only after the whole chain finishes. The flowchart therefore sits at
+`stalled` for most of the run and then fills in at the end. Steps animate live only on
+the `phase1-cli` path. If you want a live-filling chart in front of an audience, rehearse
+with `make demo-progress` and be ready to explain that the real run reports in a batch.
 
 ## Demo talking points
 

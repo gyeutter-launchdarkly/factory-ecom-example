@@ -3,7 +3,11 @@
 # Run via `make reset` — do not run directly while the app has open PRs.
 set -euo pipefail
 
-SCENARIOS=(product-ratings discount-codes dynamic-pricing)
+# Keep in sync with the scenario list in the Makefile (`help`, `_tag-seeds`).
+SCENARIOS=(
+  product-ratings discount-codes dynamic-pricing
+  tiered-pricing express-checkout stripe-checkout
+)
 
 for scenario in "${SCENARIOS[@]}"; do
   branch="feature/${scenario}"
