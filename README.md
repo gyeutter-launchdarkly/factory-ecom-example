@@ -14,10 +14,13 @@ it.
 - **Deploy**: code goes out flag-off, no users affected
 - **Release**: Beacon starts a guarded rollout, reverting if metrics degrade
 
-Primitives: **AI configs** define the chain, read at runtime. Each PR gets a
-**multivariate flag** (`control` + `v1`, off everywhere) as the release gate. **Metrics**
-drive the revert. **Judges** score agent output against the git diff. `auto-factory-*`
-**flags** control the factory itself.
+Primitives:
+
+- **AI configs** define the chain, read at runtime
+- **Multivariate flag** per PR (`control` + `v1`, off everywhere), the release gate
+- **Metrics** drive the automatic revert
+- **Judges** score agent output against the git diff
+- **`auto-factory-*` flags** control the factory itself
 
 ## Scenarios
 
@@ -80,20 +83,19 @@ make ci  SCENARIO=express-checkout   # local via act; instant, no GitHub setup
 make run SCENARIO=express-checkout   # real PR; runs in GitHub Actions
 ```
 
-`make ci` for a live audience. `make run` to show the GitHub integration: it
-pushes the branch and opens a PR (title and body from `demo/ci/events/<scenario>.json`, the
-same payload act gets), then the action runs the chain, creates the flag and metrics,
-commits the wiring, metrics, tests, and manifest **to the PR branch**, and posts a comment
-and check run. That push is kept from re-firing the workflow by
-`if: github.actor != 'github-actions[bot]'`. If the repo variable
-`AUTOFACTORY_REQUIRE_LABEL` is `true`, nothing runs until you add the `autofactory` label.
-
-Both paths show the chain as a live flowchart in the store's bottom pane, linking into LD.
-
-**Merging triggers nothing.** Phase 1 is PR-time. Post-merge is Beacon, driven by a
-*deploy*: `auto-factory-notify` POSTs the deployed SHA range to `/flag-releases`, which
-finds the new `.release-flags/` manifests and starts the rollout. So merge → deploy →
-notify → release; merging alone does nothing without Beacon running.
+- `make ci` for a live audience, `make run` to show the GitHub integration
+- Both show the chain as a live flowchart in the store's bottom pane, linking into LD
+- `make run` pushes the branch and opens a PR, title and body from
+  `demo/ci/events/<scenario>.json`, the same payload act gets
+- The action then creates the flag and metrics, commits the wiring, metrics, tests, and
+  manifest **to the PR branch**, and posts a comment and check run
+- `if: github.actor != 'github-actions[bot]'` stops that push re-firing the workflow
+- Repo variable `AUTOFACTORY_REQUIRE_LABEL=true` holds the run until you add the
+  `autofactory` label
+- **Merging triggers nothing.** Phase 1 is PR-time. Post-merge is Beacon, driven by a
+  deploy: `auto-factory-notify` POSTs the deployed SHA range to `/flag-releases`, which
+  finds the new `.release-flags/` manifests and starts the rollout. So merge, deploy,
+  notify, release, and merging alone does nothing without Beacon running.
 
 ## Resetting
 
