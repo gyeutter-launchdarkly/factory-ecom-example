@@ -2,7 +2,14 @@
   "schemaVersion": "1.2",
   "flagKey": "enable-express-checkout",
   "scope": "fullstack",
-  "releasePlan": {},
+  "releasePlan": {
+    "metricKeys": [
+      "checkout-completed",
+      "express-checkout-conversion"
+    ],
+    "randomizationUnit": "user",
+    "notes": "Control path (flag off/control variation): Buy Now button hidden, /api/express-checkout returns 404, /express-checkout page unreachable via normal navigation. v1 path (flag on): Buy Now button visible on all product cards, full express checkout flow available. API guard uses stringVariation fail-safe default of 'control'. No prerequisites — express checkout is independent of show-product-reviews."
+  },
   "releaseIntent": {
     "_instructions": "Human approver: edit freely. action: auto (release on deploy) | hold (do not release yet) | manual (a human runs the release). Structured fields execute; anything else goes in notes (an agent will structure it on the PR for your review). Blank fields = default auto-release on deploy. prerequisites: [{\"flagKey\": \"flag-xyz\", \"variation\": \"on\"}]. notBefore: YYYY-MM-DD. reference: ticket/doc URL.",
     "action": "auto",
