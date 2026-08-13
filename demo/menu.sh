@@ -23,6 +23,12 @@ is_current() {
   git merge-base --is-ancestor main "feature/$1" 2>/dev/null
 }
 
+# A scenario whose diff against main is empty has already been merged: there is
+# nothing left to demo, and opening a PR fails with "No commits between".
+is_spent() {
+  git diff --quiet main.."feature/$1" -- src 2>/dev/null
+}
+
 # True when the branch is missing commits from main that touched the app itself.
 # Missing only tooling or docs commits is harmless: the branch's diff cannot
 # revert app code it never touched.
@@ -183,7 +189,9 @@ pick_scenario() {
   for s in "${list[@]}"; do
     local title mark
     title=$(jq -r '.pull_request.title' "$EVENTS_DIR/$s.json")
-    if needs_attention "$s"; then
+    if is_spent "$s"; then
+      mark="${D}merged, nothing to demo${R}"
+    elif needs_attention "$s"; then
       mark="${YE}needs rebase${R}"
     else
       mark="${GR}ready${R}"
@@ -203,6 +211,14 @@ pick_scenario() {
   fi
 
   local chosen="${list[$((choice - 1))]}"
+
+  if is_spent "$chosen"; then
+    echo "" >&2
+    echo -e "  ${YE}!${R}  feature/$chosen is already merged into main." >&2
+    echo -e "  ${D}Opening a PR would fail: there are no commits between them." >&2
+    echo -e "  Revert the merge on main to demo it again, or pick another.${R}" >&2
+    return 1
+  fi
 
   if ! is_current "$chosen"; then
     if needs_attention "$chosen"; then
