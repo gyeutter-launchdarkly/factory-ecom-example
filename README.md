@@ -14,7 +14,7 @@ it.
 - **Deploy**: code goes out flag-off, no users affected
 - **Release**: Beacon starts a guarded rollout, reverting if metrics degrade
 
-Primitives:
+LaunchDarkly primitives:
 
 - **CodeControl**
   - **Feature flags**
@@ -27,16 +27,17 @@ Primitives:
 
 ## Scenarios
 
-| Branch | Change | Risk | Ready |
-|--------|--------|------|-------|
-| `feature/express-checkout` | Buy Now, bypassing the cart | Medium | Yes |
-| `feature/stripe-checkout` | Payments to Stripe (mocked) | Medium | Yes |
-| `feature/tiered-pricing` | Quantity discounts in the cart | Medium | Yes |
-| `feature/product-ratings` | Star ratings on product cards | Low | Needs rebase |
-| `feature/discount-codes` | Discount code at checkout | Medium | Needs rebase |
-| `feature/dynamic-pricing` | Demand-based price multiplier | High (~0.8) | Needs rebase |
+| Branch | Change | Risk |
+|--------|--------|------|
+| `feature/express-checkout` | Buy Now, bypassing the cart | Medium |
+| `feature/stripe-checkout` | Payments to Stripe (mocked) | Medium |
+| `feature/tiered-pricing` | Quantity discounts in the cart | Medium |
+| `feature/product-ratings` | Star ratings on product cards | Low |
+| `feature/discount-codes` | Discount code at checkout | Medium |
+| `feature/dynamic-pricing` | Demand-based price multiplier | High (~0.8) |
 
-The last three predate the current UI and their diffs revert it. `make menu` marks which is which.
+Each branch carries one commit: the feature, nothing else. `make menu` flags any that fall
+behind `main`.
 
 `.autofactory/services.yaml` marks pricing and checkout critical, so those score higher
 blast radius; with `auto-factory-approval-mode` set to `risk-threshold`, `dynamic-pricing`
