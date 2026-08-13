@@ -11,7 +11,7 @@ TF_RUN := docker compose run --rm \
   -e TF_VAR_environment_key='$(or $(LD_ENVIRONMENT_KEY),production)' \
   terraform
 
-.PHONY: setup dev menu open hooks reset reset-ld run ci _tag-seeds help
+.PHONY: setup dev menu open hooks pr reset reset-ld run ci _tag-seeds help
 
 help:
 	@echo "make setup                  First-time setup: create seed flag + LD View, tag branches"
@@ -20,6 +20,7 @@ help:
 	@echo "make reset-ld               Delete only the auto-factory LD flags + metrics"
 	@echo "make run SCENARIO=<name>    Open a PR for a scenario (via GitHub API)"
 	@echo "make ci  SCENARIO=<name>    Run the factory locally via act (no GitHub queue)"
+	@echo "make pr  SCENARIO=<name>    Real PR on GitHub, factory run locally by act"
 	@echo "make menu                   Interactive menu: pick scenarios, run, reset"
 	@echo "make open                   Print the app link and open it in a browser"
 	@echo "make hooks                  Install git hooks that block committing API keys"
@@ -51,6 +52,11 @@ setup:
 dev:
 	@./demo/open-app.sh &
 	docker compose up --build
+
+## Real PR on GitHub, factory run locally by act (fast + visible)
+## Usage: make pr SCENARIO=express-checkout
+pr:
+	@./demo/ci/run-pr.sh $(SCENARIO)
 
 ## Interactive demo menu: pick scenarios, run the factory, reset
 menu:

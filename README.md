@@ -82,20 +82,32 @@ By hand instead: [docs/MANUAL-SETUP.md](docs/MANUAL-SETUP.md).
 ## Running it
 
 ```bash
-make menu                            # pick a scenario, run, reset, check branches
-make ci  SCENARIO=express-checkout   # local via act; instant, no GitHub setup
-make run SCENARIO=express-checkout   # real PR; runs in GitHub Actions
+make menu                            # pick a scenario; runner comes from Settings
+make pr  SCENARIO=express-checkout   # real PR, act runs it here. Fast and visible.
+make ci  SCENARIO=express-checkout   # canned event, nothing touches GitHub
+make run SCENARIO=express-checkout   # real PR, GitHub Actions runs it. Queue wait.
 ```
 
-- `make ci` for a live audience, `make run` to show the GitHub integration
-- Both show the chain as a live flowchart in the store's bottom pane, linking into LD
-- `make run` pushes the branch and opens a PR, title and body from
-  `demo/ci/events/<scenario>.json`, the same payload act gets
-- The action then creates the flag and metrics, commits the wiring, metrics, tests, and
-  manifest **to the PR branch**, and posts a comment and check run
-- `if: github.actor != 'github-actions[bot]'` stops that push re-firing the workflow
-- Repo variable `AUTOFACTORY_REQUIRE_LABEL=true` holds the run until you add the
-  `autofactory` label
+Three runners, switchable in the menu under **Settings**:
+
+| Runner | PR on GitHub | Chain runs | Use it for |
+|--------|--------------|-----------|------------|
+| `act+pr` (default) | real | locally, via act | live demos: a real PR, no queue |
+| `act` | none | locally, via act | offline, or before credentials exist |
+| `actions` | real | GitHub Actions | showing the hosted pipeline as it really is |
+
+- `make pr` reuses an open PR for the branch or opens one, then builds the act event from
+  the **live** PR: number, title, body, base ref, and the head **sha**, so the check run
+  attaches to the PR's own commit rather than an invented one
+- The chain then writes to that real PR: a summary comment, a check run, and commits of the
+  flag wiring, metrics, tests, and manifest **to the PR branch**
+- To stop GitHub also running the chain on the same PR, set the repo variable
+  `AUTOFACTORY_REQUIRE_LABEL=true`. The hosted job then waits for an `autofactory` label
+  you never add, while `make pr` passes `false` to act so the local run proceeds. `make pr`
+  warns if the variable is unset
+- `if: github.actor != 'github-actions[bot]'` stops the factory's own push re-firing the
+  workflow
+- All three show the chain as a live flowchart in the store's bottom pane, linking into LD
 - **Merging triggers nothing.** Phase 1 is PR-time. Post-merge is Beacon, driven by a
   deploy: `auto-factory-notify` POSTs the deployed SHA range to `/flag-releases`, which
   finds the new `.release-flags/` manifests and starts the rollout. So merge, deploy,
@@ -116,7 +128,7 @@ factory, so its results show up in your next demo. `make reset-ld` does LD only.
 
 10–15 min. Store and LD side by side. Use `express-checkout`.
 
-1. `make menu` → 3, app up
+1. `make menu` → 2, app up
 2. LD → filter tag `auto-factory`, empty but for the seed flag
 3. LD → `show-product-reviews` on
 4. Store → refresh, review counts appear
@@ -130,7 +142,7 @@ factory, so its results show up in your next demo. `make reset-ld` does LD only.
 10. LD → new flag on
 11. Store → refresh, feature appears. Don't rush this one
     > "The agent created that flag, wired it, gave it metrics. No deploy, no code change."
-12. `make menu` → 6, reset
+12. `make menu` → 5, reset
 
 Rehearse without spending a call: `make demo-progress`. Two at once, to show the PR
 dropdown:

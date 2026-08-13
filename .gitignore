@@ -30,3 +30,6 @@ act-secrets.*
 
 # TypeScript incremental build info (build artifact)
 tsconfig.tsbuildinfo
+
+# Demo menu settings (local preference, not shared)
+.autofactory/demo-settings

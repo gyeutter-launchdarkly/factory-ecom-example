@@ -31,6 +31,102 @@ app_state() {
   fi
 }
 
+SETTINGS_FILE=".autofactory/demo-settings"
+
+# Defaults. RUNNER decides what "run the factory" does:
+#   act      canned event, dummy token. Nothing touches GitHub. Fastest.
+#   act+pr   real PR on GitHub, chain executed locally by act. Fast AND visible.
+#   actions  real PR, chain executed by GitHub Actions. Realistic, queue wait.
+RUNNER="act+pr"
+REPLAY_SECS="2"
+AUTO_OPEN="on"
+
+load_settings() {
+  [[ -f "$SETTINGS_FILE" ]] || return 0
+  while IFS='=' read -r k v; do
+    [[ "$k" =~ ^[[:space:]]*# || -z "${k// }" ]] && continue
+    case "$k" in
+      RUNNER | REPLAY_SECS | AUTO_OPEN) printf -v "$k" '%s' "$v" ;;
+    esac
+  done < "$SETTINGS_FILE"
+}
+
+save_settings() {
+  mkdir -p "$(dirname "$SETTINGS_FILE")"
+  cat > "$SETTINGS_FILE" <<EOF
+RUNNER=$RUNNER
+REPLAY_SECS=$REPLAY_SECS
+AUTO_OPEN=$AUTO_OPEN
+EOF
+}
+
+runner_label() {
+  case "$RUNNER" in
+    act)     echo "act only (nothing on GitHub)" ;;
+    act+pr)  echo "real PR + act (fast, visible)" ;;
+    actions) echo "real PR + GitHub Actions (queue wait)" ;;
+    *)       echo "$RUNNER" ;;
+  esac
+}
+
+# Dispatch a scenario through whichever runner is selected.
+run_scenario() {
+  case "$RUNNER" in
+    act)     make ci SCENARIO="$1" ;;
+    act+pr)  make pr SCENARIO="$1" ;;
+    actions) make run SCENARIO="$1" ;;
+    *)       echo "  unknown RUNNER '$RUNNER'; fix it in Settings"; return 1 ;;
+  esac
+}
+
+settings_screen() {
+  while true; do
+    clear
+    echo -e "${B}"
+    echo "  +--------------------------------------------------+"
+    echo "  |        Settings                                  |"
+    echo "  +--------------------------------------------------+"
+    echo -e "${R}"
+    echo -e "    1) Factory runner       ${GR}$(runner_label)${R}"
+    echo -e "    2) Replay speed         ${GR}${REPLAY_SECS}s per step${R}"
+    echo -e "    3) Open browser on start ${GR}${AUTO_OPEN}${R}"
+    echo ""
+    echo "    0) back"
+    echo ""
+    local c=""
+    read -r -p "  > " c </dev/tty 2>/dev/null || return 0
+    case "$c" in
+      1)
+        echo ""
+        echo "    1) act only      canned event, dummy token, nothing on GitHub"
+        echo "    2) real PR + act opens a real PR, act runs the chain against it"
+        echo "    3) real PR + Actions  hosted run, realistic but you wait"
+        echo ""
+        local r=""
+        read -r -p "  > " r </dev/tty 2>/dev/null || continue
+        case "$r" in
+          1) RUNNER="act" ;;
+          2) RUNNER="act+pr" ;;
+          3) RUNNER="actions" ;;
+        esac
+        save_settings
+        ;;
+      2)
+        local v=""
+        read -r -p "  seconds per step [${REPLAY_SECS}]: " v </dev/tty 2>/dev/null || continue
+        [[ "$v" =~ ^[0-9]+$ ]] && REPLAY_SECS="$v" && save_settings
+        ;;
+      3)
+        [[ "$AUTO_OPEN" == "on" ]] && AUTO_OPEN="off" || AUTO_OPEN="on"
+        save_settings
+        ;;
+      0 | "") return 0 ;;
+    esac
+  done
+}
+
+load_settings
+
 pick_scenario() {
   # Prints the chosen scenario on stdout; everything else goes to stderr so the
   # caller can capture the value cleanly.
@@ -95,20 +191,21 @@ while true; do
   fi
   echo -e "  ${D}Branch:${R} $(git branch --show-current)"
   echo ""
-  echo -e "  ${BL}${B}Run the factory${R}"
-  echo "    1) Locally, via act          (no queue, no GitHub setup)"
-  echo "    2) As a real PR              (runs in GitHub Actions)"
+  echo -e "  ${D}Runner:${R} $(runner_label)"
+  echo ""
+  echo -e "  ${BL}${B}Factory${R}"
+  echo "    1) Run a scenario"
   echo ""
   echo -e "  ${BL}${B}App${R}"
-  echo "    3) Start / rebuild"
-  echo "    4) Open in browser"
-  echo "    5) Replay a fake factory run (rehearse the flowchart)"
+  echo "    2) Start / rebuild"
+  echo "    3) Open in browser"
+  echo "    4) Replay a fake run (rehearse the flowchart)"
   echo ""
   echo -e "  ${BL}${B}Between demos${R}"
-  echo "    6) Reset (delete factory flags, close PRs, rewind branches)"
-  echo "    7) Show branch status"
+  echo "    5) Reset (delete factory flags, close PRs, rewind branches)"
+  echo "    6) Show branch status"
   echo ""
-  echo "    q) Quit"
+  echo "    s) Settings      q) Quit"
   echo ""
 
   choice=""
@@ -122,41 +219,35 @@ while true; do
     1)
       if s=$(pick_scenario); then
         echo ""
-        make ci SCENARIO="$s"
+        run_scenario "$s"
         pause
       fi
       ;;
     2)
-      if s=$(pick_scenario); then
-        echo ""
-        make run SCENARIO="$s"
-        pause
-      fi
-      ;;
-    3)
       echo ""
-      docker compose up -d --build && ./demo/open-app.sh
+      docker compose up -d --build
+      [[ "$AUTO_OPEN" == "on" ]] && ./demo/open-app.sh || NO_OPEN=1 ./demo/open-app.sh
       pause
       ;;
-    4)
+    3)
       ./demo/open-app.sh
       pause
       ;;
-    5)
+    4)
       if s=$(pick_scenario); then
         echo ""
         pr=""
         read -r -p "  PR number to label it with [7]: " pr </dev/tty 2>/dev/null || true
-        ./demo/replay-progress.sh "$s" 2 "${pr:-7}"
+        ./demo/replay-progress.sh "$s" "$REPLAY_SECS" "${pr:-7}"
         pause
       fi
       ;;
-    6)
+    5)
       echo ""
       make reset
       pause
       ;;
-    7)
+    6)
       echo ""
       for s in $(scenarios); do
         printf "    %-18s " "$s"
@@ -167,6 +258,9 @@ while true; do
         fi
       done
       pause
+      ;;
+    s | S)
+      settings_screen
       ;;
     q | Q)
       echo ""
