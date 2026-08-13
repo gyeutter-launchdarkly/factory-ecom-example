@@ -27,7 +27,20 @@ fi
 SECRETS_FILE=$(mktemp /tmp/act-secrets.XXXXXX)
 trap "rm -f $SECRETS_FILE" EXIT
 
-grep -E "^(LD_SDK_KEY|LD_API_KEY|ANTHROPIC_API_KEY)=" .env.local 2>/dev/null >> "$SECRETS_FILE" || true
+# The workflow's LD_SDK_KEY is the FACTORY project's key — it resolves the agent
+# AI configs. The app project's key (also called LD_SDK_KEY, in .env.local, used
+# by the app container) would make the factory fail to find its agent graph, so
+# map the factory key onto the secret name the workflow reads.
+FACTORY_SDK_KEY=$(grep "^LD_FACTORY_SDK_KEY=" .env.local 2>/dev/null | cut -d= -f2- || true)
+if [[ -z "$FACTORY_SDK_KEY" || "$FACTORY_SDK_KEY" == "placeholder" ]]; then
+  echo "LD_FACTORY_SDK_KEY is not set in .env.local."
+  echo "The factory needs the FACTORY project's SDK key to read its agent AI configs."
+  echo "Re-run 'bash demo/setup.sh' to add it."
+  exit 1
+fi
+echo "LD_SDK_KEY=$FACTORY_SDK_KEY" >> "$SECRETS_FILE"
+
+grep -E "^(LD_API_KEY|ANTHROPIC_API_KEY)=" .env.local 2>/dev/null >> "$SECRETS_FILE" || true
 # GITHUB_TOKEN: real token enables PR comments + check runs; dummy still runs the factory
 GITHUB_TOKEN_LINE=$(grep "^GITHUB_TOKEN=" .env.local 2>/dev/null || echo "GITHUB_TOKEN=dummy-local-run")
 echo "$GITHUB_TOKEN_LINE" >> "$SECRETS_FILE"

@@ -32,7 +32,7 @@ load_env() {
     [[ "$key" =~ ^[[:space:]]*# ]] && continue
     [[ -z "${key// }" ]] && continue
     case "$key" in
-      LD_APP_PROJECT_KEY|LD_ENVIRONMENT_KEY|LD_API_KEY|LD_SDK_KEY|ANTHROPIC_API_KEY|GITHUB_TOKEN)
+      LD_APP_PROJECT_KEY|LD_ENVIRONMENT_KEY|LD_API_KEY|LD_SDK_KEY|ANTHROPIC_API_KEY|GITHUB_TOKEN|LD_FACTORY_PROJECT_KEY|LD_FACTORY_SDK_KEY)
         printf -v "$key" '%s' "$val" ;;
     esac
   done < .env.local
@@ -83,8 +83,68 @@ LD_API_KEY=${LD_API_KEY}
 ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
 GITHUB_TOKEN=${GITHUB_TOKEN}
 LD_SDK_KEY=${LD_SDK_KEY:-placeholder}
+LD_FACTORY_PROJECT_KEY=${LD_FACTORY_PROJECT_KEY}
+LD_FACTORY_SDK_KEY=${LD_FACTORY_SDK_KEY:-placeholder}
 EOF
   ok "wrote .env.local"
+}
+
+# Configure the GitHub Action's secrets and variables so `make run` (real PRs)
+# works without visiting the repo settings UI.
+#
+# Secrets must be sealed-box encrypted with the repo's public key, which plain
+# curl cannot do — so this needs the `gh` CLI. Without it we print the exact
+# commands rather than pretending it is done. `make ci` does not need any of
+# this; it reads .env.local directly.
+configure_github() {
+  local slug
+  slug=$(git remote get-url origin 2>/dev/null \
+    | sed -E 's#(git@github.com:|https://github.com/)##; s#\.git$##' || true)
+  if [[ -z "$slug" ]]; then
+    warn "No git remote found; skipping GitHub Action setup (make ci still works)."
+    return 0
+  fi
+
+  echo -e "\n  ${D}Configuring GitHub Action secrets for ${slug}...${R}"
+
+  if ! command -v gh &>/dev/null; then
+    warn "gh CLI not installed, so the GitHub Action was not configured."
+    echo -e "  ${D}'make ci' works now. For 'make run' (real PRs), either install gh"
+    echo -e "  (brew install gh) and re-run this script, or set these by hand at"
+    echo -e "  https://github.com/${slug}/settings/secrets/actions :${R}"
+    echo -e "  ${D}  secret   LD_SDK_KEY          = <factory project SDK key>"
+    echo -e "  ${D}  secret   LD_API_KEY          = <your LD API token>"
+    echo -e "  ${D}  secret   ANTHROPIC_API_KEY   = <your Anthropic key>"
+    echo -e "  ${D}  variable LD_APP_PROJECT_KEY  = ${LD_APP_PROJECT_KEY}${R}"
+    return 0
+  fi
+
+  if ! GH_TOKEN="$GITHUB_TOKEN" gh auth status &>/dev/null; then
+    warn "gh is installed but the token was not accepted; skipping."
+    echo -e "  ${D}'make ci' still works. Check the PAT has repo access.${R}"
+    return 0
+  fi
+
+  # LD_SDK_KEY here is the FACTORY project's key, matching the workflow.
+  local failed=0
+  _gh_secret() {
+    printf '%s' "$2" \
+      | GH_TOKEN="$GITHUB_TOKEN" gh secret set "$1" --repo "$slug" --body-file - &>/dev/null \
+      && ok "secret $1" || { warn "could not set secret $1"; failed=1; }
+  }
+  _gh_secret LD_SDK_KEY "$LD_FACTORY_SDK_KEY"
+  _gh_secret LD_API_KEY "$LD_API_KEY"
+  _gh_secret ANTHROPIC_API_KEY "$ANTHROPIC_API_KEY"
+
+  GH_TOKEN="$GITHUB_TOKEN" gh variable set LD_APP_PROJECT_KEY \
+    --repo "$slug" --body "$LD_APP_PROJECT_KEY" &>/dev/null \
+    && ok "variable LD_APP_PROJECT_KEY" || { warn "could not set LD_APP_PROJECT_KEY"; failed=1; }
+
+  if [[ "$failed" -eq 0 ]]; then
+    ok "GitHub Action configured; 'make run' is ready"
+  else
+    warn "Some GitHub settings failed; 'make ci' still works."
+  fi
 }
 
 # Create (or confirm) an 'AutoFactory' saved view in the LD flag list
@@ -137,9 +197,11 @@ echo "  |        LaunchDarkly Factory Demo                 |"
 echo "  +--------------------------------------------------+"
 echo -e "${R}"
 echo -e "  ${D}What you'll need:${R}"
-echo -e "  ${D}  - LaunchDarkly Project with Guardian & AgentControl${R}"
+echo -e "  ${D}  - LaunchDarkly demo app project (where flags get created)${R}"
+echo -e "  ${D}  - LaunchDarkly factory project with Guardian & AgentControl${R}"
 echo -e "  ${D}  - Anthropic API Key${R}"
 echo -e "  ${D}  - GitHub access${R}"
+echo -e "  ${D}  - Optional: gh CLI, to auto-configure the GitHub Action${R}"
 echo ""
 if $IN_REPO; then
   echo -e "${D}  Mode: already in repo, skipping clone${R}"
@@ -190,8 +252,22 @@ ask_secret LD_API_KEY \
   "https://app.launchdarkly.com/settings/authorization\n  Role: Admin"
 
 ask_secret LD_SDK_KEY \
-  "LaunchDarkly SDK key" \
-  "https://app.launchdarkly.com/settings/sdk-keys?projKey=${LD_APP_PROJECT_KEY}&envKey=${LD_ENVIRONMENT_KEY:-production}"
+  "LaunchDarkly SDK key (app project: ${LD_APP_PROJECT_KEY})" \
+  "The demo app uses this to evaluate flags.\n  https://app.launchdarkly.com/settings/sdk-keys?projKey=${LD_APP_PROJECT_KEY}&envKey=${LD_ENVIRONMENT_KEY:-production}"
+
+# The factory reads its agent definitions (AI configs) from a SEPARATE project.
+# This is a different SDK key from the one above; using the app project's key
+# here makes the factory fail to resolve its agent graph.
+ask_text LD_FACTORY_PROJECT_KEY \
+  "LaunchDarkly factory project key" \
+  "The project holding the AutoFactory AI configs (not the demo app project)" \
+  "${LD_FACTORY_PROJECT_KEY:-}"
+LD_FACTORY_PROJECT_KEY=$(echo "$LD_FACTORY_PROJECT_KEY" \
+  | sed -E 's|https?://app\.launchdarkly\.com/projects/([^/?]+).*|\1|')
+
+ask_secret LD_FACTORY_SDK_KEY \
+  "LaunchDarkly SDK key (factory project: ${LD_FACTORY_PROJECT_KEY})" \
+  "The factory uses this to read its agent AI configs.\n  https://app.launchdarkly.com/settings/sdk-keys?projKey=${LD_FACTORY_PROJECT_KEY}&envKey=${LD_ENVIRONMENT_KEY:-production}"
 
 ask_secret ANTHROPIC_API_KEY \
   "Anthropic API key" \
@@ -208,6 +284,7 @@ step "Step 2 / 2 - Provision seed flag + LD View"
 echo -e "${D}  make setup  (Terraform in Docker, creates seed flag in your existing project)${R}\n"
 make setup
 create_ld_view
+configure_github
 
 # done
 echo ""

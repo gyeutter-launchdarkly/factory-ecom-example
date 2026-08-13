@@ -29,102 +29,112 @@ code, instrument metrics, write tests, and manage guarded rollouts.
 
 ## How it works
 
-Three pre-staged feature branches represent realistic engineering changes at different
-risk levels. When you open a PR from one of them, the AutoFactory agent chain runs:
+Six pre-staged feature branches represent realistic engineering changes at different risk
+levels. When you open a PR from one of them, the AutoFactory agent chain runs:
 
-| Branch | Change | Risk | AutoFactory behavior |
-|--------|--------|------|----------------------|
-| `feature/product-ratings` | Add star ratings to product cards | Low | Runs unattended, creates flag + metrics |
-| `feature/discount-codes` | Discount code field at checkout | Medium | Runs unattended, may flag for review |
-| `feature/dynamic-pricing` | Demand-based price multiplier | High (~0.8) | Approval gate fires before implementation |
+| Branch | Change | Risk | Demo-ready |
+|--------|--------|------|------------|
+| `feature/tiered-pricing` | Quantity discounts in the cart | Medium | Yes |
+| `feature/express-checkout` | Buy Now, bypassing the cart | Medium | Yes |
+| `feature/stripe-checkout` | Swap payment processing to Stripe (mocked) | Medium | Yes |
+| `feature/product-ratings` | Star ratings on product cards | Low | Needs rebase |
+| `feature/discount-codes` | Discount code field at checkout | Medium | Needs rebase |
+| `feature/dynamic-pricing` | Demand-based price multiplier | High (~0.8) | Needs rebase |
 
-## Setup (10 minutes)
+The last three were written against an older version of the UI. Their diffs revert the
+current design, so rebase them onto `main` before demoing them.
 
-### Prerequisites
+Pricing scenarios touch paths that `.autofactory/services.yaml` marks critical
+(`src/lib/pricing.ts`, `src/app/api/checkout/route.ts`), so they score higher blast
+radius. With `auto-factory-approval-mode` set to `risk-threshold`, `dynamic-pricing`
+trips the approval gate.
 
-- [Terraform](https://developer.hashicorp.com/terraform/install) (`brew install terraform`)
-- [gh CLI](https://cli.github.com) (`brew install gh`) + authenticated (`gh auth login`)
-- A LaunchDarkly account with a **factory project** already bootstrapped
+## Setup
+
+### Recommended: the wizard
+
+From anywhere (clones the repo first):
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/gyeutter-launchdarkly/factory-ecom-example/main/demo/setup.sh)
+```
+
+Already in the repo:
+
+```bash
+bash demo/setup.sh
+```
+
+It collects your credentials, writes `.env.local`, provisions the seed flag, creates the
+`auto-factory` View in LaunchDarkly, installs the secret-blocking git hook, configures the
+GitHub Action, and launches the app. Re-running it shows each existing value masked and
+offers to keep or replace it, so it is safe to run again.
+
+**After the wizard, `make ci` needs no further setup.** `make run` (real PRs) also needs
+nothing extra *if* the `gh` CLI is installed — otherwise the wizard prints the four
+GitHub settings to add by hand.
+
+### What you need before running it
+
+- **Docker** running (Terraform and the local CI runner both run in containers; no local
+  Terraform install needed)
+- A LaunchDarkly **factory project**, already bootstrapped with the AutoFactory AI configs
   (see [launchdarkly-auto-factory](../launchdarkly-auto-factory/INSTALL-CLAUDE-CODE.md))
-- Docker (for `make dev`)
+- A LaunchDarkly **demo app project** — this is where the factory creates flags. It must
+  already exist; the demo never creates or destroys projects.
+- A LaunchDarkly **API token** with Admin role
+  (https://app.launchdarkly.com/settings/authorization)
+- An **Anthropic API key** (https://console.anthropic.com/settings/keys)
+- A **GitHub PAT** with Contents and Pull requests set to *Read and write*
+  (https://github.com/settings/personal-access-tokens/new)
+- Optional: the [gh CLI](https://cli.github.com) (`brew install gh`), so the wizard can
+  configure the GitHub Action for you
 
-### 1. Get your LaunchDarkly API token
+### Credentials it asks for
 
-> **Where:** https://app.launchdarkly.com/settings/authorization
->
-> Click **"Create token"** → name it `checkout-demo` → Role: **Writer** → copy the `api-...` value.
+| Prompt | Goes to | Notes |
+|--------|---------|-------|
+| Demo app project key | `LD_APP_PROJECT_KEY` | Accepts a pasted project URL |
+| Environment key | `LD_ENVIRONMENT_KEY` | Defaults to `production` |
+| LaunchDarkly API key | `LD_API_KEY` | Creates flags, metrics, and the View |
+| SDK key (app project) | `LD_SDK_KEY` | The **app** uses this to evaluate flags |
+| Factory project key | `LD_FACTORY_PROJECT_KEY` | Where the agent AI configs live |
+| SDK key (factory project) | `LD_FACTORY_SDK_KEY` | The **factory** uses this to read its agents |
+| Anthropic API key | `ANTHROPIC_API_KEY` | Runs the agents |
+| GitHub PAT | `GITHUB_TOKEN` | PR comments, check runs, pushed commits |
 
-This token is used by both Terraform (to create the demo project) and the AutoFactory
-GitHub Action (to create flags and metrics in the demo project).
+> **Two different SDK keys, and they are not interchangeable.** The demo app evaluates
+> flags with the **app** project's key. The factory reads its agent definitions from the
+> **factory** project with that project's key. Giving the factory the app project's key
+> makes it fail to resolve its agent graph.
 
-### 2. Configure the environment
+Everything lands in `.env.local`, which is gitignored. A pre-commit hook additionally
+blocks commits containing real key patterns; `make hooks` installs it.
 
-```bash
-cp .env.example .env.local
-```
+### Manual setup
 
-Fill in two values to start:
+If you would rather not use the wizard: copy `.env.example` to `.env.local`, fill in the
+eight values from the table above, then run `make setup` (seed flag + seed tags + git
+hooks) and `make dev`.
 
-```
-LD_API_KEY=api-...         # from step 1
-LD_APP_PROJECT_KEY=checkout-demo   # or any unique key you prefer
-```
+### GitHub Action settings
 
-### 3. Provision LaunchDarkly resources
+The wizard sets these when `gh` is available. To set them by hand, go to
+**Settings → Secrets and variables → Actions**:
 
-```bash
-make setup
-```
+**Secrets:**
 
-This runs `terraform apply` to create:
-- The **Checkout Demo** LD project with Production and Staging environments
-- The seed flag `show-product-reviews` (already wired into the app; agents discover it)
+| Secret | Value |
+|--------|-------|
+| `LD_SDK_KEY` | **Factory** project SDK key (`sdk-...`) — resolves the agent AI configs |
+| `LD_API_KEY` | Your LaunchDarkly API token (`api-...`) |
+| `ANTHROPIC_API_KEY` | Your Anthropic API key (`sk-ant-...`) |
 
-At the end it prints URLs and instructions for the next step.
-
-### 4. Get the app's SDK key
-
-After `make setup`, follow the printed `production_sdk_key_url`:
-
-> **Where:** `https://app.launchdarkly.com/checkout-demo/production/settings`
->
-> Scroll to **"SDK keys"** → click **"..."** next to the server-side key → **"Copy SDK key"**.
-> It starts with `sdk-`.
-
-Add it to `.env.local`:
-
-```
-LD_SDK_KEY=sdk-...
-```
-
-### 5. Run the app
-
-```bash
-make dev          # starts the app at http://localhost:3000 via Docker
-# or, if you have Node 20+:
-npm install && npm run dev
-```
-
-### 6. Wire up the GitHub Action
-
-In this repo's GitHub settings (**Settings → Secrets and variables → Actions**):
-
-**Secrets** (sensitive; use the Secrets tab):
-
-| Secret | Value | Where to find it |
-|--------|-------|------------------|
-| `LD_SDK_KEY` | Factory project SDK key (`sdk-...`) | https://app.launchdarkly.com → **your factory project** → Environments → [env] → SDK key |
-| `LD_API_KEY` | API token (`api-...`) | Same token from step 1 |
-| `ANTHROPIC_API_KEY` | Anthropic API key (`sk-ant-...`) | https://console.anthropic.com/settings/keys |
-
-> **Important:** The `LD_SDK_KEY` GitHub secret is the **factory project's** key, not the
-> demo app's. The demo app's SDK key (`sdk-...` for `checkout-demo`) goes in `.env.local` only.
-
-**Variables** (non-sensitive; use the Variables tab):
+**Variables:**
 
 | Variable | Value |
 |----------|-------|
-| `LD_APP_PROJECT_KEY` | `checkout-demo` (or whatever you set in `.env.local`) |
+| `LD_APP_PROJECT_KEY` | Your demo app project key |
 
 The workflow points at `launchdarkly-labs/launchdarkly-auto-factory`. If you host the
 factory repo somewhere else, change the owner in the `uses:` line of
@@ -132,15 +142,23 @@ factory repo somewhere else, change the owner in the `uses:` line of
 
 ## Running a demo
 
+Two ways to run the factory:
+
 ```bash
-make run SCENARIO=dynamic-pricing
+make ci  SCENARIO=express-checkout   # local, via act in Docker. No queue, no cold start.
+make run SCENARIO=express-checkout   # opens a real PR; runs in GitHub Actions.
 ```
 
-This opens a PR from `feature/dynamic-pricing`. The AutoFactory action fires automatically.
-Watch it in the **Actions** tab; after it runs, check the PR for the summary comment and
-new commits (flag wiring, metrics, tests). The flags appear at:
+Use `make ci` in front of an audience — it starts immediately and needs no GitHub setup.
+Use `make run` when the point is the GitHub integration: the action fires on the PR, and
+afterwards the PR carries a summary comment, a check run, and new commits (flag wiring,
+metrics, tests).
 
-> https://app.launchdarkly.com/checkout-demo/production/features
+Either way the store's bottom pane shows the six agents as a live flowchart, with the
+created flag and metrics linking straight into LaunchDarkly. The flags also collect under
+the `auto-factory` View in your project.
+
+See the **Demo talk track** below for what to say at each step.
 
 ## Resetting between runs
 
