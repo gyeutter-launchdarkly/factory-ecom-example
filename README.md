@@ -96,22 +96,39 @@ Three runners, switchable in the menu under **Settings**:
 | `act` | none | locally, via act | offline, or before credentials exist |
 | `actions` | real | GitHub Actions | showing the hosted pipeline as it really is |
 
-- `make pr` reuses an open PR for the branch or opens one, then builds the act event from
-  the **live** PR: number, title, body, base ref, and the head **sha**, so the check run
-  attaches to the PR's own commit rather than an invented one
-- The chain then writes to that real PR: a summary comment, a check run, and commits of the
-  flag wiring, metrics, tests, and manifest **to the PR branch**
-- To stop GitHub also running the chain on the same PR, set the repo variable
-  `AUTOFACTORY_REQUIRE_LABEL=true`. The hosted job then waits for an `autofactory` label
-  you never add, while `make pr` passes `false` to act so the local run proceeds. `make pr`
-  warns if the variable is unset
-- `if: github.actor != 'github-actions[bot]'` stops the factory's own push re-firing the
-  workflow
-- All three show the chain as a live flowchart in the store's bottom pane, linking into LD
-- **Merging triggers nothing.** Phase 1 is PR-time. Post-merge is Beacon, driven by a
-  deploy: `auto-factory-notify` POSTs the deployed SHA range to `/flag-releases`, which
-  finds the new `.release-flags/` manifests and starts the rollout. So merge, deploy,
-  notify, release, and merging alone does nothing without Beacon running.
+Whichever runner you pick, the store's bottom pane shows the chain as a live flowchart.
+
+**Do this once before your first `make pr`:**
+
+```bash
+gh variable set AUTOFACTORY_REQUIRE_LABEL --body true
+```
+
+Otherwise GitHub runs the chain a second time on the same PR, and you get duplicate
+comments and flags. With it set, the hosted run waits for a label you never add, and only
+your local run proceeds. `make pr` warns you if you skipped this.
+
+**What `make pr` does:**
+
+1. Opens a PR for the branch, or reuses one that is already open
+2. Reads that PR back from GitHub, so act works from the real number, title, body, and
+   head commit
+3. Runs the chain locally with act
+
+**What shows up on the PR:**
+
+- A summary comment
+- A check run, attached to the PR's own head commit
+- Commits: flag wiring, metrics, tests, and the release manifest
+
+The factory's own commits do not restart the workflow; it ignores pushes made by
+`github-actions[bot]`.
+
+**Merging triggers nothing.** Phase 1 is the PR-time half. Post-merge is Beacon, and a
+*deploy* starts it, not the merge: `auto-factory-notify` POSTs the deployed SHA range to
+`/flag-releases`, which finds the new `.release-flags/` manifests and begins the rollout.
+So merge, deploy, notify, release. Merging on its own does nothing unless Beacon is
+running.
 
 ## Resetting
 
