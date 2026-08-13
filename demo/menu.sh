@@ -181,11 +181,24 @@ pick_scenario() {
   local chosen="${list[$((choice - 1))]}"
   if ! is_current "$chosen"; then
     echo "" >&2
-    echo -e "  ${YE}!${R}  feature/$chosen has not been rebased onto main." >&2
-    echo -e "  ${D}Its diff reverts the current UI, so the demo will look wrong.${R}" >&2
+    echo -e "  ${YE}!${R}  feature/$chosen is behind main by $(git rev-list --count "feature/$chosen"..main 2>/dev/null) commit(s)." >&2
+    echo -e "  ${D}If any of those touched the UI, its diff will revert them mid-demo.${R}" >&2
     local ans=""
-    read -r -p "  Run it anyway? [y/N] " ans </dev/tty 2>/dev/null || return 1
-    [[ "$ans" =~ ^[Yy]$ ]] || return 1
+    read -r -p "  Rebase it now? [Y/n] " ans </dev/tty 2>/dev/null || return 1
+    if [[ ! "${ans:-Y}" =~ ^[Nn]$ ]]; then
+      echo "" >&2
+      if git rebase main "feature/$chosen" >/dev/null 2>&1; then
+        git checkout -q main 2>/dev/null || true
+        make _tag-seeds >/dev/null 2>&1
+        echo -e "  ${GR}v${R}  rebased feature/$chosen and re-tagged its seed" >&2
+      else
+        git rebase --abort >/dev/null 2>&1 || true
+        git checkout -q main 2>/dev/null || true
+        echo -e "  ${YE}!${R}  rebase hit conflicts; resolve by hand:" >&2
+        echo -e "  ${D}    git rebase main feature/$chosen${R}" >&2
+        return 1
+      fi
+    fi
   fi
   printf '%s' "$chosen"
 }
@@ -269,14 +282,22 @@ while true; do
       ;;
     6)
       echo ""
+      stale=0
       for s in $(scenarios); do
         printf "    %-18s " "$s"
         if is_current "$s"; then
-          echo -e "${GR}rebased onto main${R}"
+          echo -e "${GR}current${R}"
         else
-          echo -e "${YE}needs rebase${R}"
+          echo -e "${YE}behind main by $(git rev-list --count "feature/$s"..main 2>/dev/null)${R}"
+          stale=$((stale + 1))
         fi
       done
+      if (( stale > 0 )); then
+        echo ""
+        ans=""
+        read -r -p "  Rebase all $stale onto main now? [Y/n] " ans </dev/tty 2>/dev/null || true
+        [[ "${ans:-Y}" =~ ^[Nn]$ ]] || { echo ""; make sync; }
+      fi
       pause
       ;;
     s | S)

@@ -11,7 +11,7 @@ TF_RUN := docker compose run --rm \
   -e TF_VAR_environment_key='$(or $(LD_ENVIRONMENT_KEY),production)' \
   terraform
 
-.PHONY: setup dev menu open hooks pr reset reset-ld run ci _tag-seeds help
+.PHONY: setup dev menu open hooks pr sync reset reset-ld run ci _tag-seeds help
 
 help:
 	@echo "make setup                  First-time setup: create seed flag + LD View, tag branches"
@@ -22,6 +22,7 @@ help:
 	@echo "make ci  SCENARIO=<name>    Run the factory locally via act (no GitHub queue)"
 	@echo "make pr  SCENARIO=<name>    Real PR on GitHub, factory run locally by act"
 	@echo "make menu                   Interactive menu: pick scenarios, run, reset"
+	@echo "make sync                   Rebase feature branches onto main, re-tag seeds"
 	@echo "make open                   Print the app link and open it in a browser"
 	@echo "make hooks                  Install git hooks that block committing API keys"
 	@echo ""
@@ -57,6 +58,11 @@ dev:
 ## Usage: make pr SCENARIO=express-checkout
 pr:
 	@./demo/ci/run-pr.sh $(SCENARIO)
+
+## Rebase every feature/* branch onto main and re-point its seed tag.
+## Run this after any commit to main, or let `make menu` offer it for you.
+sync:
+	@./demo/sync-branches.sh
 
 ## Interactive demo menu: pick scenarios, run the factory, reset
 menu:
