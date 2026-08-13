@@ -64,6 +64,9 @@ demo-progress:
 reset:
 	@$(MAKE) reset-ld
 	@echo ""
+	@echo "=== Closing open feature PRs ==="
+	@./demo/close-prs.sh
+	@echo ""
 	@echo "=== Resetting demo branches ==="
 	@./demo/reset-branches.sh
 	@echo ""

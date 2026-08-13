@@ -4,6 +4,10 @@
 # One-liners:
 #   Fresh clone:  bash <(curl -fsSL https://raw.githubusercontent.com/gyeutter-launchdarkly/factory-ecom-example/main/demo/setup.sh)
 #   Already here: bash demo/setup.sh
+#
+# Flags:
+#   --reset      reset the demo first, without asking
+#   --no-reset   skip the reset prompt entirely
 set -euo pipefail
 
 REPO_URL="https://github.com/gyeutter-launchdarkly/factory-ecom-example.git"
@@ -32,7 +36,7 @@ load_env() {
     [[ "$key" =~ ^[[:space:]]*# ]] && continue
     [[ -z "${key// }" ]] && continue
     case "$key" in
-      LD_APP_PROJECT_KEY|LD_ENVIRONMENT_KEY|LD_API_KEY|LD_SDK_KEY|ANTHROPIC_API_KEY|GITHUB_TOKEN|LD_FACTORY_PROJECT_KEY|LD_FACTORY_SDK_KEY)
+      LD_APP_PROJECT_KEY|LD_ENVIRONMENT_KEY|LD_API_KEY|LD_SDK_KEY|ANTHROPIC_API_KEY|GITHUB_TOKEN)
         printf -v "$key" '%s' "$val" ;;
     esac
   done < .env.local
@@ -83,8 +87,6 @@ LD_API_KEY=${LD_API_KEY}
 ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
 GITHUB_TOKEN=${GITHUB_TOKEN}
 LD_SDK_KEY=${LD_SDK_KEY:-placeholder}
-LD_FACTORY_PROJECT_KEY=${LD_FACTORY_PROJECT_KEY}
-LD_FACTORY_SDK_KEY=${LD_FACTORY_SDK_KEY:-placeholder}
 EOF
   ok "wrote .env.local"
 }
@@ -112,7 +114,7 @@ configure_github() {
     echo -e "  ${D}'make ci' works now. For 'make run' (real PRs), either install gh"
     echo -e "  (brew install gh) and re-run this script, or set these by hand at"
     echo -e "  https://github.com/${slug}/settings/secrets/actions :${R}"
-    echo -e "  ${D}  secret   LD_SDK_KEY          = <factory project SDK key>"
+    echo -e "  ${D}  secret   LD_SDK_KEY          = <your LD SDK key>"
     echo -e "  ${D}  secret   LD_API_KEY          = <your LD API token>"
     echo -e "  ${D}  secret   ANTHROPIC_API_KEY   = <your Anthropic key>"
     echo -e "  ${D}  variable LD_APP_PROJECT_KEY  = ${LD_APP_PROJECT_KEY}${R}"
@@ -125,14 +127,13 @@ configure_github() {
     return 0
   fi
 
-  # LD_SDK_KEY here is the FACTORY project's key, matching the workflow.
   local failed=0
   _gh_secret() {
     printf '%s' "$2" \
       | GH_TOKEN="$GITHUB_TOKEN" gh secret set "$1" --repo "$slug" --body-file - &>/dev/null \
       && ok "secret $1" || { warn "could not set secret $1"; failed=1; }
   }
-  _gh_secret LD_SDK_KEY "$LD_FACTORY_SDK_KEY"
+  _gh_secret LD_SDK_KEY "$LD_SDK_KEY"
   _gh_secret LD_API_KEY "$LD_API_KEY"
   _gh_secret ANTHROPIC_API_KEY "$ANTHROPIC_API_KEY"
 
@@ -145,6 +146,18 @@ configure_github() {
   else
     warn "Some GitHub settings failed; 'make ci' still works."
   fi
+}
+
+
+# Put the demo back to a clean state: delete the flags and metrics the factory
+# created, close open feature PRs, and rewind the feature branches to their seed
+# tags. Same work as `make reset`, offered here so re-running this script is the
+# only command you need between demos.
+reset_demo() {
+  step "Resetting the demo"
+  echo -e "${D}  Deletes auto-factory flags + metrics, closes feature PRs,"
+  echo -e "  rewinds feature branches. Your project and seed flag are kept.${R}\n"
+  make reset
 }
 
 # Create (or confirm) an 'AutoFactory' saved view in the LD flag list
@@ -187,7 +200,15 @@ elif [[ -f "$(dirname "$0")/../.git/config" ]] && \
   IN_REPO=true
 fi
 
-for arg in "$@"; do [[ "$arg" == "--local" ]] && IN_REPO=true; done
+DO_RESET=false
+NO_RESET=false
+for arg in "$@"; do
+  case "$arg" in
+    --local)    IN_REPO=true ;;
+    --reset)    DO_RESET=true ;;
+    --no-reset) NO_RESET=true ;;
+  esac
+done
 
 # banner
 clear
@@ -197,8 +218,7 @@ echo "  |        LaunchDarkly Factory Demo                 |"
 echo "  +--------------------------------------------------+"
 echo -e "${R}"
 echo -e "  ${D}What you'll need:${R}"
-echo -e "  ${D}  - LaunchDarkly demo app project (where flags get created)${R}"
-echo -e "  ${D}  - LaunchDarkly factory project with Guardian & AgentControl${R}"
+echo -e "  ${D}  - LaunchDarkly project with Guardian & AgentControl${R}"
 echo -e "  ${D}  - Anthropic API Key${R}"
 echo -e "  ${D}  - GitHub access${R}"
 echo -e "  ${D}  - Optional: gh CLI, to auto-configure the GitHub Action${R}"
@@ -251,23 +271,11 @@ ask_secret LD_API_KEY \
   "LaunchDarkly API key" \
   "https://app.launchdarkly.com/settings/authorization\n  Role: Admin"
 
+# One project holds both the app's flags and the factory's own AI configs and
+# operational flags, so a single SDK key serves both.
 ask_secret LD_SDK_KEY \
-  "LaunchDarkly SDK key (app project: ${LD_APP_PROJECT_KEY})" \
-  "The demo app uses this to evaluate flags.\n  https://app.launchdarkly.com/settings/sdk-keys?projKey=${LD_APP_PROJECT_KEY}&envKey=${LD_ENVIRONMENT_KEY:-production}"
-
-# The factory reads its agent definitions (AI configs) from a SEPARATE project.
-# This is a different SDK key from the one above; using the app project's key
-# here makes the factory fail to resolve its agent graph.
-ask_text LD_FACTORY_PROJECT_KEY \
-  "LaunchDarkly factory project key" \
-  "The project holding the AutoFactory AI configs (not the demo app project)" \
-  "${LD_FACTORY_PROJECT_KEY:-}"
-LD_FACTORY_PROJECT_KEY=$(echo "$LD_FACTORY_PROJECT_KEY" \
-  | sed -E 's|https?://app\.launchdarkly\.com/projects/([^/?]+).*|\1|')
-
-ask_secret LD_FACTORY_SDK_KEY \
-  "LaunchDarkly SDK key (factory project: ${LD_FACTORY_PROJECT_KEY})" \
-  "The factory uses this to read its agent AI configs.\n  https://app.launchdarkly.com/settings/sdk-keys?projKey=${LD_FACTORY_PROJECT_KEY}&envKey=${LD_ENVIRONMENT_KEY:-production}"
+  "LaunchDarkly SDK key" \
+  "Used by the app to evaluate flags, and by the factory to read its AI configs.\n  https://app.launchdarkly.com/settings/sdk-keys?projKey=${LD_APP_PROJECT_KEY}&envKey=${LD_ENVIRONMENT_KEY:-production}"
 
 ask_secret ANTHROPIC_API_KEY \
   "Anthropic API key" \
@@ -278,6 +286,16 @@ ask_secret GITHUB_TOKEN \
   "https://github.com/settings/personal-access-tokens/new\n  Permissions:\n    Contents:      Read and write\n    Pull requests: Read and write"
 
 write_env
+
+# Re-run against an existing setup: offer to clean up first.
+if $DO_RESET; then
+  reset_demo
+elif ! $NO_RESET && [[ -f .env.local ]] && [[ -n "${LD_API_KEY:-}" ]]; then
+  echo ""
+  ans=""
+  read -r -p "  Reset the demo before setting up (delete factory flags, close PRs, rewind branches)? [y/N] " ans </dev/tty
+  [[ "$ans" =~ ^[Yy]$ ]] && reset_demo
+fi
 
 # terraform
 step "Step 2 / 2 - Provision seed flag + LD View"

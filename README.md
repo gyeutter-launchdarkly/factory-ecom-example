@@ -53,13 +53,13 @@ trips the approval gate.
 
 ### Recommended: the wizard
 
-From anywhere (clones the repo first):
+From anywhere (clones the repo into the current directory first):
 
 ```bash
 bash <(curl -fsSL https://raw.githubusercontent.com/gyeutter-launchdarkly/factory-ecom-example/main/demo/setup.sh)
 ```
 
-Already in the repo:
+Already cloned the repo:
 
 ```bash
 bash demo/setup.sh
@@ -78,9 +78,9 @@ GitHub settings to add by hand.
 
 - **Docker** running (Terraform and the local CI runner both run in containers; no local
   Terraform install needed)
-- A LaunchDarkly **factory project**, already bootstrapped with the AutoFactory AI configs
-  (see [launchdarkly-auto-factory](../launchdarkly-auto-factory/INSTALL-CLAUDE-CODE.md))
-- A LaunchDarkly **demo app project** — this is where the factory creates flags. It must
+- One LaunchDarkly **project**, already bootstrapped with the AutoFactory AI configs
+  (see [launchdarkly-auto-factory](../launchdarkly-auto-factory/INSTALL-CLAUDE-CODE.md)).
+  It holds both the factory's own configuration and the flags the factory creates. It must
   already exist; the demo never creates or destroys projects.
 - A LaunchDarkly **API token** with Admin role
   (https://app.launchdarkly.com/settings/authorization)
@@ -94,19 +94,26 @@ GitHub settings to add by hand.
 
 | Prompt | Goes to | Notes |
 |--------|---------|-------|
-| Demo app project key | `LD_APP_PROJECT_KEY` | Accepts a pasted project URL |
+| Project key | `LD_APP_PROJECT_KEY` | Accepts a pasted project URL |
 | Environment key | `LD_ENVIRONMENT_KEY` | Defaults to `production` |
 | LaunchDarkly API key | `LD_API_KEY` | Creates flags, metrics, and the View |
-| SDK key (app project) | `LD_SDK_KEY` | The **app** uses this to evaluate flags |
-| Factory project key | `LD_FACTORY_PROJECT_KEY` | Where the agent AI configs live |
-| SDK key (factory project) | `LD_FACTORY_SDK_KEY` | The **factory** uses this to read its agents |
+| SDK key | `LD_SDK_KEY` | Flag evaluation *and* the factory's AI config lookups |
 | Anthropic API key | `ANTHROPIC_API_KEY` | Runs the agents |
 | GitHub PAT | `GITHUB_TOKEN` | PR comments, check runs, pushed commits |
 
-> **Two different SDK keys, and they are not interchangeable.** The demo app evaluates
-> flags with the **app** project's key. The factory reads its agent definitions from the
-> **factory** project with that project's key. Giving the factory the app project's key
-> makes it fail to resolve its agent graph.
+### Telling factory resources apart from product flags
+
+Both live in the same project, distinguished by naming:
+
+| Kind | Naming | Example |
+|------|--------|---------|
+| Factory configuration | `auto-factory-*` flags | `auto-factory-approval-mode` |
+| Factory agents | `autofactory-*` AI configs | `autofactory-research-planner` |
+| Flags the factory creates | named after the feature, tagged `auto-factory` | `express-checkout` |
+
+The wizard creates an **AutoFactory** View filtered to the `auto-factory` tag, so the
+flags each run produces collect in one place. The factory's own configuration sorts
+together under its `auto-factory-` name prefix.
 
 Everything lands in `.env.local`, which is gitignored. A pre-commit hook additionally
 blocks commits containing real key patterns; `make hooks` installs it.
@@ -114,8 +121,8 @@ blocks commits containing real key patterns; `make hooks` installs it.
 ### Manual setup
 
 If you would rather not use the wizard: copy `.env.example` to `.env.local`, fill in the
-eight values from the table above, then run `make setup` (seed flag + seed tags + git
-hooks) and `make dev`.
+six values from the table above, then run `make setup` (seed flag + seed tags + git hooks)
+and `make dev`.
 
 ### GitHub Action settings
 
@@ -126,7 +133,7 @@ The wizard sets these when `gh` is available. To set them by hand, go to
 
 | Secret | Value |
 |--------|-------|
-| `LD_SDK_KEY` | **Factory** project SDK key (`sdk-...`) — resolves the agent AI configs |
+| `LD_SDK_KEY` | Your LaunchDarkly SDK key (`sdk-...`) |
 | `LD_API_KEY` | Your LaunchDarkly API token (`api-...`) |
 | `ANTHROPIC_API_KEY` | Your Anthropic API key (`sk-ant-...`) |
 
@@ -134,7 +141,7 @@ The wizard sets these when `gh` is available. To set them by hand, go to
 
 | Variable | Value |
 |----------|-------|
-| `LD_APP_PROJECT_KEY` | Your demo app project key |
+| `LD_APP_PROJECT_KEY` | Your LaunchDarkly project key |
 
 The workflow points at `launchdarkly-labs/launchdarkly-auto-factory`. If you host the
 factory repo somewhere else, change the owner in the `uses:` line of
@@ -166,17 +173,26 @@ See the **Demo talk track** below for what to say at each step.
 make reset
 ```
 
-This:
+Or, equivalently, re-run the wizard — it offers to reset before setting up:
+
+```bash
+bash demo/setup.sh              # prompts: reset first?
+bash demo/setup.sh --reset      # reset without asking
+bash demo/setup.sh --no-reset   # skip the prompt
+```
+
+Either way this:
 1. Deletes every LaunchDarkly flag and metric tagged `auto-factory` via the REST API,
-   preserving the `show-product-reviews` seed flag. Your project is never destroyed, so
-   this is safe to run against a shared project.
-2. Resets all six `feature/*` branches from their `demo-seed/*` tags, force-pushing to
-   drop the factory's commits.
+   preserving the `show-product-reviews` seed flag. Your project is never destroyed and
+   the factory's own `auto-factory-*` configuration is untouched, so this is safe to run
+   against a shared project.
+2. **Closes any open `feature/*` PRs.** Worth doing before the branch rewind — a PR left
+   open gets rewritten in place by the force-push, and the factory can re-run on it,
+   bleeding one demo's results into the next.
+3. Rewinds all six `feature/*` branches to their `demo-seed/*` tags, force-pushing to drop
+   the factory's commits.
 
-Use `make reset-ld` for the LaunchDarkly side only, leaving branches alone.
-
-Open PRs are **not** closed automatically — close them yourself, or leave them and let
-the force-push update them in place.
+Use `make reset-ld` for the LaunchDarkly side only, leaving branches and PRs alone.
 
 ## Demo talk track
 
@@ -263,8 +279,11 @@ This is the strongest moment in the demo. Don't rush it.
 ### 7. Reset
 
 ```bash
-make reset
+make reset                 # or: bash demo/setup.sh --reset
 ```
+
+Deletes the factory's flags and metrics, closes the feature PRs, and rewinds the
+branches.
 
 ### Scenario notes
 
