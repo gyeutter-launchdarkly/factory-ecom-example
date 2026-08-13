@@ -163,6 +163,65 @@ reset_demo() {
   make reset
 }
 
+# The factory's own control plane (agent graph, AI configs, operational flags)
+# must already exist in the project. This script does NOT create it: that is the
+# factory repo's bootstrap. Without it the chain has nothing to execute and exits
+# almost immediately, so check and say so plainly rather than let a demo fail.
+FACTORY_DIRS=(
+  "../launchdarkly-auto-factory"
+  "$HOME/Documents/launchdarkly-auto-factory"
+)
+
+check_factory_graph() {
+  local code
+  code=$(/usr/bin/curl -s -o /dev/null -w "%{http_code}" \
+    -H "Authorization: ${LD_API_KEY}" \
+    "https://app.launchdarkly.com/api/v2/flags/${LD_APP_PROJECT_KEY}/gha-auto-factory" 2>/dev/null || echo "000")
+
+  if [[ "$code" == "200" ]]; then
+    ok "AutoFactory agent graph present in ${LD_APP_PROJECT_KEY}"
+    return 0
+  fi
+
+  warn "Project '${LD_APP_PROJECT_KEY}' has no AutoFactory agent graph (HTTP ${code})."
+  echo -e "  ${D}The agents live in LaunchDarkly as AI configs plus a 'gha-auto-factory'"
+  echo -e "  graph. Until they exist, a factory run starts and exits with no output.${R}"
+
+  local dir=""
+  for d in "${FACTORY_DIRS[@]}"; do
+    [[ -f "$d/bootstrap/create.mjs" ]] && { dir="$d"; break; }
+  done
+
+  if [[ -z "$dir" ]]; then
+    echo -e "  ${D}Clone the factory repo and bootstrap it against this project:"
+    echo -e "    git clone https://github.com/launchdarkly-labs/launchdarkly-auto-factory"
+    echo -e "    cd launchdarkly-auto-factory && npm install && npm run build"
+    echo -e "    printf 'LD_API_KEY=%s\\nLD_PROJECT_KEY=%s\\nLD_APP_PROJECT_KEY=%s\\n' \\"
+    echo -e "      \"\$LD_API_KEY\" ${LD_APP_PROJECT_KEY} ${LD_APP_PROJECT_KEY} > .env"
+    echo -e "    node packages/config-bridge/dist/cli.js provision${R}"
+    return 1
+  fi
+
+  echo ""
+  local ans=""
+  read -r -p "  Found the factory at ${dir}. Bootstrap it now? [Y/n] " ans </dev/tty
+  [[ "${ans:-Y}" =~ ^[Nn]$ ]] && return 1
+
+  (
+    cd "$dir" || exit 1
+    if [[ ! -f packages/config-bridge/dist/cli.js ]]; then
+      echo -e "  ${D}building the factory tool (first run only)...${R}"
+      npm install --silent >/dev/null 2>&1 || true
+      npm run build >/dev/null 2>&1 || true
+    fi
+    [[ -f packages/config-bridge/dist/cli.js ]] || { echo "  build failed; bootstrap by hand"; exit 1; }
+    printf 'LD_API_KEY=%s\nLD_PROJECT_KEY=%s\nLD_APP_PROJECT_KEY=%s\n' \
+      "$LD_API_KEY" "$LD_APP_PROJECT_KEY" "$LD_APP_PROJECT_KEY" > .env
+    chmod 600 .env
+    node packages/config-bridge/dist/cli.js provision
+  ) && ok "factory control plane provisioned" || { warn "bootstrap failed; see output above"; return 1; }
+}
+
 # Create (or confirm) an 'AutoFactory' saved view in the LD flag list
 create_ld_view() {
   echo -e "\n  ${D}Creating AutoFactory saved view in LaunchDarkly...${R}"
@@ -312,6 +371,7 @@ fi
 step "Step 2 / 2 - Provision seed flag + LD View"
 echo -e "${D}  make setup  (Terraform in Docker, creates seed flag in your existing project)${R}\n"
 make setup
+check_factory_graph || true
 create_ld_view
 configure_github
 
