@@ -105,11 +105,17 @@ rl.on('line', (line) => {
     return;
   }
 
-  // Which model actually ran a given node, resolved from its LD AI config:
+  // Which model ran a given node, resolved from its LD AI config:
   //   "[node] autofactory-research-planner anthropic model → 'claude-...'"
+  //
+  // The Action prints this as each node BEGINS, which is the only per-step
+  // signal it emits (it passes onEvent=undefined to walkGraph, so there are no
+  // ▶/■ lines). Treat it as a node-start too: without this the flowchart sits at
+  // 0/6 for the whole run and only fills in from the post-walk dump at the end.
   m = line.match(/\[node\]\s+(autofactory-[a-z0-9-]+)\s+([a-z]+)\s+model\s*→\s*'([^']+)'/i);
   if (m) {
     emit({ t: 'agent', key: m[1], provider: m[2], model: m[3] });
+    emit({ t: 'node', key: m[1], status: 'running' });
     return;
   }
 
