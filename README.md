@@ -74,20 +74,20 @@ offers to keep or replace it, so it is safe to run again.
 nothing extra *if* the `gh` CLI is installed — otherwise the wizard prints the four
 GitHub settings to add by hand.
 
-### What you need before running it
+### What you need
 
-- **Docker** running (Terraform and the local CI runner both run in containers; no local
-  Terraform install needed)
-- One LaunchDarkly **project**, already bootstrapped with the AutoFactory AI configs
-  (see [launchdarkly-auto-factory](../launchdarkly-auto-factory/INSTALL-CLAUDE-CODE.md)).
-  It holds both the factory's own configuration and the flags the factory creates. It must
-  already exist; the demo never creates or destroys projects.
-- A LaunchDarkly **API token** with Admin role
-  (https://app.launchdarkly.com/settings/authorization)
-- An **Anthropic API key** (https://console.anthropic.com/settings/keys)
-- A **GitHub PAT** with Contents and Pull requests set to *Read and write*
-  (https://github.com/settings/personal-access-tokens/new)
-- Optional: the [gh CLI](https://cli.github.com) (`brew install gh`), so the wizard can
+- **LaunchDarkly**
+  - A project, already bootstrapped with the AutoFactory AI configs
+    ([how](../launchdarkly-auto-factory/INSTALL-CLAUDE-CODE.md)). It must already exist;
+    the demo never creates or destroys projects.
+  - Its SDK key — [find it](https://app.launchdarkly.com/settings/sdk-keys)
+  - An API token, Admin role —
+    [create one](https://app.launchdarkly.com/settings/authorization)
+- **[Anthropic API key](https://console.anthropic.com/settings/keys)**
+- **[GitHub PAT](https://github.com/settings/personal-access-tokens/new)** — Contents and
+  Pull requests, both *Read and write*
+- **Docker**, running
+- Optional: **[gh CLI](https://cli.github.com)** (`brew install gh`), so the wizard can
   configure the GitHub Action for you
 
 ### Credentials it asks for
