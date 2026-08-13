@@ -63,7 +63,8 @@ You need:
 - [**Anthropic API key**](https://console.anthropic.com/settings/keys)
 - [**GitHub PAT**](https://github.com/settings/personal-access-tokens/new): Contents +
   Pull requests, *Read and write*
-- **Docker** running, **[gh](https://cli.github.com)** installed
+- **Docker** installed and running (via Docker Desktop or Colima)
+- **[gh CLI](https://cli.github.com)** installed (`brew install gh`)
 
 One project holds everything, told apart by name: `auto-factory-*` flags are the factory's
 config, `autofactory-*` AI configs are its agents, and flags it creates are named for the
