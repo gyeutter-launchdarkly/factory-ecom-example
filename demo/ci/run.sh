@@ -23,9 +23,14 @@ if [[ "$CURRENT_BRANCH" != "$BRANCH" ]]; then
   git checkout "$BRANCH"
 fi
 
-# Write a secrets file for act from .env.local values (keep off disk after run)
-SECRETS_FILE=$(mktemp /tmp/act-secrets.XXXXXX)
-trap "rm -f $SECRETS_FILE" EXIT
+# Write a secrets file for act from .env.local values (removed on exit).
+# It must live in the workspace: act runs inside the ci container, which mounts
+# only this repo at /workspace, so a host /tmp path is invisible to it.
+ACT_TMP=".autofactory/tmp"
+mkdir -p "$ACT_TMP"
+SECRETS_FILE=$(mktemp "$ACT_TMP/secrets.XXXXXX")
+chmod 600 "$SECRETS_FILE"
+trap 'rm -f "$SECRETS_FILE"' EXIT
 
 # One project serves both the app and the factory, so a single SDK key covers
 # flag evaluation and the factory's AI config lookups.

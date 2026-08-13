@@ -19,12 +19,19 @@ gate_token() {
   grep "^GITHUB_TOKEN=" .env.local 2>/dev/null | cut -d= -f2- || true
 }
 
-# Reading and writing repo variables needs Actions Variables permission, which
-# the demo PAT does not carry (it only has Contents + Pull requests). The gh CLI
-# is authenticated separately via `gh auth login`, and that session does have it,
-# so prefer gh and fall back to the PAT only if gh is missing.
+# Reading and writing repo variables needs the Actions Variables permission,
+# which the demo PAT does not carry (it has Contents + Pull requests only). The
+# gh CLI is authenticated separately by `gh auth login` and does have it.
+#
+# gh prefers $GH_TOKEN/$GITHUB_TOKEN over its keyring when either is set, so an
+# exported demo PAT silently downgrades gh to the token that cannot do this and
+# it 403s. Every gh call here therefore runs with both cleared.
+gh_keyring() {
+  env -u GH_TOKEN -u GITHUB_TOKEN gh "$@"
+}
+
 gate_gh_ok() {
-  command -v gh &>/dev/null && gh auth status &>/dev/null
+  command -v gh &>/dev/null && gh_keyring auth status &>/dev/null
 }
 
 # Prints "true", "false", or "" when unset or unreadable.
@@ -34,7 +41,7 @@ gate_get() {
   [[ -z "$slug" ]] && return 0
 
   if gate_gh_ok; then
-    gh variable list --repo "$slug" --json name,value 2>/dev/null \
+    gh_keyring variable list --repo "$slug" --json name,value 2>/dev/null \
       | jq -r '.[] | select(.name == "AUTOFACTORY_REQUIRE_LABEL") | .value' 2>/dev/null || true
     return 0
   fi
@@ -59,9 +66,12 @@ gate_set() {
   current=$(gate_get)
   [[ "$current" == "$want" ]] && return 0
 
-  local ok=false
+  local ok=false err=""
   if gate_gh_ok; then
-    gh variable set AUTOFACTORY_REQUIRE_LABEL --repo "$slug" --body "$want" &>/dev/null && ok=true
+    # Capture the reason: swallowing it here made a real failure undiagnosable.
+    if err=$(gh_keyring variable set AUTOFACTORY_REQUIRE_LABEL --repo "$slug" --body "$want" 2>&1); then
+      ok=true
+    fi
   else
     local token code
     token=$(gate_token)
@@ -90,11 +100,15 @@ gate_set() {
     return 0
   fi
 
-  echo "  warning: could not set AUTOFACTORY_REQUIRE_LABEL."
+  echo "  warning: could not set AUTOFACTORY_REQUIRE_LABEL=${want}."
+  [[ -n "$err" ]] && echo "  ${err//$'\n'/ }"
   if [[ "$want" == "true" ]]; then
-    echo "  GitHub Actions may also run the chain on this PR, duplicating its work."
+    echo "  GitHub Actions will also run the chain on this PR, duplicating its work."
+    echo "  Close the duplicate run, or set the variable and re-run."
   else
     echo "  The hosted run may stay gated, so opening a PR would do nothing."
   fi
-  echo "  Fix with:  gh auth login   (then re-run), or set it in repo Settings > Variables."
+  echo "  Most likely the gh token lacks the Actions scope. Either:"
+  echo "    gh auth refresh -h github.com -s repo,workflow"
+  echo "  or set it once by hand: repo Settings > Secrets and variables > Actions > Variables"
 }

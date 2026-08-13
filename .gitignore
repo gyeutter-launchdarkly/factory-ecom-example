@@ -33,3 +33,6 @@ tsconfig.tsbuildinfo
 
 # Demo menu settings (local preference, not shared)
 .autofactory/demo-settings
+
+# act scratch files (event payloads, secret files) written per run
+.autofactory/tmp/

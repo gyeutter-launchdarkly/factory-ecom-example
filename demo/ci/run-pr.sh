@@ -74,8 +74,15 @@ fi
 # Build the event from the live PR. head.sha matters: on pull_request events the
 # action attaches its check run to the PR head, not the merge commit.
 PR=$(api "https://api.github.com/repos/${SLUG}/pulls/${PR_NUMBER}")
-EVENT_FILE=$(mktemp /tmp/act-pr-event.XXXXXX.json)
-SECRETS_FILE=$(mktemp /tmp/act-secrets.XXXXXX)
+# act runs inside the ci container, which mounts only this repo at /workspace.
+# Host /tmp is invisible there, so the event and secret files have to live in the
+# workspace and be referenced by repo-relative path. .autofactory/tmp is
+# gitignored. Note mktemp only substitutes when the Xs end the template.
+ACT_TMP=".autofactory/tmp"
+mkdir -p "$ACT_TMP"
+EVENT_FILE=$(mktemp "$ACT_TMP/pr-event.XXXXXX")
+SECRETS_FILE=$(mktemp "$ACT_TMP/secrets.XXXXXX")
+chmod 600 "$SECRETS_FILE"
 trap 'rm -f "$EVENT_FILE" "$SECRETS_FILE"' EXIT
 
 printf '%s' "$PR" | jq \
