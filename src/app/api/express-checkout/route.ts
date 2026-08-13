@@ -1,5 +1,6 @@
+import { shopperKey, withShopper } from '@/lib/shopper';
 import { NextRequest, NextResponse } from 'next/server';
-import { getProduct } from '@/lib/products';
+import { resolveProduct } from '@/lib/catalog';
 import { calculatePrice, formatPrice } from '@/lib/pricing';
 import { track } from '@/lib/ld';
 
@@ -32,7 +33,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'No item specified' }, { status: 400 });
   }
 
-  const product = getProduct(body.item.productId);
+  const product = await resolveProduct(body.item.productId);
   if (!product) {
     return NextResponse.json(
       { error: `Unknown product: ${body.item.productId}` },
@@ -44,14 +45,14 @@ export async function POST(req: NextRequest) {
   const unitPrice = calculatePrice(product);
   const orderTotal = unitPrice * qty;
   const orderId = `EXP-${Date.now()}`;
-  const userKey = body.customer.email || 'anonymous';
+  const userKey = shopperKey(req);
 
   // Track as checkout-completed so guarded-release metrics stay consistent,
   // plus a separate express-checkout-conversion event for funnel analysis.
   await track('checkout-completed', userKey, orderTotal, { orderId, express: true });
   await track('express-checkout-conversion', userKey, 1);
 
-  return NextResponse.json({
+  return withShopper(NextResponse.json({
     orderId,
     orderTotal,
     orderTotalFormatted: formatPrice(orderTotal),
@@ -62,5 +63,5 @@ export async function POST(req: NextRequest) {
       quantity: qty,
       lineTotal: orderTotal,
     },
-  });
+  }), userKey);
 }
