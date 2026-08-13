@@ -78,8 +78,14 @@ gh secret set ANTHROPIC_API_KEY --body "$ANTHROPIC_API_KEY"
 gh variable set LD_APP_PROJECT_KEY --body "$LD_APP_PROJECT_KEY"
 ```
 
-Optional repo variable: set `AUTOFACTORY_REQUIRE_LABEL` to `true` to make the factory wait
-for an `autofactory` label on the PR before running.
+Repo variable `AUTOFACTORY_REQUIRE_LABEL` gates the hosted run behind an `autofactory`
+label. The demo manages it for you: `make pr` sets it `true` (so only the local act run
+proceeds) and `make run` sets it `false` (so the hosted run fires). Set it by hand with
+`gh variable set AUTOFACTORY_REQUIRE_LABEL --body true`.
+
+Note that writing Actions secrets and variables needs permissions the demo PAT does not
+have. Those calls use your `gh auth login` session instead, which is why gh must be logged
+in and not just installed.
 
 The workflow points at `launchdarkly-labs/launchdarkly-auto-factory`. Change the owner in
 the `uses:` line of `.github/workflows/auto-factory.yml` if you host it elsewhere.

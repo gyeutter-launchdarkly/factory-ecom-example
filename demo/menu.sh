@@ -31,6 +31,9 @@ app_state() {
   fi
 }
 
+# shellcheck source=lib/gate.sh
+source demo/lib/gate.sh
+
 SETTINGS_FILE=".autofactory/demo-settings"
 
 # Defaults. RUNNER decides what "run the factory" does:
@@ -60,6 +63,17 @@ AUTO_OPEN=$AUTO_OPEN
 EOF
 }
 
+# The hosted workflow must be gated when we run the chain locally, and ungated
+# when GitHub is meant to run it. Applied whenever the runner changes, so nobody
+# has to remember a gh command.
+sync_gate() {
+  case "$RUNNER" in
+    act+pr) gate_set true ;;
+    actions) gate_set false ;;
+    act) ;;  # no PR is opened, so the gate is irrelevant
+  esac
+}
+
 runner_label() {
   case "$RUNNER" in
     act)     echo "act only (nothing on GitHub)" ;;
@@ -87,7 +101,10 @@ settings_screen() {
     echo "  |        Settings                                  |"
     echo "  +--------------------------------------------------+"
     echo -e "${R}"
+    local gate
+    gate=$(gate_get)
     echo -e "    1) Factory runner       ${GR}$(runner_label)${R}"
+    echo -e "       ${D}hosted GitHub run: $([[ "$gate" == "true" ]] && echo "gated" || echo "enabled")${R}"
     echo -e "    2) Replay speed         ${GR}${REPLAY_SECS}s per step${R}"
     echo -e "    3) Open browser on start ${GR}${AUTO_OPEN}${R}"
     echo ""
@@ -110,6 +127,9 @@ settings_screen() {
           3) RUNNER="actions" ;;
         esac
         save_settings
+        echo ""
+        sync_gate
+        read -r -p "  press enter " _ </dev/tty 2>/dev/null || true
         ;;
       2)
         local v=""

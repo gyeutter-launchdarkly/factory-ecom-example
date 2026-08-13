@@ -71,7 +71,9 @@ You need:
 - [**GitHub PAT**](https://github.com/settings/personal-access-tokens/new): Contents +
   Pull requests, *Read and write*
 - **Docker** installed and running (via Docker Desktop or Colima)
-- **[gh CLI](https://cli.github.com)** installed (`brew install gh`)
+- **[gh CLI](https://cli.github.com)** installed and logged in (`brew install gh && gh auth
+  login`). The TUI uses your gh session to write the repo's Actions secrets and variables,
+  which the PAT above is not permitted to do.
 
 One project holds everything, told apart by name: `auto-factory-*` flags are the factory's
 config, `autofactory-*` AI configs are its agents, and flags it creates are named for the
@@ -98,15 +100,11 @@ Three runners, switchable in the menu under **Settings**:
 
 Whichever runner you pick, the store's bottom pane shows the chain as a live flowchart.
 
-**Do this once before your first `make pr`:**
-
-```bash
-gh variable set AUTOFACTORY_REQUIRE_LABEL --body true
-```
-
-Otherwise GitHub runs the chain a second time on the same PR, and you get duplicate
-comments and flags. With it set, the hosted run waits for a label you never add, and only
-your local run proceeds. `make pr` warns you if you skipped this.
+Switching runners is all you have to do. The TUI keeps the repo variable
+`AUTOFACTORY_REQUIRE_LABEL` in step, because the hosted workflow has to be gated when act
+runs the chain (or it runs twice, duplicating comments and flags) and ungated when GitHub
+is meant to run it. `make pr` and `make run` each set it themselves too, so the direct
+commands are safe on their own.
 
 **What `make pr` does:**
 

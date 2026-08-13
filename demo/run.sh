@@ -34,6 +34,16 @@ if [[ ! -f "$EVENT_FILE" ]]; then
   exit 1
 fi
 
+# shellcheck source=lib/gate.sh
+source demo/lib/gate.sh
+
+# Opening a PR here means the hosted workflow should run, so make sure it is not
+# gated. Skipped when run-pr.sh is driving: it wants the hosted run gated so only
+# its local act run proceeds.
+if [[ -z "${FACTORY_GATE_MANAGED:-}" ]]; then
+  gate_set false
+fi
+
 BRANCH="feature/${SCENARIO}"
 if ! git show-ref --verify --quiet "refs/heads/$BRANCH"; then
   echo "Error: branch $BRANCH not found locally."

@@ -43,6 +43,14 @@ fi
 
 SLUG=$(git remote get-url origin | sed -E 's#(git@github.com:|https://github.com/)##; s#\.git$##')
 
+# shellcheck source=../lib/gate.sh
+source demo/lib/gate.sh
+
+# Gate the hosted workflow BEFORE the PR exists, so GitHub never picks it up and
+# duplicates this run. Set here rather than asked of you.
+gate_set true
+export FACTORY_GATE_MANAGED=1
+
 api() {
   curl -s -H "Authorization: Bearer $TOKEN" \
     -H "Accept: application/vnd.github+json" \
@@ -109,17 +117,6 @@ grep -E "^(LD_SDK_KEY|LD_API_KEY|ANTHROPIC_API_KEY)=" .env.local 2>/dev/null >> 
 echo "GITHUB_TOKEN=$TOKEN" >> "$SECRETS_FILE"
 
 LD_APP_PROJECT_KEY=$(grep "^LD_APP_PROJECT_KEY=" .env.local 2>/dev/null | cut -d= -f2- || echo "checkout-demo")
-
-# Warn if the hosted workflow is not gated, since it will run the chain a second
-# time on the same PR.
-REQUIRE_LABEL=$(api "https://api.github.com/repos/${SLUG}/actions/variables/AUTOFACTORY_REQUIRE_LABEL" \
-  | jq -r '.value // empty')
-if [[ "$REQUIRE_LABEL" != "true" ]]; then
-  echo ""
-  echo "  Warning: repo variable AUTOFACTORY_REQUIRE_LABEL is not 'true', so GitHub"
-  echo "  Actions will also run the factory on this PR. To keep the hosted run gated:"
-  echo "    gh variable set AUTOFACTORY_REQUIRE_LABEL --body true"
-fi
 
 echo ""
 echo "=== Running the factory locally against PR #${PR_NUMBER} ==="

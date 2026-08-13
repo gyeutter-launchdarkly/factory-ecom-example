@@ -109,24 +109,27 @@ configure_github() {
 
   echo -e "\n  ${D}Configuring GitHub Action secrets for ${slug}...${R}"
 
-  if ! GH_TOKEN="$GITHUB_TOKEN" gh auth status &>/dev/null; then
-    warn "gh did not accept the token; skipping GitHub Action setup."
-    echo -e "  ${D}'make ci' still works. Check the PAT has repo access, then"
-    echo -e "  re-run this script or see docs/MANUAL-SETUP.md.${R}"
+  # Writing Actions secrets and variables needs permissions the demo PAT does not
+  # carry (it has Contents + Pull requests only). gh is authenticated separately
+  # by `gh auth login`, and that session does, so use it rather than the PAT.
+  if ! gh auth status &>/dev/null; then
+    warn "gh is not logged in, so the GitHub Action was not configured."
+    echo -e "  ${D}Run 'gh auth login', then re-run this script."
+    echo -e "  'make ci' works regardless; see docs/MANUAL-SETUP.md to set them by hand.${R}"
     return 0
   fi
 
   local failed=0
   _gh_secret() {
     printf '%s' "$2" \
-      | GH_TOKEN="$GITHUB_TOKEN" gh secret set "$1" --repo "$slug" --body-file - &>/dev/null \
+      | gh secret set "$1" --repo "$slug" --body-file - &>/dev/null \
       && ok "secret $1" || { warn "could not set secret $1"; failed=1; }
   }
   _gh_secret LD_SDK_KEY "$LD_SDK_KEY"
   _gh_secret LD_API_KEY "$LD_API_KEY"
   _gh_secret ANTHROPIC_API_KEY "$ANTHROPIC_API_KEY"
 
-  GH_TOKEN="$GITHUB_TOKEN" gh variable set LD_APP_PROJECT_KEY \
+  gh variable set LD_APP_PROJECT_KEY \
     --repo "$slug" --body "$LD_APP_PROJECT_KEY" &>/dev/null \
     && ok "variable LD_APP_PROJECT_KEY" || { warn "could not set LD_APP_PROJECT_KEY"; failed=1; }
 
@@ -229,6 +232,8 @@ step "Preflight"
 for cmd in git curl docker jq gh; do
   command -v "$cmd" &>/dev/null && ok "$cmd" || die "$cmd is required but not installed"
 done
+gh auth status &>/dev/null && ok "gh authenticated" \
+  || warn "gh is installed but not logged in; run 'gh auth login' for GitHub setup"
 docker info &>/dev/null 2>&1 && ok "Docker running" \
   || die "Docker is not running. Start Docker Desktop first."
 
