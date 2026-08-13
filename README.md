@@ -130,65 +130,35 @@ next. `make reset-ld` does the LaunchDarkly side only.
 
 ## Demo talk track
 
-10–15 minutes. Store at http://localhost:3000 and LaunchDarkly side by side.
-`express-checkout` is the best opener — a whole new page and a Buy Now button.
+10–15 min. Store and LD side by side. Use `express-checkout`.
 
-**1. One hand-written flag.** In LaunchDarkly find `show-product-reviews`, the only flag
-that exists yet. Toggle it on, refresh the store, review counts appear.
+1. `make menu` → 3 — app up
+2. LD → filter tag `auto-factory` — empty but for the seed flag
+3. LD → `show-product-reviews` on
+4. Store → refresh — review counts appear
+   > "The one flag a human wrote. The factory copies this pattern."
+5. Store → add to bag → cart → checkout — no way to buy but the cart
+6. `make menu` → 1 → `express-checkout`
+7. Bottom pane → narrate: green done, blue running, grey to do. Each box names its model
+   and what it produced
+8. Pane → click the flag link → LD
+9. LD → metric, wired to the `checkout-completed` event the app already tracks
+10. LD → new flag on
+11. Store → refresh — feature appears. Don't rush this one
+    > "The agent created that flag, wired it, gave it metrics. No deploy, no code change."
+12. `make menu` → 6 — reset
 
-> "This is the one flag a human wrote, evaluated in `src/app/api/products/route.ts`.
-> Everything else, the factory writes by copying *this* pattern."
-
-That sets up step 3: the research agent greps for the existing idiom and imitates it, which
-is why the generated code fits.
-
-**2. The before.** Walk the flow about to change. For `express-checkout`: grid, add to bag,
-cart, checkout. The only way to buy is through the cart.
-
-**3. Trigger it.** `make menu` → 1 → `express-checkout`.
-
-**4. Narrate the chain** in the store's bottom pane — green done, blue running, grey to do.
-Each box names the model that ran it and what it produced.
-
-| Agent | What it does |
-|-------|--------------|
-| Research & plan | Reads `services.yaml`, classifies the change, computes blast radius |
-| Flag | Creates the flag and wires it into the code |
-| Metrics | Guarded-release metrics plus the instrumentation to feed them |
-| Manifest | Writes `.release-flags/*.yaml`, the rollout intent Beacon picks up |
-| Tests | Flag-on / flag-off tests |
-| Review | Verdict and risk level |
-
-Good beat: `services.yaml` marks pricing and checkout critical, so pricing scenarios score
-higher blast radius. The agent knows what's revenue-critical because someone told it once.
-
-**5. What landed.** Click the flag link in the pane, or open the `auto-factory` View: the
-new flag nobody typed, the metric wired to the `checkout-completed` event the app already
-tracks, and the manifest committed to the branch.
-
-**6. Flip it.** Turn the flag on in LaunchDarkly, refresh the store, the feature appears.
-
-> "The agent created that flag, wired it, gave it metrics. I'm turning it on from
-> LaunchDarkly — no deploy, no code change."
-
-Strongest moment in the demo. Don't rush it.
-
-**7. Reset.** `make menu` → 6.
-
-### Rehearsing
+Rehearse without spending a call: `make demo-progress`. Two at once, to show the PR
+dropdown:
 
 ```bash
-make demo-progress                              # synthetic run, no Anthropic call
-./demo/replay-progress.sh express-checkout 2 7 & # two at once, to show the PR dropdown
+./demo/replay-progress.sh express-checkout 2 7 &
 ./demo/replay-progress.sh stripe-checkout  3 9 &
 ```
 
-### Known rough edge
-
-On the `make ci` (act) path the action emits nothing per step — it prints all per-node
-output only after the chain finishes. The flowchart therefore sits at `stalled` for most of
-the run, then fills in at once. Steps animate live only on the `phase1-cli` path. Rehearse
-with `make demo-progress` and be ready to explain that a real run reports in a batch.
+**Rough edge:** under `make ci` (act) the action prints per-node output only after the chain
+finishes, so the flowchart sits at `stalled` then fills in at once. Live animation only
+happens on the `phase1-cli` path.
 
 ## Further talking points
 
