@@ -2,7 +2,14 @@
   "schemaVersion": "1.2",
   "flagKey": "enable-dynamic-pricing",
   "scope": "backend",
-  "releasePlan": {},
+  "releasePlan": {
+    "randomizationUnit": "user",
+    "metricKeys": [
+      "enable-dynamic-pricing-business",
+      "enable-dynamic-pricing-latency",
+      "enable-dynamic-pricing-error"
+    ]
+  },
   "releaseIntent": {
     "_instructions": "Human approver: edit freely. action: auto (release on deploy) | hold (do not release yet) | manual (a human runs the release). Structured fields execute; anything else goes in notes (an agent will structure it on the PR for your review). Blank fields = default auto-release on deploy. prerequisites: [{\"flagKey\": \"flag-xyz\", \"variation\": \"on\"}]. notBefore: YYYY-MM-DD. reference: ticket/doc URL.",
     "action": "auto",
