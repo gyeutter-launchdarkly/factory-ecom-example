@@ -106,42 +106,19 @@ Three runners, switchable in the menu under **Settings**:
 | Runner | Runs the agents? | Live pane |
 |--------|------------------|-----------|
 | `hosted` (default) | yes, on GitHub Actions | yes |
-| `act` | **no** | n/a |
-| `act+pr` | **no** | n/a |
+| `actions` | yes | no |
 
-Both act modes currently exit in ~190ms without running the chain: the action's bundle
-starts and returns immediately under act while act still reports success. They are kept
-selectable in Settings, but `hosted` is the working path.
-
-Whichever runner you pick, the store's bottom pane shows the chain as a live flowchart.
-
-Switching runners is all you have to do. The TUI keeps the repo variable
-`AUTOFACTORY_REQUIRE_LABEL` in step, because the hosted workflow has to be gated when act
-runs the chain (or it runs twice, duplicating comments and flags) and ungated when GitHub
-is meant to run it. `make pr` and `make run` each set it themselves too, so the direct
-commands are safe on their own.
-
-**What `make pr` does:**
-
-1. Opens a PR for the branch, or reuses one that is already open
-2. Reads that PR back from GitHub, so act works from the real number, title, body, and
-   head commit
-3. Runs the chain locally with act
-
-**What shows up on the PR:**
-
-- A summary comment
-- A check run, attached to the PR's own head commit
-- Commits: flag wiring, metrics, tests, and the release manifest
-
-The factory's own commits do not restart the workflow; it ignores pushes made by
-`github-actions[bot]`.
+The act runners are disabled. Under act the factory action exits in ~185ms without
+running any agents while act still reports success, so it silently produces nothing.
+`make ci` and `make pr` now refuse with an explanation rather than appear to work; set
+`FACTORY_ALLOW_ACT=1` to retest after an upstream fix. The evidence is in
+`demo/ci/run.sh`: the same remote bundle run by hand in act's own runner image, with
+act's node 24, produces 47 lines and runs the chain.
 
 **Merging triggers nothing.** Phase 1 is the PR-time half. Post-merge is Beacon, and a
 *deploy* starts it, not the merge: `auto-factory-notify` POSTs the deployed SHA range to
 `/flag-releases`, which finds the new `.release-flags/` manifests and begins the rollout.
-So merge, deploy, notify, release. Merging on its own does nothing unless Beacon is
-running.
+So merge, deploy, notify, release.
 
 ## Resetting
 

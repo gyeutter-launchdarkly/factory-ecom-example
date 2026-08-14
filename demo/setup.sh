@@ -231,24 +231,15 @@ check_factory_graph() {
   ) && ok "factory control plane provisioned" || { warn "bootstrap failed; see output above"; return 1; }
 }
 
-# Create (or confirm) an 'AutoFactory' saved view in the LD flag list
+# Create (or confirm) the AutoFactory view and link the factory's flags to it.
+# LD views organise by explicit resource links, not by a tag filter, which is why
+# an earlier attempt at /flag-filters 404d.
+# shellcheck source=lib/link-view.sh
+source demo/lib/link-view.sh
+
 create_ld_view() {
-  echo -e "\n  ${D}Creating AutoFactory saved view in LaunchDarkly...${R}"
-  local body
-  body=$(printf '{"name":"AutoFactory","description":"Flags and metrics created by the LaunchDarkly AutoFactory","filters":[{"attribute":"tags","negate":false,"operator":"in","values":["auto-factory"]}]}')
-  local code
-  code=$(/usr/bin/curl -s -o /dev/null -w "%{http_code}" \
-    -X POST \
-    -H "Authorization: ${LD_API_KEY}" \
-    -H "Content-Type: application/json" \
-    -d "$body" \
-    "https://app.launchdarkly.com/api/v2/projects/${LD_APP_PROJECT_KEY}/flag-filters" 2>/dev/null || echo "000")
-  case "$code" in
-    200|201) ok "Created AutoFactory view" ;;
-    409)     ok "AutoFactory view already exists" ;;
-    *)       echo -e "  ${D}Saved view not created automatically (HTTP $code). In the LD UI:"
-             echo -e "  filter flags by tag 'auto-factory', then Save as view.${R}" ;;
-  esac
+  echo -e "\n  ${D}Syncing the AutoFactory view in LaunchDarkly...${R}"
+  ld_view_sync
 }
 
 # detect mode

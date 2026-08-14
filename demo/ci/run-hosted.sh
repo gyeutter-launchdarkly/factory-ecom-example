@@ -117,6 +117,11 @@ LD_PROJECT=$(grep '^LD_APP_PROJECT_KEY=' .env.local 2>/dev/null | cut -d= -f2- |
 node demo/lib/watch-hosted.mjs "$SCENARIO" "$PR" "$RUN" "$SLUG" "$LD_PROJECT" \
   | node demo/lib/progress-tap.mjs "$SCENARIO"
 
+# Whatever the factory just created should show up in the AutoFactory view.
+# shellcheck source=../lib/link-view.sh
+source demo/lib/link-view.sh
+ld_view_sync
+
 CONCLUSION=$(G run view "$RUN" --repo "$SLUG" --json conclusion --jq .conclusion 2>/dev/null)
 echo ""
 echo "=== Factory run ${CONCLUSION:-finished} ==="

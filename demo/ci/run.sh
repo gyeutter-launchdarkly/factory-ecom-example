@@ -5,6 +5,32 @@
 set -euo pipefail
 
 SCENARIO="${1:-dynamic-pricing}"
+
+# The act path does not work, and fails silently, which is worse than failing.
+# Evidence gathered 2026-08-14:
+#   - act execs the right file and reports "Success" in ~185ms with zero output,
+#     even with --verbose, so no agent ever runs.
+#   - The same remote bundle, run by hand in act's own runner image with act's
+#     node 24, produces 47 lines and runs the chain. ACT=true makes no difference.
+#   - Empty inputs make it fail loudly (exit 1), so this is not missing secrets.
+#   - act supports `using: node24`: a minimal local node24 action runs fine.
+# That leaves an act/action interaction to fix upstream. Until then, refuse
+# rather than let someone spend a demo slot on a no-op.
+if [[ -z "${FACTORY_ALLOW_ACT:-}" ]]; then
+  cat <<'MSG'
+This path is currently a no-op: under act the factory action exits in ~185ms
+without running any agents, while act still reports success.
+
+Use the hosted path instead, which runs the full chain and streams progress into
+the app's flowchart:
+
+    make hosted SCENARIO=<scenario>
+
+Set FACTORY_ALLOW_ACT=1 to run it anyway (e.g. to retest after an upstream fix).
+MSG
+  exit 2
+fi
+
 BRANCH="feature/${SCENARIO}"
 EVENT_FILE="demo/ci/events/${SCENARIO}.json"
 

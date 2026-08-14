@@ -150,16 +150,17 @@ settings_screen() {
     case "$c" in
       1)
         echo ""
-        echo "    1) hosted        real PR + Actions, streamed into the pane (recommended)"
-        echo "    2) act only      canned event; does NOT currently run the agents"
-        echo "    3) real PR + act  same no-op problem, but opens a real PR"
+        echo "    1) hosted   real PR + Actions, streamed into the pane"
+        echo "    2) actions  real PR + Actions, no live pane"
+        echo ""
+        echo -e "  ${D}The act runners are hidden: under act the factory action exits in"
+        echo -e "  ~185ms without running any agents. See demo/ci/run.sh for the evidence.${R}"
         echo ""
         local r=""
         read -r -p "  > " r </dev/tty 2>/dev/null || continue
         case "$r" in
           1) RUNNER="hosted" ;;
-          2) RUNNER="act" ;;
-          3) RUNNER="act+pr" ;;
+          2) RUNNER="actions" ;;
         esac
         save_settings
         echo ""
@@ -181,6 +182,12 @@ settings_screen() {
 }
 
 load_settings
+
+# An older settings file may still name an act runner; those do not run the
+# agents, so migrate silently to the working path.
+case "$RUNNER" in
+  act | act+pr) RUNNER="hosted"; save_settings ;;
+esac
 
 pick_scenario() {
   # Prints the chosen scenario on stdout; everything else goes to stderr so the
