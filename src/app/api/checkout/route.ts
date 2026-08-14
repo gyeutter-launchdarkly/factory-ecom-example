@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
     items.push({ product, quantity: line.quantity });
   }
 
-  const orderTotal = calculateOrderTotal(items);
+  const orderTotal = await calculateOrderTotal(items);
   const orderId = `ORD-${Date.now()}`;
   const userKey = body.customer.email || 'anonymous';
 

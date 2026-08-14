@@ -10,10 +10,13 @@ export async function GET() {
   // discover it via grep and follow it when implementing new flags.
   const showProductReviews = await boolVariation('show-product-reviews', 'anonymous', false);
 
-  const products = PRODUCTS.map((p) => ({
+  // Feature flag: enable-dynamic-pricing
+  // Controls whether demand-based price multiplier is applied.
+  // calculatePrice is now async and evaluates this flag internally.
+  const products = await Promise.all(PRODUCTS.map(async (p) => ({
     ...p,
-    displayPrice: formatPrice(calculatePrice(p)),
-  }));
+    displayPrice: formatPrice(await calculatePrice(p)),
+  })));
 
   return NextResponse.json({ products, flags: { showProductReviews } });
 }
