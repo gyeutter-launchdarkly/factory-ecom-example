@@ -67,10 +67,12 @@ source demo/lib/gate.sh
 SETTINGS_FILE=".autofactory/demo-settings"
 
 # Defaults. RUNNER decides what "run the factory" does:
-#   act      canned event, dummy token. Nothing touches GitHub. Fastest.
-#   act+pr   real PR on GitHub, chain executed locally by act. Fast AND visible.
-#   actions  real PR, chain executed by GitHub Actions. Realistic, queue wait.
-RUNNER="act+pr"
+#   hosted   real PR, chain on GitHub Actions, progress streamed into the pane.
+#            The only mode that actually runs the agents, so it is the default.
+#   act      canned event, dummy token, nothing touches GitHub. Currently a
+#            no-op: the action bundle exits in ~190ms under act.
+#   act+pr   real PR with act running the chain. Same no-op problem.
+RUNNER="hosted"
 REPLAY_SECS="2"
 AUTO_OPEN="on"
 
@@ -98,7 +100,8 @@ EOF
 # has to remember a gh command.
 sync_gate() {
   case "$RUNNER" in
-    act+pr) gate_set true ;;
+    hosted)  gate_set true ;;   # the label is how the run is triggered
+    act+pr)  gate_set true ;;
     actions) gate_set false ;;
     act) ;;  # no PR is opened, so the gate is irrelevant
   esac
@@ -106,9 +109,10 @@ sync_gate() {
 
 runner_label() {
   case "$RUNNER" in
-    act)     echo "act only (nothing on GitHub)" ;;
-    act+pr)  echo "real PR + act (fast, visible)" ;;
-    actions) echo "real PR + GitHub Actions (queue wait)" ;;
+    hosted)  echo "real PR + Actions, live in the pane" ;;
+    act)     echo "act only (does not run the agents)" ;;
+    act+pr)  echo "real PR + act (does not run the agents)" ;;
+    actions) echo "real PR + Actions (no live pane)" ;;
     *)       echo "$RUNNER" ;;
   esac
 }
@@ -116,6 +120,7 @@ runner_label() {
 # Dispatch a scenario through whichever runner is selected.
 run_scenario() {
   case "$RUNNER" in
+    hosted)  make hosted SCENARIO="$1" ;;
     act)     make ci SCENARIO="$1" ;;
     act+pr)  make pr SCENARIO="$1" ;;
     actions) make run SCENARIO="$1" ;;
@@ -145,16 +150,16 @@ settings_screen() {
     case "$c" in
       1)
         echo ""
-        echo "    1) act only      canned event, dummy token, nothing on GitHub"
-        echo "    2) real PR + act opens a real PR, act runs the chain against it"
-        echo "    3) real PR + Actions  hosted run, realistic but you wait"
+        echo "    1) hosted        real PR + Actions, streamed into the pane (recommended)"
+        echo "    2) act only      canned event; does NOT currently run the agents"
+        echo "    3) real PR + act  same no-op problem, but opens a real PR"
         echo ""
         local r=""
         read -r -p "  > " r </dev/tty 2>/dev/null || continue
         case "$r" in
-          1) RUNNER="act" ;;
-          2) RUNNER="act+pr" ;;
-          3) RUNNER="actions" ;;
+          1) RUNNER="hosted" ;;
+          2) RUNNER="act" ;;
+          3) RUNNER="act+pr" ;;
         esac
         save_settings
         echo ""

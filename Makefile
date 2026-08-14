@@ -11,7 +11,7 @@ TF_RUN := docker compose run --rm \
   -e TF_VAR_environment_key='$(or $(LD_ENVIRONMENT_KEY),production)' \
   terraform
 
-.PHONY: setup dev menu open hooks pr sync reset reset-ld run ci _tag-seeds help
+.PHONY: setup dev menu open hooks pr hosted sync reset reset-ld run ci _tag-seeds help
 
 help:
 	@echo "make setup                  First-time setup: create seed flag + LD View, tag branches"
@@ -20,7 +20,7 @@ help:
 	@echo "make reset-ld               Delete only the auto-factory LD flags + metrics"
 	@echo "make run SCENARIO=<name>    Open a PR for a scenario (via GitHub API)"
 	@echo "make ci  SCENARIO=<name>    Run the factory locally via act (no GitHub queue)"
-	@echo "make pr  SCENARIO=<name>    Real PR on GitHub, factory run locally by act"
+	@echo "make hosted SCENARIO=<name> Real PR + factory on Actions, live in the app pane"
 	@echo "make menu                   Interactive menu: pick scenarios, run, reset"
 	@echo "make sync                   Rebase feature branches onto main, re-tag seeds"
 	@echo "make open                   Print the app link and open it in a browser"
@@ -53,8 +53,13 @@ dev:
 	@./demo/open-app.sh &
 	docker compose up --build
 
-## Real PR on GitHub, factory run locally by act (fast + visible)
-## Usage: make pr SCENARIO=express-checkout
+## Real PR + factory on GitHub Actions, progress streamed into the app pane.
+## This is the path that actually runs the agents. Usage: make hosted SCENARIO=...
+hosted:
+	@./demo/ci/run-hosted.sh $(SCENARIO)
+
+## Real PR on GitHub, factory run locally by act. Currently a no-op: the action
+## bundle exits in ~190ms under act without running the chain.
 pr:
 	@./demo/ci/run-pr.sh $(SCENARIO)
 
