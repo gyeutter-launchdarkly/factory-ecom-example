@@ -6,16 +6,18 @@ import { PRODUCTS } from '@/lib/products';
 vi.mock('./ld', () => ({
   boolVariation: vi.fn(),
   stringVariation: vi.fn(),
-  track: vi.fn(),
+  track: vi.fn().mockResolvedValue(undefined),
 }));
 
-const { boolVariation } = await import('./ld');
+const { boolVariation, track } = await import('./ld');
 
 // A small suite that exists mainly so the repo has a working test command and a
 // pattern for the factory's Flag Testing agent to follow.
 describe('pricing', () => {
   beforeEach(() => {
     vi.resetAllMocks();
+    // Ensure track() returns a resolved Promise
+    vi.mocked(track).mockResolvedValue(undefined);
   });
 
   it('formats prices as USD', () => {

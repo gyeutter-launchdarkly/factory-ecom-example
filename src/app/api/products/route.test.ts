@@ -4,10 +4,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 // evaluation, then assert BOTH variations. `@/lib/ld` is the single place flags
 // are read, so mocking it covers any flag the factory wires.
 const boolVariation = vi.fn();
+const track = vi.fn().mockResolvedValue(undefined);
 vi.mock('@/lib/ld', () => ({
   boolVariation: (...args: unknown[]) => boolVariation(...args),
   stringVariation: vi.fn(),
-  track: vi.fn(),
+  track: (...args: unknown[]) => track(...args),
 }));
 
 // vi.mock is hoisted above imports, so a static import still receives the mock.

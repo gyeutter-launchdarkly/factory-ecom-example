@@ -1,5 +1,5 @@
 import type { Product } from './products';
-import { boolVariation } from './ld';
+import { boolVariation, track } from './ld';
 
 export interface CartItem {
   product: Product;
@@ -21,15 +21,33 @@ export function getDemandMultiplier(product: Product): number {
 // - control (flag off): returns basePrice only
 // - v1 (flag on): returns basePrice * demand multiplier
 export async function calculatePrice(product: Product): number {
-  const enableDynamicPricing = await boolVariation('enable-dynamic-pricing', 'anonymous', false);
-  
-  if (enableDynamicPricing) {
-    // v1: apply demand-based multiplier
-    return product.basePrice * getDemandMultiplier(product);
+  const startTime = Date.now();
+  try {
+    const enableDynamicPricing = await boolVariation('enable-dynamic-pricing', 'anonymous', false);
+    
+    let price: number;
+    if (enableDynamicPricing) {
+      // v1: apply demand-based multiplier
+      price = product.basePrice * getDemandMultiplier(product);
+    } else {
+      // control: return basePrice only
+      price = product.basePrice;
+    }
+    
+    // Track latency (guarded-release metric)
+    const elapsedMs = Date.now() - startTime;
+    await track('enable-dynamic-pricing-latency', 'anonymous', elapsedMs).catch(() => {
+      // Silently ignore tracking errors — never let telemetry break the request
+    });
+    
+    return price;
+  } catch (error) {
+    // Track pricing errors (guarded-release metric)
+    await track('enable-dynamic-pricing-error', 'anonymous').catch(() => {
+      // Silently ignore tracking errors — never let telemetry break the request
+    });
+    throw error;
   }
-  
-  // control: return basePrice only
-  return product.basePrice;
 }
 
 export async function calculateLineTotal(item: CartItem): Promise<number> {
