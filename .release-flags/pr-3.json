@@ -4,7 +4,9 @@
   "scope": "fullstack",
   "releasePlan": {
     "metricKeys": [
-      "checkout-completed"
+      "enable-discount-codes-business",
+      "enable-discount-codes-error-rate",
+      "enable-discount-codes-latency"
     ],
     "randomizationUnit": "user"
   },
