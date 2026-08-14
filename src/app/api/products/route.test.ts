@@ -10,7 +10,9 @@ vi.mock('@/lib/ld', () => ({
   track: vi.fn(),
 }));
 
-const { GET } = await import('@/app/api/products/route');
+// vi.mock is hoisted above imports, so a static import still receives the mock.
+import { GET } from '@/app/api/products/route';
+
 
 describe('GET /api/products', () => {
   beforeEach(() => boolVariation.mockReset());
