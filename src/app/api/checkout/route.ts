@@ -56,6 +56,8 @@ export async function POST(req: NextRequest) {
   if (discountCodesEnabled && body.discountCode) {
     const result = applyDiscountCode(body.discountCode, subtotal);
     if (!result) {
+      // Track checkout error for guarded-release metrics
+      await track('checkout-error', userKey);
       return NextResponse.json(
         { error: `Invalid discount code: ${body.discountCode}` },
         { status: 400 },
