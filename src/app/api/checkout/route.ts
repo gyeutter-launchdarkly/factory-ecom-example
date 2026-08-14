@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getProduct } from '@/lib/products';
 import { calculateOrderTotal, applyDiscountCode, formatPrice } from '@/lib/pricing';
-import { track } from '@/lib/ld';
+import { track, boolVariation } from '@/lib/ld';
 import type { CartItem } from '@/lib/pricing';
 
 interface CheckoutBody {
@@ -44,12 +44,16 @@ export async function POST(req: NextRequest) {
   }
 
   const subtotal = calculateOrderTotal(items);
+  const userKey = body.customer.email || 'anonymous';
 
-  // Apply discount code if provided
+  // Check if discount codes feature is enabled
+  const discountCodesEnabled = await boolVariation('enable-discount-codes', userKey, false);
+
+  // Apply discount code if provided and feature is enabled
   let orderTotal = subtotal;
   let discountApplied: { code: string; amount: number } | null = null;
 
-  if (body.discountCode) {
+  if (discountCodesEnabled && body.discountCode) {
     const result = applyDiscountCode(body.discountCode, subtotal);
     if (!result) {
       return NextResponse.json(
@@ -62,7 +66,6 @@ export async function POST(req: NextRequest) {
   }
 
   const orderId = `ORD-${Date.now()}`;
-  const userKey = body.customer.email || 'anonymous';
 
   // Track checkout completion — the Metrics Author builds guarded-release
   // metrics on top of this event (error rate, latency, conversion).
@@ -76,8 +79,7 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({
     orderId,
-    subtotal,
-    discountApplied,
+    ...(discountCodesEnabled && { subtotal, discountApplied }),
     orderTotal,
     orderTotalFormatted: formatPrice(orderTotal),
     customer: body.customer,

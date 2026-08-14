@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useCart } from '@/components/CartProvider';
 import { formatPrice } from '@/lib/pricing';
+import { getCheckoutFlags } from './actions';
 
 interface OrderResult {
   orderId: string;
@@ -28,6 +29,15 @@ export default function CheckoutPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [order, setOrder] = useState<OrderResult | null>(null);
+  const [discountCodesEnabled, setDiscountCodesEnabled] = useState(false);
+
+  // Fetch feature flags on mount using email if available, otherwise 'anonymous'
+  useEffect(() => {
+    const userKey = form.email || 'anonymous';
+    getCheckoutFlags(userKey).then((flags) => {
+      setDiscountCodesEnabled(flags.discountCodesEnabled);
+    });
+  }, []);
 
   if (items.length === 0 && !order) {
     router.replace('/cart');
@@ -182,12 +192,14 @@ export default function CheckoutPage() {
           </section>
 
           {/* Discount code. The AutoFactory flag will gate this section. */}
-          <section>
-            <p className="text-[11px] uppercase tracking-[0.16em] text-muted mb-4">Discount</p>
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="Discount code" field="discountCode" placeholder="SAVE10" span2 />
-            </div>
-          </section>
+          {discountCodesEnabled && (
+            <section>
+              <p className="text-[11px] uppercase tracking-[0.16em] text-muted mb-4">Discount</p>
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Discount code" field="discountCode" placeholder="SAVE10" span2 />
+              </div>
+            </section>
+          )}
 
           {error && (
             <p className="text-[13px] text-red-700 bg-red-50 border border-red-200 rounded-2xl px-4 py-3">
