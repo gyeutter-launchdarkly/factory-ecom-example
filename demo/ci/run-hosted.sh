@@ -30,6 +30,15 @@ SLUG=$(git remote get-url origin | sed -E 's#(git@github.com:|https://github.com
 # read Actions logs or set labels. Force the keyring session.
 G() { env -u GH_TOKEN -u GITHUB_TOKEN gh "$@"; }
 
+# shellcheck source=../lib/gate.sh
+source demo/lib/gate.sh
+
+# demo/run.sh ungates the hosted workflow by default (its own path wants GitHub
+# to fire on PR open). Here the label IS the trigger, so claim the gate and set
+# it on before anything opens a PR.
+export FACTORY_GATE_MANAGED=1
+gate_set true
+
 if ! G auth status &>/dev/null; then
   echo "gh is not logged in. Run: gh auth login"
   exit 1
@@ -50,16 +59,22 @@ PR_URL="https://github.com/${SLUG}/pull/${PR}"
 # 2. Start the run. With the label gate on, adding the label is the trigger; the
 # label is also how a re-run is requested, so remove then re-add.
 BEFORE=$(G run list --repo "$SLUG" --limit 1 --json databaseId --jq '.[0].databaseId // 0')
-if [[ "$(G variable list --repo "$SLUG" --json name,value --jq '.[] | select(.name=="AUTOFACTORY_REQUIRE_LABEL") | .value')" == "true" ]]; then
-  G pr edit "$PR" --repo "$SLUG" --remove-label autofactory &>/dev/null || true
-  G label create autofactory --repo "$SLUG" --description "Approve AutoFactory run" &>/dev/null || true
-  echo "Starting the factory (adding the 'autofactory' label)"
-  G pr edit "$PR" --repo "$SLUG" --add-label autofactory &>/dev/null \
-    || { echo "could not add the label"; exit 1; }
-else
-  echo "Label gate is off; pushing an empty commit to trigger the workflow"
-  git commit -q --allow-empty -m "trigger factory run" && git push -q origin "$BRANCH"
+GATE=$(G variable list --repo "$SLUG" --json name,value \
+  --jq '.[] | select(.name=="AUTOFACTORY_REQUIRE_LABEL") | .value')
+if [[ "$GATE" != "true" ]]; then
+  echo "AUTOFACTORY_REQUIRE_LABEL is '${GATE:-unset}' and could not be set to true."
+  echo "The label is how this path triggers a run, so stopping rather than pushing"
+  echo "an empty commit to your feature branch. Fix with:"
+  echo "  gh variable set AUTOFACTORY_REQUIRE_LABEL --body true"
+  exit 1
 fi
+
+# Re-adding the label is also how a re-run is requested, so clear it first.
+G pr edit "$PR" --repo "$SLUG" --remove-label autofactory &>/dev/null || true
+G label create autofactory --repo "$SLUG" --description "Approve AutoFactory run" &>/dev/null || true
+echo "Starting the factory (adding the 'autofactory' label)"
+G pr edit "$PR" --repo "$SLUG" --add-label autofactory &>/dev/null \
+  || { echo "could not add the label"; exit 1; }
 
 # 3. Wait for the new run to appear.
 printf 'Waiting for the run to start'
@@ -89,35 +104,18 @@ echo "  Run:  https://github.com/${SLUG}/actions/runs/${RUN}"
 echo "  Pane: http://localhost:3000  (steps light up as each agent starts)"
 echo ""
 
-# 4. Stream the job log into the progress tap. GitHub serves partial logs for a
-# running job, so re-fetch and emit only what is new. The tap turns the
-# "[node] <key> ... model → ..." lines into live step events for the flowchart.
+# 4. Stream live progress into the pane. GitHub will not serve a job's log until
+# the job finishes (404 BlobNotFound while running), so progress is derived from
+# the artifacts each agent produces: the flag and metrics appearing in
+# LaunchDarkly, and the commits pushed to the PR branch. watch-hosted.mjs emits
+# lines in the tap's format so there is a single parser for both paths.
 export FACTORY_REPO="$SLUG"
-TOKEN=$(G auth token)
-LOG=$(mktemp)
-trap 'rm -f "$LOG"' EXIT
+export GH_WATCH_TOKEN="$(G auth token)"
+export LD_API_KEY="$(grep '^LD_API_KEY=' .env.local 2>/dev/null | cut -d= -f2-)"
+LD_PROJECT=$(grep '^LD_APP_PROJECT_KEY=' .env.local 2>/dev/null | cut -d= -f2- || echo "checkout-demo")
 
-{
-  # Give the pane the PR number immediately, before any agent output exists.
-  echo "Phase 1: PR #${PR} → graph 'gha-auto-factory' [provider: anthropic]"
-  seen=0
-  while true; do
-    if [[ -n "$JOB" ]]; then
-      curl -sL -o "$LOG" \
-        -H "Authorization: Bearer $TOKEN" \
-        -H "Accept: application/vnd.github+json" \
-        "https://api.github.com/repos/${SLUG}/actions/jobs/${JOB}/logs" 2>/dev/null || true
-      total=$(wc -l < "$LOG" 2>/dev/null || echo 0)
-      if (( total > seen )); then
-        tail -n +$((seen + 1)) "$LOG"
-        seen=$total
-      fi
-    fi
-    status=$(G run view "$RUN" --repo "$SLUG" --json status --jq .status 2>/dev/null || echo "")
-    [[ "$status" == "completed" ]] && break
-    sleep 6
-  done
-} | node demo/lib/progress-tap.mjs "$SCENARIO"
+node demo/lib/watch-hosted.mjs "$SCENARIO" "$PR" "$RUN" "$SLUG" "$LD_PROJECT" \
+  | node demo/lib/progress-tap.mjs "$SCENARIO"
 
 CONCLUSION=$(G run view "$RUN" --repo "$SLUG" --json conclusion --jq .conclusion 2>/dev/null)
 echo ""

@@ -93,19 +93,25 @@ By hand instead: [docs/MANUAL-SETUP.md](docs/MANUAL-SETUP.md).
 ## Running it
 
 ```bash
-make menu                            # pick a scenario; runner comes from Settings
-make pr  SCENARIO=express-checkout   # real PR, act runs it here. Fast and visible.
-make ci  SCENARIO=express-checkout   # canned event, nothing touches GitHub
-make run SCENARIO=express-checkout   # real PR, GitHub Actions runs it. Queue wait.
+make menu                               # one action per scenario (recommended)
+make hosted SCENARIO=express-checkout   # same thing directly
 ```
+
+`make hosted` is the whole demo in one command: it opens or reuses the PR, starts the
+factory on GitHub Actions, streams progress into the store's pane, and prints the
+conclusion.
 
 Three runners, switchable in the menu under **Settings**:
 
-| Runner | PR on GitHub | Chain runs | Use it for |
-|--------|--------------|-----------|------------|
-| `act+pr` (default) | real | locally, via act | live demos: a real PR, no queue |
-| `act` | none | locally, via act | offline, or before credentials exist |
-| `actions` | real | GitHub Actions | showing the hosted pipeline as it really is |
+| Runner | Runs the agents? | Live pane |
+|--------|------------------|-----------|
+| `hosted` (default) | yes, on GitHub Actions | yes |
+| `act` | **no** | n/a |
+| `act+pr` | **no** | n/a |
+
+Both act modes currently exit in ~190ms without running the chain: the action's bundle
+starts and returns immediately under act while act still reports success. They are kept
+selectable in Settings, but `hosted` is the working path.
 
 Whichever runner you pick, the store's bottom pane shows the chain as a live flowchart.
 
@@ -150,35 +156,60 @@ factory, so its results show up in your next demo. `make reset-ld` does LD only.
 
 ## Demo talk track
 
-10–15 min. Store and LD side by side. Use `express-checkout`.
+Fits a 10-minute slot. The trick is to **start the run first** and narrate over it,
+rather than talk and then wait.
 
-1. `make menu` → 2, app up
-2. LD → filter tag `auto-factory`, empty but for the seed flag
+Store and LD side by side. `dynamic-pricing` is the fastest scenario (11 lines changed);
+`express-checkout` is the most visual (a whole new page).
+
+**0:00 Start it**
+
+1. `make menu` → 1 → pick a scenario. One action: it opens the PR, starts the factory on
+   Actions, and streams progress into the store's bottom pane.
+
+**0:30 While it runs, set the scene**
+
+2. LD → filter tag `auto-factory`, showing only the seed flag and the factory's own config
 3. LD → `show-product-reviews` on
 4. Store → refresh, review counts appear
    > "The one flag a human wrote. The factory copies this pattern."
-5. Store → add to bag → cart → checkout, no way to buy but the cart
-6. `make menu` → 1 → `express-checkout`
-7. Bottom pane → narrate: green done, blue running, grey to do. Each box names its model
-   and what it produced
-8. Pane → click the flag link → LD
-9. LD → metric, wired to the `checkout-completed` event the app already tracks
-10. LD → new flag on
-11. Store → refresh, feature appears. Don't rush this one
-    > "The agent created that flag, wired it, gave it metrics. No deploy, no code change."
-12. `make menu` → 5, reset
+5. Store → walk the flow the scenario changes
+6. Bottom pane → narrate as steps light up: green done, blue running, grey to do. Each box
+   names the model and what it produced.
 
-Rehearse without spending a call: `make demo-progress`. Two at once, to show the PR
-dropdown:
+**~6:00 The payoff, once the chain finishes**
+
+7. Pane → click the flag link → LD
+8. LD → the metrics, wired to the `checkout-completed` event the app already tracks
+9. LD → toggle the new flag on
+10. Store → refresh, the feature appears. Don't rush this one
+    > "The agent created that flag, wired it, gave it metrics. No deploy, no code change."
+
+**~9:00 Optional closer**
+
+11. LD → AI configs → show a model swap. The whole chain was retuned to Haiku from here,
+    no redeploy. That is why it takes ~6 minutes instead of ~15.
+
+**After** `make menu` → 5 to reset.
+
+### Measured timings
+
+| | |
+|---|---|
+| Chain on Sonnet | 13.4 min |
+| Chain on Haiku | 6.7 min |
+| Setup (checkout, deps) | ~0.5 min |
+
+Per-agent on Sonnet: flag-testing 3.1, flag-implementer 2.7, metrics-author 2.5,
+research-planner 2.3, manifest-steward 1.6, code-reviewer 1.2.
+
+### Rehearsing
 
 ```bash
-./demo/replay-progress.sh express-checkout 2 7 &
+make demo-progress                                # synthetic run, no Anthropic call
+./demo/replay-progress.sh express-checkout 2 7 &   # two at once, shows the PR dropdown
 ./demo/replay-progress.sh stripe-checkout  3 9 &
 ```
-
-**Rough edge:** under `make ci` (act) the action prints per-node output only after the chain
-finishes, so the flowchart sits at `stalled` then fills in at once. Live animation only
-happens on the `phase1-cli` path.
 
 ## Further talking points
 
