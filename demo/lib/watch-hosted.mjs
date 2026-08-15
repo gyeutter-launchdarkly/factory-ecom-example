@@ -54,6 +54,17 @@ function say(line) {
   process.stdout.write(line + '\n');
 }
 
+// Human-readable progress on stderr, so it reaches the terminal without landing
+// in the tap's stdin. Redrawn in place with \r.
+const BAR_WIDTH = 24;
+function bar(label) {
+  if (!process.stderr.isTTY) return;
+  const filled = Math.round((done.size / CHAIN.length) * BAR_WIDTH);
+  const track = '#'.repeat(filled) + '.'.repeat(BAR_WIDTH - filled);
+  const pct = String(Math.round((done.size / CHAIN.length) * 100)).padStart(3);
+  process.stderr.write(`\r  [${track}] ${pct}%  ${done.size}/${CHAIN.length}  ${label.padEnd(22)}`);
+}
+
 /** Mark a node running (once), which is what lights the step up in the pane. */
 function start(key) {
   if (started.has(key) || done.has(key)) return;
@@ -152,6 +163,7 @@ async function tick() {
   // Light up whichever step is next, so the pane always shows something moving.
   const next = CHAIN.find((k) => !done.has(k));
   if (next) start(next);
+  bar(next ? next.replace('autofactory-', '') : 'finishing');
 
   const run = await gh(`/actions/runs/${runId}`);
   return run?.status === 'completed' ? (run.conclusion ?? 'completed') : null;
@@ -168,8 +180,11 @@ while (!conclusion && Date.now() < deadline) {
 
 if (conclusion === 'success') {
   for (const k of CHAIN) finish(k);
+  bar('done');
+  process.stderr.write('\n');
   say('{"review_approved":true,"risk_level":"low"}');
 } else if (conclusion) {
+  process.stderr.write('\n');
   const stuck = CHAIN.find((k) => !done.has(k));
   if (stuck) say(`::error::AutoFactory: run ${conclusion} at ${stuck}`);
 }

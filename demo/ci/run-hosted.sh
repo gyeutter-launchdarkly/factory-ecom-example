@@ -77,15 +77,16 @@ G pr edit "$PR" --repo "$SLUG" --add-label autofactory &>/dev/null \
   || { echo "could not add the label"; exit 1; }
 
 # 3. Wait for the new run to appear.
-printf 'Waiting for the run to start'
+# A growing ### track while GitHub picks the run up.
 RUN=""
-for _ in $(seq 1 40); do
+for i in $(seq 1 40); do
   RUN=$(G run list --repo "$SLUG" --branch "$BRANCH" --limit 1 \
     --json databaseId,status --jq '.[0] | select(.status=="queued" or .status=="in_progress") | .databaseId // empty')
   [[ -n "$RUN" && "$RUN" != "$BEFORE" ]] && break
-  printf '.'; sleep 3
+  [ -t 1 ] && printf '\r  waiting for GitHub to start the run  [%-24s]' "$(printf '#%.0s' $(seq 1 $(( i % 25 ))))"
+  sleep 3
 done
-echo ""
+[ -t 1 ] && printf '\r%-70s\r' " "
 if [[ -z "$RUN" ]]; then
   echo "No run started. Check ${PR_URL} (the label gate may not be set)."
   exit 1

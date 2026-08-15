@@ -56,7 +56,13 @@ dev:
 ## Real PR + factory on GitHub Actions, progress streamed into the app pane.
 ## This is the path that actually runs the agents. Usage: make hosted SCENARIO=...
 hosted:
+ifeq ($(origin SCENARIO),file)
+	@echo "make hosted needs an explicit scenario: it opens a PR and runs the agents."
+	@echo "  make hosted SCENARIO=dynamic-pricing"
+	@exit 1
+else
 	@./demo/ci/run-hosted.sh $(SCENARIO)
+endif
 
 ## Real PR on GitHub, factory run locally by act. Currently a no-op: the action
 ## bundle exits in ~190ms under act without running the chain.

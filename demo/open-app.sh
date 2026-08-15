@@ -17,14 +17,20 @@ TIMEOUT="${TIMEOUT:-90}"
 B=$'\033[1m'; GR=$'\033[32m'; D=$'\033[2m'; R=$'\033[0m'
 
 # Wait for a real HTTP response, not just an open socket.
+# ### track while the app comes up.
 deadline=$(( $(date +%s) + TIMEOUT ))
+tick=0
 until curl -fsS -o /dev/null --max-time 2 "$URL" 2>/dev/null; do
+  tick=$(( tick + 1 ))
+  [ -t 1 ] && printf '\r  starting the app  [%-24s]' "$(printf '#%.0s' $(seq 1 $(( tick % 25 ))))"
   [ "$(date +%s)" -ge "$deadline" ] && {
+    [ -t 1 ] && printf '\r%-60s\r' " "
     printf '%s\n' "${D}  App did not respond on ${URL} within ${TIMEOUT}s.${R}" >&2
     exit 0   # never fail the parent `make dev`
   }
   sleep 1
 done
+[ -t 1 ] && printf '\r%-60s\r' " "
 
 printf '\n%s\n' "${GR}${B}  +--------------------------------------------------+"
 printf '%s\n'   "  |   Demo app ready                                 |"
