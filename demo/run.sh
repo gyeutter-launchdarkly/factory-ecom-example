@@ -45,18 +45,24 @@ if [[ -z "${FACTORY_GATE_MANAGED:-}" ]]; then
 fi
 
 BRANCH="feature/${SCENARIO}"
-if ! git show-ref --verify --quiet "refs/heads/$BRANCH"; then
-  echo "Error: branch $BRANCH not found locally."
-  echo "Run 'make reset' to recreate it from its seed tag."
-  exit 1
-fi
+
+# Existence, "already merged", and "behind main" all produce a PR that misleads
+# rather than one that fails, so they are checked before anything is pushed.
+# A no-op when run-hosted.sh already did it.
+# shellcheck source=lib/branch.sh
+source demo/lib/branch.sh
+ensure_branch_ready "$SCENARIO" || exit 1
 
 TITLE=$(jq -r '.pull_request.title' "$EVENT_FILE")
 BODY=$(jq -r '.pull_request.body' "$EVENT_FILE")
 BASE=$(jq -r '.pull_request.base.ref // "main"' "$EVENT_FILE")
 
-# Push the branch so GitHub can see it.
-git push -u origin "$BRANCH" 2>/dev/null || git push -u origin "$BRANCH" --force-with-lease
+# Push the branch so GitHub can see it. A rewind by `make reset`, or a rebase by
+# ensure_branch_ready, needs the force; --force-with-lease so a push that would
+# clobber commits we have not seen still fails.
+git push -u origin "$BRANCH" 2>/dev/null \
+  || git push -u origin "$BRANCH" --force-with-lease \
+  || { echo "Could not push $BRANCH. Fetch and retry, or 'make reset' to rewind it."; exit 1; }
 
 echo "Opening PR: $TITLE"
 

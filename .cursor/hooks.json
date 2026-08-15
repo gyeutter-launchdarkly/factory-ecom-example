@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "hooks": {
+    "stop": [
+      {
+        "command": ".cursor/hooks/commit-and-push.sh",
+        "timeout": 120,
+        "loop_limit": 1
+      }
+    ]
+  }
+}

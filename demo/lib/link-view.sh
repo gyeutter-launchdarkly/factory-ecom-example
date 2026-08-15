@@ -28,20 +28,30 @@ ld_view_sync() {
     *) echo "  note: could not create the AutoFactory view (HTTP ${code})" ;;
   esac
 
-  # Link everything the factory has tagged.
-  local keys
-  keys=$(/usr/bin/curl -s -H "Authorization: ${api}" \
-    "https://app.launchdarkly.com/api/v2/flags/${project}?filter=tags:auto-factory&limit=100" 2>/dev/null \
-    | jq -c '[.items[].key]' 2>/dev/null || echo "[]")
-  [[ "$keys" == "[]" || -z "$keys" ]] && return 0
+  # Link everything the factory has tagged. Metrics as well as flags: the view
+  # is meant to be the one place a run's output collects, and the metrics drive
+  # the guarded rollout that the rest of the demo talks about.
+  _link_kind() {
+    local kind="$1" keys
+    keys=$(/usr/bin/curl -s -H "Authorization: ${api}" \
+      "https://app.launchdarkly.com/api/v2/${kind}/${project}?filter=tags:auto-factory&limit=100" 2>/dev/null \
+      | jq -c '[.items[]?.key]' 2>/dev/null || echo "[]")
+    [[ "$keys" == "[]" || -z "$keys" ]] && return 0
 
-  code=$(/usr/bin/curl -s -o /dev/null -w "%{http_code}" -X POST "${H[@]}" \
-    -d "{\"keys\":${keys}}" "${base}/views/${VIEW_KEY}/link/flags" 2>/dev/null || echo "000")
-  if [[ "$code" == "200" || "$code" == "201" ]]; then
-    echo "  linked $(echo "$keys" | jq 'length') flag(s) into the AutoFactory view"
-  else
-    echo "  note: could not link flags to the view (HTTP ${code})"
-  fi
+    local c
+    c=$(/usr/bin/curl -s -o /dev/null -w "%{http_code}" -X POST "${H[@]}" \
+      -d "{\"keys\":${keys}}" "${base}/views/${VIEW_KEY}/link/${kind}" 2>/dev/null || echo "000")
+    if [[ "$c" == "200" || "$c" == "201" ]]; then
+      echo "  linked $(echo "$keys" | jq 'length') ${kind%s}(s) into the AutoFactory view"
+    elif [[ "$kind" == "flags" ]]; then
+      echo "  note: could not link flags to the view (HTTP ${c})"
+    fi
+    # Metric linking failures stay quiet: the endpoint is beta and the view is a
+    # convenience, so a 404 here must not look like the run went wrong.
+  }
+
+  _link_kind flags
+  _link_kind metrics
 }
 
 # Allow running as a script as well as sourcing.

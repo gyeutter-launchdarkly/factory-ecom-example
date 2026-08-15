@@ -18,19 +18,26 @@
  * Output is lines in the same shape demo/lib/progress-tap.mjs already parses, so
  * there is one parser for both paths. Pipe this into the tap.
  *
- * Usage: node demo/lib/watch-hosted.mjs <scenario> <pr> <runId> <repoSlug> <ldProject>
+ * Usage: node demo/lib/watch-hosted.mjs <scenario> <pr> <runId> <repoSlug> <ldProject> [ldEnv]
  */
 
-const [, , scenario, pr, runId, slug, ldProject] = process.argv;
+const [, , scenario, pr, runId, slug, ldProject, ldEnvArg] = process.argv;
 if (!scenario || !pr || !runId || !slug || !ldProject) {
-  console.error('usage: watch-hosted.mjs <scenario> <pr> <runId> <slug> <ldProject>');
+  console.error('usage: watch-hosted.mjs <scenario> <pr> <runId> <slug> <ldProject> [ldEnv]');
   process.exit(2);
 }
 
 const GH_TOKEN = process.env.GH_WATCH_TOKEN || '';
 const LD_KEY = process.env.LD_API_KEY || '';
+const LD_ENV = ldEnvArg || process.env.LD_ENVIRONMENT_KEY || 'production';
+// The model each node actually used is only in the job log, which GitHub will
+// not serve until the run ends. This is what the graph is configured with; set
+// FACTORY_MODEL when you have retuned the chain, or the pane will misreport it.
 const MODEL = process.env.FACTORY_MODEL || 'claude-haiku-4-5-20251001';
 const POLL_MS = 5000;
+// A slow agent can go minutes without producing an artifact. Without a sign of
+// life the pane declares the run stalled, so say so on a fixed cadence.
+const HEARTBEAT_MS = 30_000;
 
 const CHAIN = [
   'autofactory-research-planner',
@@ -49,6 +56,9 @@ const announced = new Set();
 // jumps straight to done on a repeat demo. Snapshot what already exists first and
 // only treat additions as signals.
 const baseline = { flags: new Set(), metrics: new Set(), commits: new Set() };
+
+// Commit SHA -> the files it touched, so a commit is inspected once.
+const commitFiles = new Map();
 
 function say(line) {
   process.stdout.write(line + '\n');
@@ -107,6 +117,16 @@ async function ld(path) {
   }
 }
 
+// Deep links follow the environment the demo is configured for; hardcoding
+// /production sent the pane to a 404 on any other environment.
+function flagUrl(key) {
+  return `https://app.launchdarkly.com/projects/${ldProject}/flags/${key}/targeting?env=${LD_ENV}`;
+}
+
+function metricUrl(key) {
+  return `https://app.launchdarkly.com/projects/${ldProject}/metrics/${key}?env=${LD_ENV}`;
+}
+
 // The flag the factory creates is named after the feature, e.g.
 // enable-express-checkout. Match on the scenario rather than an exact key, since
 // the agent chooses the final name.
@@ -115,8 +135,17 @@ function matchesScenario(key) {
   return key.replace(/-/g, '').includes(stem);
 }
 
+/** Files a commit touched. Its message alone is too unreliable to route on. */
+async function filesOf(sha) {
+  if (commitFiles.has(sha)) return commitFiles.get(sha);
+  const c = await gh(`/commits/${sha}`);
+  const files = (c?.files ?? []).map((f) => f.filename ?? '').filter(Boolean);
+  commitFiles.set(sha, files);
+  return files;
+}
+
 async function snapshot() {
-  const flags = await ld(`/flags/${ldProject}?filter=tags:auto-generated&limit=50`);
+  const flags = await ld(`/flags/${ldProject}?filter=tags:auto-factory&limit=50`);
   for (const f of flags?.items ?? []) baseline.flags.add(f.key);
   const metrics = await ld(`/metrics/${ldProject}?limit=100`);
   for (const m of metrics?.items ?? []) baseline.metrics.add(m.key);
@@ -125,14 +154,16 @@ async function snapshot() {
 }
 
 async function tick() {
-  // Flag + metrics, straight from LaunchDarkly.
-  const flags = await ld(`/flags/${ldProject}?filter=tags:auto-generated&limit=50`);
+  // Flag + metrics, straight from LaunchDarkly. The factory tags what it
+  // creates 'auto-factory' (and 'auto-generated'); the demo filters on the
+  // former everywhere, so reset, the view and this watcher agree on one word.
+  const flags = await ld(`/flags/${ldProject}?filter=tags:auto-factory&limit=50`);
   const flag = flags?.items?.find((f) => matchesScenario(f.key) && !baseline.flags.has(f.key));
   if (flag) {
     finish('autofactory-flag-implementer', { flag_key: flag.key, flag_ready: 'true' });
     if (!announced.has('flag')) {
       announced.add('flag');
-      say(`Flag: ${flag.key} → https://app.launchdarkly.com/${ldProject}/production/features/${flag.key}`);
+      say(`Flag: ${flag.key} → ${flagUrl(flag.key)}`);
     }
   }
 
@@ -143,18 +174,26 @@ async function tick() {
     for (const m of mine) {
       if (announced.has(`m:${m.key}`)) continue;
       announced.add(`m:${m.key}`);
-      say(`Metric: ${m.key} → https://app.launchdarkly.com/${ldProject}/production/metrics/${m.key}`);
+      say(`Metric: ${m.key} → ${metricUrl(m.key)}`);
     }
   }
 
-  // Commits the agents push while the run is going.
+  // Commits the agents push while the run is going. Routed on the files they
+  // touch: agents word their commit messages however they like, and a run whose
+  // steps never light up looks broken even when it is working.
   const commits = await gh(`/pulls/${pr}/commits?per_page=100`);
   for (const c of commits ?? []) {
     if (baseline.commits.has(c.sha)) continue;
-    const msg = c.commit?.message ?? '';
-    const files = msg.toLowerCase();
-    if (/release-flags/.test(files)) finish('autofactory-manifest-steward', { manifest: 'pr-' + pr });
-    if (/test|spec/.test(files)) finish('autofactory-flag-testing', { tests_last_run: 'pass' });
+    const files = await filesOf(c.sha);
+    const haystack = [c.commit?.message ?? '', ...files].join('\n').toLowerCase();
+
+    const manifest = files.find((f) => f.includes('.release-flags/'));
+    if (manifest || /release-flags/.test(haystack)) {
+      finish('autofactory-manifest-steward', manifest ? { manifest_path: manifest } : {});
+    }
+    if (files.some((f) => /\.(test|spec)\./.test(f)) || /\btests?\b|\bspec\b/.test(haystack)) {
+      finish('autofactory-flag-testing', { tests_last_run: 'pass' });
+    }
   }
 
   // Anything landing at all means research & plan is behind us.
@@ -173,8 +212,13 @@ await snapshot();
 
 const deadline = Date.now() + 25 * 60 * 1000;
 let conclusion = null;
+let lastBeat = 0;
 while (!conclusion && Date.now() < deadline) {
   conclusion = await tick();
+  if (Date.now() - lastBeat >= HEARTBEAT_MS) {
+    lastBeat = Date.now();
+    say('[heartbeat]');
+  }
   if (!conclusion) await new Promise((r) => setTimeout(r, POLL_MS));
 }
 

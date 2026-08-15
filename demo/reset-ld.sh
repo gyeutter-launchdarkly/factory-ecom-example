@@ -31,10 +31,16 @@ ld_delete() { /usr/bin/curl -sf -X DELETE -H "$AUTH" "$BASE$1" -o /dev/null -w "
 echo "=== Resetting LaunchDarkly  (project: $LD_APP_PROJECT_KEY) ==="
 echo ""
 
+# jq, not python3: jq is already a hard prerequisite the setup wizard checks
+# for, and on a machine without python3 this script used to report deleting
+# nothing at all rather than failing.
+keys_of() { jq -r '.items[]?.key // empty' 2>/dev/null || true; }
+
 # ── Flags ────────────────────────────────────────────────────────────────────
 echo "Flags tagged 'auto-factory'…"
-flags=$(ld_get "/flags/$LD_APP_PROJECT_KEY?filter=tags%3Aauto-factory&limit=200" \
-  | python3 -c "import sys,json; [print(f['key']) for f in json.load(sys.stdin).get('items',[])]" 2>/dev/null || echo "")
+# `|| true`: curl -sf fails on a non-200, and pipefail would abort the reset
+# before it reaches the metrics or the branches.
+flags=$(ld_get "/flags/$LD_APP_PROJECT_KEY?filter=tags%3Aauto-factory&limit=200" | keys_of || true)
 
 n=0
 for key in $flags; do
@@ -43,24 +49,29 @@ for key in $flags; do
     continue
   fi
   code=$(ld_delete "/flags/$LD_APP_PROJECT_KEY/$key")
-  [[ "$code" == "204" || "$code" == "200" ]] \
-    && echo "  deleted  $key" && (( n++ )) || true \
-    || echo "  warn     $key  (HTTP $code)"
+  if [[ "$code" == "204" || "$code" == "200" ]]; then
+    echo "  deleted  $key"
+    n=$((n + 1))
+  else
+    echo "  warn     $key  (HTTP $code)"
+  fi
 done
 echo "  → $n flag(s) deleted"
 echo ""
 
 # ── Metrics ──────────────────────────────────────────────────────────────────
 echo "Metrics tagged 'auto-factory'…"
-metrics=$(ld_get "/metrics/$LD_APP_PROJECT_KEY?filter=tags%3Aauto-factory&limit=200" \
-  | python3 -c "import sys,json; [print(m['key']) for m in json.load(sys.stdin).get('items',[])]" 2>/dev/null || echo "")
+metrics=$(ld_get "/metrics/$LD_APP_PROJECT_KEY?filter=tags%3Aauto-factory&limit=200" | keys_of || true)
 
 m=0
 for key in $metrics; do
   code=$(ld_delete "/metrics/$LD_APP_PROJECT_KEY/$key")
-  [[ "$code" == "204" || "$code" == "200" ]] \
-    && echo "  deleted  $key" && (( m++ )) || true \
-    || echo "  warn     $key  (HTTP $code)"
+  if [[ "$code" == "204" || "$code" == "200" ]]; then
+    echo "  deleted  $key"
+    m=$((m + 1))
+  else
+    echo "  warn     $key  (HTTP $code)"
+  fi
 done
 echo "  → $m metric(s) deleted"
 echo ""

@@ -36,8 +36,12 @@ LaunchDarkly primitives:
 | `feature/discount-codes` | Discount code at checkout | Medium |
 | `feature/dynamic-pricing` | Demand-based price multiplier | High (~0.8) |
 
-Each branch carries one commit: the feature, nothing else. `make menu` flags any that fall
-behind `main`.
+Each branch carries one commit: the feature, nothing else.
+
+A commit to `main` leaves these branches behind it, and a branch that is behind has a diff
+that *reverts* main's own commits. Every path that opens a PR checks for this first and
+rebases the branch, so a stale branch costs you a few seconds rather than the demo.
+`make sync` does the whole set at once, and `make menu` → 6 reports them.
 
 `.autofactory/services.yaml` marks pricing and checkout critical, so those score higher
 blast radius; with `auto-factory-approval-mode` set to `risk-threshold`, `dynamic-pricing`
@@ -60,10 +64,10 @@ Collects credentials, writes `.env.local`, provisions the seed flag, checks the 
 agent graph exists in your project (and offers to create it), installs the secret-blocking
 git hook, configures the GitHub Action, starts the app, opens the demo menu.
 
-Re-running it offers to reset first, and that **defaults to yes**: it deletes the factory's
-flags and metrics, closes open PRs, rewinds the feature branches, and clears the run
-history. Saved credentials come back masked so you can just press enter through them.
-`--fresh` takes every default without asking; `--no-reset` keeps the current state.
+Re-running it **resets first, without asking**: it deletes the factory's flags and metrics,
+closes open PRs, rewinds the feature branches, and clears the run history. Saved
+credentials come back masked so you can just press enter through them. `--fresh` keeps the
+saved credentials and asks nothing at all; `--no-reset` keeps the current demo state.
 
 You need:
 
@@ -107,6 +111,9 @@ If the pane looks frozen during a demo, the usual cause is a browser tab left op
 across a rebuild: the page's event stream dies with the old container. Reload the page
 and it replays the current run from the start.
 
+A hosted run reports a heartbeat every 30s, so the pane can tell "an agent is thinking"
+from "the watcher is gone" — it only says `stalled` after five minutes of silence.
+
 ## Running it
 
 ```bash
@@ -114,11 +121,11 @@ make menu                               # one action per scenario (recommended)
 make hosted SCENARIO=express-checkout   # same thing directly
 ```
 
-`make hosted` is the whole demo in one command: it opens or reuses the PR, starts the
-factory on GitHub Actions, streams progress into the store's pane, and prints the
-conclusion.
+`make hosted` is the whole demo in one command: it rebases the branch if it has fallen
+behind main, opens or reuses the PR, starts the factory on GitHub Actions, streams
+progress into the store's pane, and prints the conclusion.
 
-Three runners, switchable in the menu under **Settings**:
+Two runners, switchable in the menu under **Settings**:
 
 | Runner | Runs the agents? | Live pane |
 |--------|------------------|-----------|

@@ -25,8 +25,11 @@ until curl -fsS -o /dev/null --max-time 2 "$URL" 2>/dev/null; do
   [ -t 1 ] && printf '\r  starting the app  [%-24s]' "$(printf '#%.0s' $(seq 1 $(( tick % 25 ))))"
   [ "$(date +%s)" -ge "$deadline" ] && {
     [ -t 1 ] && printf '\r%-60s\r' " "
-    printf '%s\n' "${D}  App did not respond on ${URL} within ${TIMEOUT}s.${R}" >&2
-    exit 0   # never fail the parent `make dev`
+    printf '%s\n' "  App did not respond on ${URL} within ${TIMEOUT}s." >&2
+    printf '%s\n' "${D}  Check 'docker compose logs app'.${R}" >&2
+    # Non-zero, so a caller is not told the app is up when it is not. Callers
+    # that must not fail on this (`make dev`, the setup wizard) append `|| true`.
+    exit 1
   }
   sleep 1
 done

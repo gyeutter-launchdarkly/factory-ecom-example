@@ -14,13 +14,27 @@ set -euo pipefail
 SCENARIO="${1:-express-checkout}"
 STEP_SECS="${2:-2}"
 PR_NUMBER="${3:-1}"
+
+cd "$(dirname "$0")/.."
+
+# `make demo-progress` inherits these from the Makefile, but the menu runs this
+# script directly, where they are unset — and the replayed links then pointed at
+# a project nobody has.
+if [[ -f .env.local ]]; then
+  while IFS='=' read -r key val; do
+    [[ "$key" =~ ^[[:space:]]*# || -z "${key// }" ]] && continue
+    case "$key" in
+      LD_APP_PROJECT_KEY | LD_ENVIRONMENT_KEY) printf -v "$key" '%s' "$val" ;;
+    esac
+  done < .env.local
+fi
+
 PROJECT="${LD_APP_PROJECT_KEY:-checkout-demo}"
+LD_ENV="${LD_ENVIRONMENT_KEY:-production}"
 # Repo slug so the replayed run gets a working PR link, same as the real runners.
 : "${FACTORY_REPO:=$(git remote get-url origin 2>/dev/null \
     | sed -E 's#(git@github.com:|https://github.com/)##; s#\.git$##' || true)}"
 export FACTORY_REPO
-
-cd "$(dirname "$0")/.."
 
 # key : title : model : tags-json
 # Mirrors the real output shape: a "[node] ... model -> '...'" line per node,
@@ -50,13 +64,15 @@ echo "Watch the Factory pane at http://localhost:3000"
     echo "■ step $i done: $title ($key) [ok] tags: $tags"
 
     # Emit the resource links at the points the real chain reports them.
+    # Same URL shapes demo/lib/watch-hosted.mjs emits, so a rehearsal exercises
+    # the links the real run will produce.
     if [ "$key" = "autofactory-flag-implementer" ]; then
-      echo "Flag: ${SCENARIO} → https://app.launchdarkly.com/${PROJECT}/flags/${SCENARIO}"
+      echo "Flag: ${SCENARIO} → https://app.launchdarkly.com/projects/${PROJECT}/flags/${SCENARIO}/targeting?env=${LD_ENV}"
     fi
     if [ "$key" = "autofactory-metrics-author" ]; then
       # One line per metric, matching phase1-cli which loops over metric_keys.
       for mk in "${SCENARIO}-conversion" "${SCENARIO}-error-rate"; do
-        echo "Metric: ${mk} → https://app.launchdarkly.com/${PROJECT}/metrics/${mk}/details"
+        echo "Metric: ${mk} → https://app.launchdarkly.com/projects/${PROJECT}/metrics/${mk}?env=${LD_ENV}"
       done
     fi
   done

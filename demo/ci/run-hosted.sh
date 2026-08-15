@@ -33,6 +33,13 @@ G() { env -u GH_TOKEN -u GITHUB_TOKEN gh "$@"; }
 # shellcheck source=../lib/gate.sh
 source demo/lib/gate.sh
 
+# A branch left behind main has a diff that reverts main's own commits, so check
+# (and rebase) before a PR exists rather than showing the audience the wrong
+# change. `make menu` did this already; running this script directly did not.
+# shellcheck source=../lib/branch.sh
+source demo/lib/branch.sh
+ensure_branch_ready "$SCENARIO" || exit 1
+
 # demo/run.sh ungates the hosted workflow by default (its own path wants GitHub
 # to fire on PR open). Here the label IS the trigger, so claim the gate and set
 # it on before anything opens a PR.
@@ -116,8 +123,14 @@ export FACTORY_REPO="$SLUG"
 export GH_WATCH_TOKEN="$(G auth token)"
 export LD_API_KEY="$(grep '^LD_API_KEY=' .env.local 2>/dev/null | cut -d= -f2-)"
 LD_PROJECT=$(grep '^LD_APP_PROJECT_KEY=' .env.local 2>/dev/null | cut -d= -f2- || echo "checkout-demo")
+# The pane's deep links have to point at the environment the demo actually uses.
+LD_ENV=$(grep '^LD_ENVIRONMENT_KEY=' .env.local 2>/dev/null | cut -d= -f2-)
+# ld_view_sync below reads these from the environment, and returns quietly when
+# they are unset — which is why the view stopped collecting the factory's flags.
+export LD_APP_PROJECT_KEY="$LD_PROJECT"
+export LD_ENVIRONMENT_KEY="${LD_ENV:-production}"
 
-node demo/lib/watch-hosted.mjs "$SCENARIO" "$PR" "$RUN" "$SLUG" "$LD_PROJECT" \
+node demo/lib/watch-hosted.mjs "$SCENARIO" "$PR" "$RUN" "$SLUG" "$LD_PROJECT" "${LD_ENV:-production}" \
   | node demo/lib/progress-tap.mjs "$SCENARIO"
 
 # Whatever the factory just created should show up in the AutoFactory view.

@@ -38,24 +38,39 @@ AutoFactory AI configs
 
 ## 3. LaunchDarkly View
 
-The TUI creates a saved View named **AutoFactory** filtered to the `auto-factory` tag, so
-each run's output collects in one place.
+The TUI creates a View named **AutoFactory** and links every `auto-factory`-tagged flag
+and metric to it, so each run's output collects in one place.
 
-By hand: in the flag list, filter by tag `auto-factory`, then save as a view. Or POST to
-the API:
+Views organise by explicit resource links, not by a saved tag filter, so the links have to
+be refreshed after a run creates something new. `demo/lib/link-view.sh` does both steps and
+is safe to re-run:
+
+```bash
+./demo/lib/link-view.sh
+```
+
+By hand, the same two calls (note the beta API version header):
 
 ```bash
 curl -X POST \
   -H "Authorization: $LD_API_KEY" \
+  -H "LD-API-Version: beta" \
   -H "Content-Type: application/json" \
-  -d '{"name":"AutoFactory","filters":[{"attribute":"tags","negate":false,"operator":"in","values":["auto-factory"]}]}' \
-  "https://app.launchdarkly.com/api/v2/projects/$LD_APP_PROJECT_KEY/flag-filters"
+  -d '{"key":"autofactory","name":"AutoFactory","tags":["auto-factory"]}' \
+  "https://app.launchdarkly.com/api/v2/projects/$LD_APP_PROJECT_KEY/views"
+
+curl -X POST \
+  -H "Authorization: $LD_API_KEY" \
+  -H "LD-API-Version: beta" \
+  -H "Content-Type: application/json" \
+  -d '{"keys":["some-flag-key"]}' \
+  "https://app.launchdarkly.com/api/v2/projects/$LD_APP_PROJECT_KEY/views/autofactory/link/flags"
 ```
 
 ## 4. GitHub Action
 
-Only needed for `make run` (real PRs). `make ci` reads `.env.local` directly and needs none
-of this.
+Required: the hosted paths (`make hosted`, `make run`) are the only ones that run the
+agents, and both execute the chain on GitHub Actions.
 
 **Settings → Secrets and variables → Actions**
 
@@ -79,9 +94,10 @@ gh variable set LD_APP_PROJECT_KEY --body "$LD_APP_PROJECT_KEY"
 ```
 
 Repo variable `AUTOFACTORY_REQUIRE_LABEL` gates the hosted run behind an `autofactory`
-label. The demo manages it for you: `make pr` sets it `true` (so only the local act run
-proceeds) and `make run` sets it `false` (so the hosted run fires). Set it by hand with
-`gh variable set AUTOFACTORY_REQUIRE_LABEL --body true`.
+label. The demo manages it for you: `make hosted` sets it `true` and uses the label as its
+trigger (which is also how it re-runs), while `make run` sets it `false` so opening the PR
+is enough. The menu re-applies whichever setting its runner needs at startup. Set it by
+hand with `gh variable set AUTOFACTORY_REQUIRE_LABEL --body true`.
 
 Note that writing Actions secrets and variables needs permissions the demo PAT does not
 have. Those calls use your `gh auth login` session instead, which is why gh must be logged
@@ -107,4 +123,17 @@ make menu    # detached, plus the interactive demo menu
 ./demo/reset-branches.sh   # rewind feature branches to demo-seed/* tags
 ```
 
-If you re-tag seeds after changing a feature branch, run `make _tag-seeds`.
+It also clears `.autofactory/runs.ndjson`, the progress stream the pane reads, so the run
+dropdown starts empty.
+
+If you re-tag seeds after changing a feature branch, run `make _tag-seeds`. After a commit
+to `main`, run `make sync` to rebase the scenario branches onto it and re-point the tags;
+the paths that open a PR also do this for the one branch they are about to use.
+
+## The act paths
+
+`make ci` and `make pr` ran the workflow locally through act. They are disabled: the
+factory action exits in ~190ms under act without running any agents, while act still
+reports success, so the run silently produces nothing. Both refuse with an explanation;
+`FACTORY_ALLOW_ACT=1` overrides them for retesting after an upstream fix. Use
+`make hosted` instead.

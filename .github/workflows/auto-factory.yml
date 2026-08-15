@@ -1,20 +1,21 @@
 # AutoFactory Phase 1 — runs on every PR against this demo repo.
 #
+# One project holds both the app's flags and the factory's own AI configs, so a
+# single SDK key serves both: the app evaluates flags with it, and the factory
+# reads its agent configs with it. `bash demo/setup.sh` writes all four of these
+# for you from .env.local, using your `gh auth login` session.
+#
 # Required GitHub secrets (Settings → Secrets and variables → Actions → Secrets):
-#   LD_SDK_KEY        — FACTORY project server SDK key (sdk-...)
-#                       Find it: https://app.launchdarkly.com → your factory project
-#                                → Environments → [env] → SDK key
-#   LD_API_KEY        — API token with write access to both projects (api-...)
+#   LD_SDK_KEY        — server SDK key (sdk-...) for the project below
+#                       Find it: https://app.launchdarkly.com/settings/sdk-keys
+#   LD_API_KEY        — API token with write access to that project (api-...)
 #                       Find it: https://app.launchdarkly.com/settings/authorization
 #   ANTHROPIC_API_KEY — Anthropic API key (sk-ant-...)
 #                       Find it: https://console.anthropic.com/settings/keys
 #
 # Required GitHub variables (Settings → Secrets and variables → Actions → Variables):
-#   LD_APP_PROJECT_KEY — demo app project key (e.g. checkout-demo)
+#   LD_APP_PROJECT_KEY — the project key (e.g. checkout-demo)
 #                        Must match the key used in `terraform apply`
-#
-# Note: LD_SDK_KEY here is the FACTORY project key, not the demo app's.
-# The demo app's SDK key lives in .env.local and is only needed to run the app.
 
 name: LaunchDarkly AutoFactory
 

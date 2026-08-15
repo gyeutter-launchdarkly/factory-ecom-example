@@ -3,11 +3,20 @@
 # Run via `make reset` — do not run directly while the app has open PRs.
 set -euo pipefail
 
-# Keep in sync with the scenario list in the Makefile (`help`, `_tag-seeds`).
-SCENARIOS=(
-  product-ratings discount-codes dynamic-pricing
-  tiered-pricing express-checkout stripe-checkout
-)
+cd "$(dirname "$0")/.."
+
+# Derived from the event payloads rather than listed again here: a hardcoded
+# copy in every script is a list that eventually disagrees with itself.
+SCENARIOS=()
+for f in demo/ci/events/*.json; do
+  [[ -e "$f" ]] || break   # unmatched glob stays literal; do not "reset" a branch called *
+  SCENARIOS+=("$(basename "$f" .json)")
+done
+
+if (( ${#SCENARIOS[@]} == 0 )); then
+  echo "  no scenarios found in demo/ci/events; nothing to reset"
+  exit 0
+fi
 
 # `git branch -f` refuses to move a branch that is checked out, and `make pr`
 # leaves you on a feature branch, so step off it first. Ending on main is also

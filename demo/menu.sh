@@ -37,42 +37,10 @@ scenarios() {
   for f in "$EVENTS_DIR"/*.json; do basename "$f" .json; done | sort
 }
 
-# A branch is current if main is an ancestor of it — i.e. it has been rebased
-# onto the current UI. Computed, not hardcoded, so it stays honest as branches
-# are rebased.
-is_current() {
-  git merge-base --is-ancestor main "feature/$1" 2>/dev/null
-}
-
-# A scenario whose diff against main is empty has already been merged: there is
-# nothing left to demo, and opening a PR fails with "No commits between".
-is_spent() {
-  git diff --quiet main.."feature/$1" -- src 2>/dev/null
-}
-
-# True when the branch is missing commits from main that touched the app itself.
-# Missing only tooling or docs commits is harmless: the branch's diff cannot
-# revert app code it never touched.
-needs_attention() {
-  is_current "$1" && return 1
-  local changed
-  changed=$(git diff --name-only "feature/$1"...main -- src 2>/dev/null | head -1)
-  [[ -n "$changed" ]]
-}
-
-# Bring a branch up to date without asking. Rebasing onto main is safe and fast,
-# and doing it silently keeps a demo moving.
-autosync() {
-  is_current "$1" && return 0
-  if git rebase main "feature/$1" >/dev/null 2>&1; then
-    git checkout -q main 2>/dev/null || true
-    make _tag-seeds >/dev/null 2>&1
-    return 0
-  fi
-  git rebase --abort >/dev/null 2>&1 || true
-  git checkout -q main 2>/dev/null || true
-  return 1
-}
+# Branch freshness (is_current, is_spent, needs_attention, autosync) is shared
+# with the direct paths, which need the same guarantees when they open a PR.
+# shellcheck source=lib/branch.sh
+source demo/lib/branch.sh
 
 # Rebuild only when it is actually needed. The app is a production `next build`
 # baked into the image, so app source changes require a rebuild (~2 min) and
@@ -152,13 +120,15 @@ EOF
 }
 
 # The hosted workflow must be gated when we run the chain locally, and ungated
-# when GitHub is meant to run it. Applied whenever the runner changes, so nobody
-# has to remember a gh command.
+# when GitHub is meant to run it. Applied whenever the runner changes, and again
+# at startup: the saved runner and the repo variable drift apart otherwise (a
+# hosted run leaves the gate on, and a later `actions` run then does nothing).
 sync_gate() {
+  local quiet="${1:-}"
   case "$RUNNER" in
-    hosted)  gate_set true ;;   # the label is how the run is triggered
-    act+pr)  gate_set true ;;
-    actions) gate_set false ;;
+    hosted)  gate_set true "$quiet" ;;   # the label is how the run is triggered
+    act+pr)  gate_set true "$quiet" ;;
+    actions) gate_set false "$quiet" ;;
     act) ;;  # no PR is opened, so the gate is irrelevant
   esac
 }
@@ -244,6 +214,9 @@ load_settings
 case "$RUNNER" in
   act | act+pr) RUNNER="hosted"; save_settings ;;
 esac
+
+# Quietly, because the first thing the loop does is clear the screen.
+sync_gate quiet
 
 pick_scenario() {
   # Prints the chosen scenario on stdout; everything else goes to stderr so the
@@ -363,11 +336,17 @@ while true; do
     2)
       echo ""
       start_app
-      [[ "$AUTO_OPEN" == "on" ]] && ./demo/open-app.sh || NO_OPEN=1 ./demo/open-app.sh
+      # if/else, not a && b || c: open-app.sh exits non-zero when the app never
+      # answers, and the || branch would then run it a second time.
+      if [[ "$AUTO_OPEN" == "on" ]]; then
+        ./demo/open-app.sh || true
+      else
+        NO_OPEN=1 ./demo/open-app.sh || true
+      fi
       pause
       ;;
     3)
-      ./demo/open-app.sh
+      ./demo/open-app.sh || true
       pause
       ;;
     4)

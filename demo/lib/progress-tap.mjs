@@ -90,6 +90,14 @@ function parseTags(text) {
 const rl = createInterface({ input: process.stdin, crlfDelay: Infinity });
 
 rl.on('line', (line) => {
+  // Heartbeats exist only to tell the pane a slow run is still alive, so they
+  // are consumed rather than echoed: printing one every 30s would bury the
+  // factory's own output. The single exception to the pass-through rule below.
+  if (/\[heartbeat\]\s*$/.test(line)) {
+    emit({ t: 'heartbeat' });
+    return;
+  }
+
   // Pass through first, always — the tap must never swallow output.
   process.stdout.write(line + '\n');
 

@@ -11,23 +11,28 @@ TF_RUN := docker compose run --rm \
   -e TF_VAR_environment_key='$(or $(LD_ENVIRONMENT_KEY),production)' \
   terraform
 
-.PHONY: setup dev menu open hooks pr hosted sync reset reset-ld run ci _tag-seeds help
+.PHONY: setup dev menu open hooks pr hosted sync reset reset-ld run ci demo-progress _tag-seeds help
+
+# One source of truth for the scenario list: the event payloads that define them.
+SCENARIOS := $(basename $(notdir $(wildcard demo/ci/events/*.json)))
 
 help:
+	@echo "make menu                   Interactive menu: pick scenarios, run, reset (start here)"
+	@echo "make hosted SCENARIO=<name> Real PR + factory on Actions, live in the app pane"
 	@echo "make setup                  First-time setup: create seed flag + LD View, tag branches"
 	@echo "make dev                    Run the app locally (Docker)"
 	@echo "make reset                  Full reset: delete auto-factory LD resources + reset branches"
 	@echo "make reset-ld               Delete only the auto-factory LD flags + metrics"
-	@echo "make run SCENARIO=<name>    Open a PR for a scenario (via GitHub API)"
-	@echo "make ci  SCENARIO=<name>    Run the factory locally via act (no GitHub queue)"
-	@echo "make hosted SCENARIO=<name> Real PR + factory on Actions, live in the app pane"
-	@echo "make menu                   Interactive menu: pick scenarios, run, reset"
+	@echo "make run SCENARIO=<name>    Open a PR and let GitHub Actions run the factory"
 	@echo "make sync                   Rebase feature branches onto main, re-tag seeds"
+	@echo "make demo-progress          Replay a synthetic run to rehearse the flowchart"
 	@echo "make open                   Print the app link and open it in a browser"
 	@echo "make hooks                  Install git hooks that block committing API keys"
 	@echo ""
-	@echo "Scenarios: product-ratings  discount-codes  dynamic-pricing"
-	@echo "           tiered-pricing  express-checkout  stripe-checkout"
+	@echo "make ci / make pr           Disabled: under act the factory action exits in"
+	@echo "                            ~190ms without running the agents. Use 'make hosted'."
+	@echo ""
+	@echo "Scenarios: $(SCENARIOS)"
 
 ## Install the git hooks that block committing real API keys
 hooks:
@@ -120,7 +125,7 @@ ci:
 
 ## Tag current feature/* tips as seeds (called by setup; re-run if you update a branch)
 _tag-seeds:
-	@for s in product-ratings discount-codes dynamic-pricing tiered-pricing express-checkout stripe-checkout; do \
+	@for s in $(SCENARIOS); do \
 	  git tag -f demo-seed/$$s feature/$$s 2>/dev/null \
 	    && echo "  tagged demo-seed/$$s" \
 	    || echo "  warning: feature/$$s not found, skipping"; \

@@ -263,16 +263,16 @@ elif [[ -f "$(dirname "$0")/../.git/config" ]] && \
   IN_REPO=true
 fi
 
-DO_RESET=false
+# Resetting is the default, so --reset only exists to keep older notes working.
 NO_RESET=false
 ASSUME_KEEP=false
 for arg in "$@"; do
   case "$arg" in
     --local)    IN_REPO=true ;;
-    --reset)    DO_RESET=true ;;
+    --reset)    : ;;
     --no-reset) NO_RESET=true ;;
     # One command to get a clean demo: reset, reuse saved credentials, no prompts.
-    --fresh)    DO_RESET=true; ASSUME_KEEP=true ;;
+    --fresh)    ASSUME_KEEP=true ;;
   esac
 done
 
@@ -423,5 +423,10 @@ echo -e "${R}"
 # Start detached and hand over to the demo menu, so scenarios can be run from
 # here rather than dropping back to the shell for `make ci`/`make run`.
 docker compose up -d --build
+
+# Record the build so the menu does not offer a redundant two-minute rebuild as
+# the first thing you see. Same marker demo/menu.sh checks against build inputs.
+mkdir -p .autofactory && : > .autofactory/.image-built
+
 ./demo/open-app.sh || true
 exec ./demo/menu.sh

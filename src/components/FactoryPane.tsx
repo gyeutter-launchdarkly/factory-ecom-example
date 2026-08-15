@@ -33,8 +33,13 @@ const MAX_RUNS = 12;
 
 // A run with no events for this long, that never reported completion, is
 // reported as stalled rather than claimed to be running — the factory process
-// may have been killed, or act may be between phases.
-const STALE_MS = 90_000;
+// may have been killed.
+//
+// Hosted runs emit a heartbeat every 30s, so anything approaching this means
+// the watcher itself is gone. It is generous because a single agent can work
+// for minutes without producing an observable artifact, and calling a healthy
+// run "stalled" mid-demo is the worse failure.
+const STALE_MS = 5 * 60_000;
 
 // What the header indicator is allowed to claim.
 type Health = 'offline' | 'idle' | 'running' | 'stalled';
@@ -75,6 +80,8 @@ type Run = {
   repo: string | null;
   resources: Resource[];
   note: { level: string; text: string } | null;
+  /** The code reviewer's closing call, once it has one. */
+  verdict: { approved: boolean; risk: string | null } | null;
 };
 
 function emptyRun(id: string, scenario: string, at: number): Run {
@@ -92,6 +99,7 @@ function emptyRun(id: string, scenario: string, at: number): Run {
     repo: null,
     resources: [],
     note: null,
+    verdict: null,
   };
 }
 
@@ -238,6 +246,17 @@ export function FactoryPane() {
             break;
           case 'note':
             run.note = { level: String(m.level), text: String(m.text) };
+            break;
+          case 'verdict':
+            run.verdict = {
+              approved: m.approved === true,
+              risk: typeof m.risk === 'string' ? m.risk : null,
+            };
+            break;
+          // Carry no data of their own, but they are proof the run is alive, so
+          // they must still refresh lastEventAt rather than fall to `default`.
+          case 'heartbeat':
+          case 'order':
             break;
           case 'run-done':
             run.finished = true;
@@ -512,6 +531,16 @@ export function FactoryPane() {
                   }`}
                 >
                   {current.note.text}
+                </p>
+              )}
+
+              {current.verdict && (
+                <p className="mt-4 text-[12px] text-muted">
+                  review:{' '}
+                  <span className="text-ink">
+                    {current.verdict.approved ? 'approved' : 'not approved'}
+                  </span>
+                  {current.verdict.risk ? ` · risk ${current.verdict.risk}` : ''}
                 </p>
               )}
 

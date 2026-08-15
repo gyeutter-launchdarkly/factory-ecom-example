@@ -109,6 +109,19 @@ mkdir -p "$ACT_TMP"
 EVENT_FILE=$(mktemp "$ACT_TMP/pr-event.XXXXXX")
 SECRETS_FILE=$(mktemp "$ACT_TMP/secrets.XXXXXX")
 chmod 600 "$SECRETS_FILE"
+
+# Defined before the trap that calls it: an early failure used to fire the trap
+# while restore_branch was still undefined, replacing the real error with
+# "restore_branch: command not found".
+STARTING_BRANCH=$(git branch --show-current)
+restore_branch() {
+  local now
+  now=$(git branch --show-current 2>/dev/null || true)
+  if [[ -n "$STARTING_BRANCH" && "$now" != "$STARTING_BRANCH" ]]; then
+    git checkout -q "$STARTING_BRANCH" 2>/dev/null \
+      && echo "  back on $STARTING_BRANCH"
+  fi
+}
 trap 'rm -f "$EVENT_FILE" "$SECRETS_FILE"; restore_branch' EXIT
 
 printf '%s' "$PR" | jq \
@@ -139,19 +152,9 @@ echo "    branch:  ${BRANCH}"
 echo "    head:    ${HEAD_SHA:0:12}"
 
 # The factory needs the branch checked out locally; act mounts this workspace.
-# Return to where you started on exit: leaving you parked on a feature branch
-# means later commits land there instead of main, and `make reset` then rewinds
-# the branch and orphans them.
-STARTING_BRANCH=$(git branch --show-current)
-restore_branch() {
-  local now
-  now=$(git branch --show-current 2>/dev/null || true)
-  if [[ -n "$STARTING_BRANCH" && "$now" != "$STARTING_BRANCH" ]]; then
-    git checkout -q "$STARTING_BRANCH" 2>/dev/null \
-      && echo "  back on $STARTING_BRANCH"
-  fi
-}
-
+# restore_branch (defined above, with the trap) puts you back where you started:
+# leaving you parked on a feature branch means later commits land there instead
+# of main, and `make reset` then rewinds the branch and orphans them.
 if [[ "$STARTING_BRANCH" != "$BRANCH" ]]; then
   echo "Switching to $BRANCH"
   git stash --include-untracked 2>/dev/null || true
