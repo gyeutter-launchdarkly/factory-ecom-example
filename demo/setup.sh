@@ -16,7 +16,7 @@ REPO_DIR="factory-ecom-example"
 
 # colors
 B='\033[1m'; D='\033[2m'; R='\033[0m'
-BL='\033[34m'; GR='\033[32m'; YE='\033[33m'; RE='\033[31m'
+BL='\033[34m'; WH='\033[97m'; GR='\033[32m'; YE='\033[33m'; RE='\033[31m'
 
 # helpers
 step() { echo -e "\n${BL}${B}$1${R}"; }
@@ -280,19 +280,19 @@ done
 # icon (launchdarkly.com/icon.png) at terminal aspect ratio.
 ld_banner() {
   echo ""
-  echo -e "  ${BL}             ··            ${R}"
-  echo -e "  ${BL}              ···          ${R}"
-  echo -e "  ${BL}        ··     ····        ${R}"
-  echo -e "  ${BL}        ······   ····      ${R}${B}LaunchDarkly AutoFactory${R}"
-  echo -e "  ${BL}            ···········    ${R}${B}Demo TUI${R}"
-  echo -e "  ${BL}              ···········  ${R}"
-  echo -e "  ${BL}·························· ${R}"
-  echo -e "  ${BL}            ·············  ${R}"
-  echo -e "  ${BL}            ···········    ${R}"
-  echo -e "  ${BL}         ······  ····      ${R}"
-  echo -e "  ${BL}        ··     ····        ${R}"
-  echo -e "  ${BL}              ···          ${R}"
-  echo -e "  ${BL}             ··            ${R}"
+  echo -e "  ${WH}             ··            ${R}"
+  echo -e "  ${WH}              ···          ${R}"
+  echo -e "  ${WH}        ··     ····        ${R}"
+  echo -e "  ${WH}        ······   ····      ${R}${B}LaunchDarkly AutoFactory${R}"
+  echo -e "  ${WH}            ···········    ${R}${B}Demo TUI${R}"
+  echo -e "  ${WH}              ···········  ${R}"
+  echo -e "  ${WH}·························· ${R}"
+  echo -e "  ${WH}            ·············  ${R}"
+  echo -e "  ${WH}            ···········    ${R}"
+  echo -e "  ${WH}         ······  ····      ${R}"
+  echo -e "  ${WH}        ··     ····        ${R}"
+  echo -e "  ${WH}              ···          ${R}"
+  echo -e "  ${WH}             ··            ${R}"
   echo ""
 }
 

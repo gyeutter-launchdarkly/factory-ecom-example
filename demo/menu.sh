@@ -8,7 +8,7 @@ set -uo pipefail
 cd "$(dirname "$0")/.."
 
 B='\033[1m'; D='\033[2m'; R='\033[0m'
-BL='\033[34m'; GR='\033[32m'; YE='\033[33m'
+BL='\033[34m'; WH='\033[97m'; GR='\033[32m'; YE='\033[33m'
 
 EVENTS_DIR="demo/ci/events"
 
@@ -16,19 +16,19 @@ EVENTS_DIR="demo/ci/events"
 # icon (launchdarkly.com/icon.png) at terminal aspect ratio.
 ld_banner() {
   echo ""
-  echo -e "  ${BL}             ··            ${R}"
-  echo -e "  ${BL}              ···          ${R}"
-  echo -e "  ${BL}        ··     ····        ${R}"
-  echo -e "  ${BL}        ······   ····      ${R}${B}LaunchDarkly AutoFactory${R}"
-  echo -e "  ${BL}            ···········    ${R}${B}Demo TUI${R}"
-  echo -e "  ${BL}              ···········  ${R}"
-  echo -e "  ${BL}·························· ${R}"
-  echo -e "  ${BL}            ·············  ${R}"
-  echo -e "  ${BL}            ···········    ${R}"
-  echo -e "  ${BL}         ······  ····      ${R}"
-  echo -e "  ${BL}        ··     ····        ${R}"
-  echo -e "  ${BL}              ···          ${R}"
-  echo -e "  ${BL}             ··            ${R}"
+  echo -e "  ${WH}             ··            ${R}"
+  echo -e "  ${WH}              ···          ${R}"
+  echo -e "  ${WH}        ··     ····        ${R}"
+  echo -e "  ${WH}        ······   ····      ${R}${B}LaunchDarkly AutoFactory${R}"
+  echo -e "  ${WH}            ···········    ${R}${B}Demo TUI${R}"
+  echo -e "  ${WH}              ···········  ${R}"
+  echo -e "  ${WH}·························· ${R}"
+  echo -e "  ${WH}            ·············  ${R}"
+  echo -e "  ${WH}            ···········    ${R}"
+  echo -e "  ${WH}         ······  ····      ${R}"
+  echo -e "  ${WH}        ··     ····        ${R}"
+  echo -e "  ${WH}              ···          ${R}"
+  echo -e "  ${WH}             ··            ${R}"
   echo ""
 }
 
@@ -293,15 +293,15 @@ while true; do
   echo ""
   echo -e "  ${D}Runner:${R} $(runner_label)"
   echo ""
-  echo -e "  ${BL}${B}Factory${R}"
+  echo -e "  ${WH}${B}Factory${R}"
   echo "    1) Run a scenario"
   echo ""
-  echo -e "  ${BL}${B}App${R}"
+  echo -e "  ${WH}${B}App${R}"
   echo "    2) Start / rebuild"
   echo "    3) Open in browser"
   echo "    4) Replay a fake run (rehearse the flowchart)"
   echo ""
-  echo -e "  ${BL}${B}Between demos${R}"
+  echo -e "  ${WH}${B}Between demos${R}"
   echo "    5) Reset (delete factory flags, close PRs, rewind branches)"
   echo "    6) Show branch status"
   echo ""
