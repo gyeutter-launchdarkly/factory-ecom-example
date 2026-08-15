@@ -12,6 +12,27 @@ BL='\033[34m'; GR='\033[32m'; YE='\033[33m'
 
 EVENTS_DIR="demo/ci/events"
 
+# The LaunchDarkly mark as a dot matrix, sampled from the official 96x96
+# icon (launchdarkly.com/icon.png) at terminal aspect ratio.
+ld_banner() {
+  echo ""
+  echo -e "  ${BL}             ··            ${R}"
+  echo -e "  ${BL}              ···          ${R}"
+  echo -e "  ${BL}        ··     ····        ${R}"
+  echo -e "  ${BL}        ······   ····      ${R}${B}LaunchDarkly AutoFactory${R}"
+  echo -e "  ${BL}            ···········    ${R}${B}DarkCommerce demo store${R}"
+  echo -e "  ${BL}              ···········  ${R}"
+  echo -e "  ${BL}·························· ${R}${B}Six agents, one PR${R}"
+  echo -e "  ${BL}            ·············  ${R}"
+  echo -e "  ${BL}            ···········    ${R}"
+  echo -e "  ${BL}         ······  ····      ${R}"
+  echo -e "  ${BL}        ··     ····        ${R}"
+  echo -e "  ${BL}              ···          ${R}"
+  echo -e "  ${BL}             ··            ${R}"
+  echo ""
+}
+
+
 scenarios() {
   for f in "$EVENTS_DIR"/*.json; do basename "$f" .json; done | sort
 }
@@ -260,11 +281,7 @@ pause() {
 
 while true; do
   clear
-  echo -e "${B}"
-  echo "  +--------------------------------------------------+"
-  echo "  |        LaunchDarkly Factory Demo                 |"
-  echo "  +--------------------------------------------------+"
-  echo -e "${R}"
+  ld_banner
 
   state=$(app_state)
   if [[ "$state" == "running" ]]; then

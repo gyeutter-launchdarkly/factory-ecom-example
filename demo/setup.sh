@@ -276,13 +276,29 @@ for arg in "$@"; do
   esac
 done
 
+# The LaunchDarkly mark as a dot matrix, sampled from the official 96x96
+# icon (launchdarkly.com/icon.png) at terminal aspect ratio.
+ld_banner() {
+  echo ""
+  echo -e "  ${BL}             ··            ${R}"
+  echo -e "  ${BL}              ···          ${R}"
+  echo -e "  ${BL}        ··     ····        ${R}"
+  echo -e "  ${BL}        ······   ····      ${R}${B}LaunchDarkly AutoFactory${R}"
+  echo -e "  ${BL}            ···········    ${R}${B}DarkCommerce demo store${R}"
+  echo -e "  ${BL}              ···········  ${R}"
+  echo -e "  ${BL}·························· ${R}${B}Six agents, one PR${R}"
+  echo -e "  ${BL}            ·············  ${R}"
+  echo -e "  ${BL}            ···········    ${R}"
+  echo -e "  ${BL}         ······  ····      ${R}"
+  echo -e "  ${BL}        ··     ····        ${R}"
+  echo -e "  ${BL}              ···          ${R}"
+  echo -e "  ${BL}             ··            ${R}"
+  echo ""
+}
+
 # banner
 clear
-echo -e "${B}"
-echo "  +--------------------------------------------------+"
-echo "  |        LaunchDarkly Factory Demo                 |"
-echo "  +--------------------------------------------------+"
-echo -e "${R}"
+ld_banner
 echo -e "  ${D}What you'll need:${R}"
 echo -e "  ${D}  LaunchDarkly${R}"
 echo -e "  ${D}    - Existing project${R}"
