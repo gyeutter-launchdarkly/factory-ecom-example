@@ -6,7 +6,7 @@
 #   Already here: bash demo/setup.sh
 #
 # Flags:
-#   --fresh      take every default without asking: reset, keep saved credentials
+#   --fresh      ask nothing at all: keep saved credentials, reset
 #   --no-reset   keep the current demo state (skip the reset)
 #   --reset      same as the default; kept so older notes still work
 set -euo pipefail
@@ -342,6 +342,15 @@ fi
 load_env
 
 # credentials
+# Saved credentials are the common case on a re-run, so ask once rather than
+# once per value. Default is to keep them.
+if ! $ASSUME_KEEP && [[ -f .env.local && -n "${LD_API_KEY:-}" && -n "${LD_SDK_KEY:-}" ]]; then
+  echo ""
+  creds_ans=""
+  read -r -p "  Credentials already exist, update them? [y/N] " creds_ans </dev/tty
+  [[ "$creds_ans" =~ ^[Yy]$ ]] || ASSUME_KEEP=true
+fi
+
 step "Step 1 / 2 - Credentials"
 
 ask_text LD_APP_PROJECT_KEY \
@@ -377,14 +386,10 @@ ask_secret GITHUB_TOKEN \
 
 write_env
 
-# Re-run against an existing setup: offer to clean up first.
-if $DO_RESET; then
+# Always start from a clean demo. Re-running this script is how you reset, so it
+# does not ask; --no-reset keeps the current state.
+if ! $NO_RESET; then
   reset_demo
-elif ! $NO_RESET && [[ -f .env.local ]] && [[ -n "${LD_API_KEY:-}" ]]; then
-  echo ""
-  ans=""
-  read -r -p "  Reset the demo first (delete factory flags, close PRs, rewind branches)? [Y/n] " ans </dev/tty
-  [[ "${ans:-Y}" =~ ^[Nn]$ ]] || reset_demo
 fi
 
 # terraform

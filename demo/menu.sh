@@ -307,6 +307,8 @@ while true; do
   echo ""
   echo "    s) Settings      q) Quit"
   echo ""
+  echo -e "  ${D}ctrl-c to exit${R}"
+  echo ""
 
   choice=""
   if ! read -r -p "  > " choice </dev/tty 2>/dev/null; then

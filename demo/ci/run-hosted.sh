@@ -104,6 +104,8 @@ echo "  PR:   ${PR_URL}"
 echo "  Run:  https://github.com/${SLUG}/actions/runs/${RUN}"
 echo "  Pane: http://localhost:3000  (steps light up as each agent starts)"
 echo ""
+echo "  ctrl-c to stop watching (the run keeps going on GitHub)"
+echo ""
 
 # 4. Stream live progress into the pane. GitHub will not serve a job's log until
 # the job finishes (404 BlobNotFound while running), so progress is derived from
