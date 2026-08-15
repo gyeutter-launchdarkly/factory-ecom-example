@@ -39,9 +39,17 @@ LaunchDarkly primitives:
 Each branch carries one commit: the feature, nothing else.
 
 A commit to `main` leaves these branches behind it, and a branch that is behind has a diff
-that *reverts* main's own commits. Every path that opens a PR checks for this first and
-rebases the branch, so a stale branch costs you a few seconds rather than the demo.
-`make sync` does the whole set at once, and `make menu` → 6 reports them.
+that *reverts* main's own commits. This is handled for you, in three places, so you should
+never see "needs rebase":
+
+- a **post-commit hook** rebases them the moment `main` moves (installed by `make hooks`)
+- **`make menu`** syncs at startup, catching commits made elsewhere — a pull, or a merged PR
+- **every path that opens a PR** checks the one branch it is about to use
+
+The rebases run in a scratch worktree, so they never touch your working tree and work even
+mid-edit. A branch that conflicts is left exactly as it was and reported rather than
+half-rebased. `make sync` runs the same thing on demand, and `.autofactory/sync.log`
+records what moved.
 
 `.autofactory/services.yaml` marks pricing and checkout critical, so those score higher
 blast radius; with `auto-factory-approval-mode` set to `risk-threshold`, `dynamic-pricing`

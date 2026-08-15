@@ -218,6 +218,12 @@ esac
 # Quietly, because the first thing the loop does is clear the screen.
 sync_gate quiet
 
+# Bring any stale scenario branches forward before the first render. The
+# post-commit hook normally does this the moment main moves, so this is just the
+# backstop for commits made outside this checkout (a pull, or a merged PR) —
+# either way the list should never open on a screen full of "needs rebase".
+./demo/sync-branches.sh --auto >/dev/null 2>&1 || true
+
 pick_scenario() {
   # Prints the chosen scenario on stdout; everything else goes to stderr so the
   # caller can capture the value cleanly.

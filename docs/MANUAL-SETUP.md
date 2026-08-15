@@ -126,9 +126,14 @@ make menu    # detached, plus the interactive demo menu
 It also clears `.autofactory/runs.ndjson`, the progress stream the pane reads, so the run
 dropdown starts empty.
 
-If you re-tag seeds after changing a feature branch, run `make _tag-seeds`. After a commit
-to `main`, run `make sync` to rebase the scenario branches onto it and re-point the tags;
-the paths that open a PR also do this for the one branch they are about to use.
+If you re-tag seeds after changing a feature branch, run `make _tag-seeds`.
+
+Keeping the scenario branches on top of `main` is automatic: the `post-commit` hook
+(installed by `make hooks`) rebases them after every commit on `main`, the menu syncs at
+startup, and the paths that open a PR check the branch they are about to use. `make sync`
+does the whole set on demand. The rebases run in a scratch worktree, so they work with a
+dirty tree and never check anything out in yours; conflicts are left alone and reported in
+`.autofactory/sync.log`.
 
 ## The act paths
 

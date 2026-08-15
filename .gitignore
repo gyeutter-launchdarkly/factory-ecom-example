@@ -39,3 +39,7 @@ tsconfig.tsbuildinfo
 
 # Marker written after a successful image build (see demo/menu.sh)
 .autofactory/.image-built
+
+# Branch sync: log of the automatic post-commit rebases, and its lock
+.autofactory/sync.log
+.autofactory/.sync.lock

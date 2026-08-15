@@ -34,11 +34,14 @@ help:
 	@echo ""
 	@echo "Scenarios: $(SCENARIOS)"
 
-## Install the git hooks that block committing real API keys
+## Install the git hooks: block committing real API keys (pre-commit), and
+## rebase the scenario branches whenever main moves (post-commit)
 hooks:
 	@git config core.hooksPath .githooks
 	@chmod +x .githooks/*
 	@echo "Git hooks installed (core.hooksPath=.githooks)"
+	@echo "  pre-commit   blocks commits containing API keys"
+	@echo "  post-commit  rebases feature/* onto main after a commit on main"
 
 ## First-time setup: create seed flag in existing project, tag seed branches
 setup:
