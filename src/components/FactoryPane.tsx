@@ -16,6 +16,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 
 type Status = 'pending' | 'running' | 'done' | 'failed' | 'skipped';
 type View = 'expanded' | 'collapsed' | 'hidden';
+type Size = 'normal' | 'large';
 
 // Chain order matches phase1-cli's NODE_TITLES. The Cursor extension's panel
 // omits manifest-steward; it is a real node, so it is included here.
@@ -166,6 +167,7 @@ function detailsFor(run: Run, nodeKey: string): Detail[] {
 
 export function FactoryPane() {
   const [view, setView] = useState<View>('collapsed');
+  const [size, setSize] = useState<Size>('normal');
   const [runs, setRuns] = useState<Record<string, Run>>({});
   const [selected, setSelected] = useState<string | null>(null);
   const [live, setLive] = useState(false);
@@ -322,7 +324,7 @@ export function FactoryPane() {
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-40">
-      <div className="mx-auto max-w-6xl px-4 pb-4">
+      <div className={`mx-auto px-4 pb-4 ${size === 'large' ? 'max-w-[96rem]' : 'max-w-6xl'}`}>
         <div className="bg-white rounded-3xl shadow-lift overflow-hidden">
           <div className="flex items-center gap-3 px-5 py-3">
             <span
@@ -404,6 +406,15 @@ export function FactoryPane() {
             </button>
 
             <button
+              onClick={() => setSize(size === 'large' ? 'normal' : 'large')}
+              className="text-muted hover:text-ink text-[13px] shrink-0 transition-colors px-1"
+              aria-label={size === 'large' ? 'Shrink the panel' : 'Enlarge the panel'}
+              title={size === 'large' ? 'Shrink' : 'Enlarge for a demo'}
+            >
+              {size === 'large' ? '⤡' : '⤢'}
+            </button>
+
+            <button
               onClick={() => {
                 userHid.current = true;
                 setView('hidden');
@@ -425,16 +436,20 @@ export function FactoryPane() {
                   return (
                     <li key={node.key} className="flex items-start shrink-0">
                       <div
-                        className={`rounded-2xl px-4 py-3 w-[186px] transition-colors flex flex-col ${STEP_CLASS[st]}`}
+                        className={`rounded-2xl transition-colors flex flex-col ${STEP_CLASS[st]} ${
+                          size === 'large' ? 'px-6 py-5 w-[268px]' : 'px-4 py-3 w-[186px]'
+                        }`}
                       >
                         <div className="flex items-baseline justify-between gap-2">
-                          <span className="text-[13px] font-medium leading-tight truncate">
+                          <span className={`font-medium leading-tight truncate ${size === 'large' ? 'text-[19px]' : 'text-[13px]'}`}>
                             {node.title}
                           </span>
                           <span className="text-[11px] leading-none shrink-0 opacity-80">
                             {st === 'done' && '✓'}
                             {st === 'running' && (
-                              <span className={isRunning(current) ? 'animate-pulse' : ''}>•••</span>
+                              <span className={isRunning(current) ? 'animate-pulse font-medium' : 'font-medium'}>
+                                running
+                              </span>
                             )}
                             {st === 'failed' && '✕'}
                             {st === 'skipped' && '–'}
@@ -460,7 +475,7 @@ export function FactoryPane() {
                               ) : (
                                 <div
                                   key={d.text}
-                                  className="text-[10.5px] leading-snug truncate opacity-80"
+                                  className={`leading-snug truncate opacity-80 ${size === 'large' ? 'text-[14px]' : 'text-[10.5px]'}`}
                                   title={d.text}
                                 >
                                   {d.text}
@@ -477,7 +492,7 @@ export function FactoryPane() {
 
                       {!isLast && (
                         <div
-                          className={`h-px w-5 mx-1 shrink-0 mt-6 ${
+                          className={`h-px shrink-0 ${size === 'large' ? 'w-8 mx-2 mt-9' : 'w-5 mx-1 mt-6'} ${
                             st === 'done' || st === 'skipped' ? 'step-line-done' : 'step-line-todo'
                           }`}
                           aria-hidden

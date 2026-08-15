@@ -90,6 +90,23 @@ feature and tagged `auto-factory`.
 
 By hand instead: [docs/MANUAL-SETUP.md](docs/MANUAL-SETUP.md).
 
+## When to rebuild
+
+The app is a production `next build` baked into the image, so:
+
+| Changed | Action |
+|---------|--------|
+| Anything under `src/`, `package.json`, `next.config.mjs`, `tailwind.config.ts`, `Dockerfile` | rebuild: `docker compose up -d --build` (~2 min) |
+| Demo scripts, LD config, running a scenario, replays, `make reset` | nothing; the app is already serving |
+
+The factory's progress reaches the pane through a bind mount on `.autofactory/`, so
+runs and replays never need a restart. `make menu` → 2 works this out for you: it
+rebuilds only when a build input is newer than the last build, and otherwise says so.
+
+If the pane looks frozen during a demo, the usual cause is a browser tab left open
+across a rebuild: the page's event stream dies with the old container. Reload the page
+and it replays the current run from the start.
+
 ## Running it
 
 ```bash

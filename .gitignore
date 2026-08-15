@@ -36,3 +36,6 @@ tsconfig.tsbuildinfo
 
 # act scratch files (event payloads, secret files) written per run
 .autofactory/tmp/
+
+# Marker written after a successful image build (see demo/menu.sh)
+.autofactory/.image-built

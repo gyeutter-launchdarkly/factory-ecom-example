@@ -74,6 +74,41 @@ autosync() {
   return 1
 }
 
+# Rebuild only when it is actually needed. The app is a production `next build`
+# baked into the image, so app source changes require a rebuild (~2 min) and
+# nothing else does: the factory progress stream reaches the pane through a bind
+# mount, so runs, replays and resets never need one.
+#
+# Freshness is tracked with a marker file rather than the image's timestamp:
+# Docker reports UTC and `date -j` on macOS parses it as local time, which put
+# "built" hours in the future and broke the comparison.
+BUILD_INPUTS=(src public package.json package-lock.json next.config.mjs tailwind.config.ts postcss.config.mjs tsconfig.json Dockerfile)
+BUILD_MARKER=".autofactory/.image-built"
+
+app_needs_rebuild() {
+  [[ -f "$BUILD_MARKER" ]] || return 0
+  local newer
+  newer=$(find "${BUILD_INPUTS[@]}" -type f -newer "$BUILD_MARKER" -print -quit 2>/dev/null)
+  [[ -n "$newer" ]]
+}
+
+mark_built() {
+  mkdir -p "$(dirname "$BUILD_MARKER")"
+  : > "$BUILD_MARKER"
+}
+
+start_app() {
+  if app_needs_rebuild; then
+    echo "  app code changed since the last build; rebuilding (about 2 min)"
+    docker compose up -d --build && mark_built
+  elif curl -sf -o /dev/null --max-time 2 http://localhost:3000/ 2>/dev/null; then
+    echo "  already running and up to date; no rebuild needed"
+  else
+    echo "  image is current; starting without a rebuild"
+    docker compose up -d
+  fi
+}
+
 app_state() {
   if curl -sf -o /dev/null --max-time 2 http://localhost:3000/ 2>/dev/null; then
     echo "running"
@@ -297,7 +332,7 @@ while true; do
   echo "    1) Run a scenario"
   echo ""
   echo -e "  ${BL}${B}App${R}"
-  echo "    2) Start / rebuild"
+  echo "    2) Start app (rebuilds only if app code changed)"
   echo "    3) Open in browser"
   echo "    4) Replay a fake run (rehearse the flowchart)"
   echo ""
@@ -327,7 +362,7 @@ while true; do
       ;;
     2)
       echo ""
-      docker compose up -d --build
+      start_app
       [[ "$AUTO_OPEN" == "on" ]] && ./demo/open-app.sh || NO_OPEN=1 ./demo/open-app.sh
       pause
       ;;

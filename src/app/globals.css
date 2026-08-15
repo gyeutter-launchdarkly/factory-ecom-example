@@ -24,12 +24,12 @@
 
   /* Factory step status. Semantic, deliberately outside the brand palette:
      green = done, blue = in progress, grey = to do, red = failed. */
-  --st-done-bg: #e7f4ec;
-  --st-done-fg: #14663a;
+  --st-done-bg: #e9f5ee;
+  --st-done-fg: #1b7a44;
   --st-done-line: #4fa877;
-  --st-run-bg: #e6eefc;
-  --st-run-fg: #1a4fa0;
-  --st-run-ring: #6f9bea;
+  --st-run-bg: #1d4ed8;
+  --st-run-fg: #ffffff;
+  --st-run-ring: #1d4ed8;
   --st-todo-bg: #f1eeeb;
   --st-todo-fg: #8c837d;
   --st-fail-bg: #fbeae8;
@@ -57,9 +57,9 @@
   --st-done-bg: #16301f;
   --st-done-fg: #86d6a4;
   --st-done-line: #3f8a60;
-  --st-run-bg: #16233c;
-  --st-run-fg: #9dc0f5;
-  --st-run-ring: #3f66b0;
+  --st-run-bg: #2563eb;
+  --st-run-fg: #ffffff;
+  --st-run-ring: #60a5fa;
   --st-todo-bg: #241f1e;
   --st-todo-fg: #9c918b;
   --st-fail-bg: #341917;
@@ -145,7 +145,9 @@ body {
 .step-running {
   background-color: var(--st-run-bg);
   color: var(--st-run-fg);
-  box-shadow: inset 0 0 0 1px var(--st-run-ring);
+  box-shadow:
+    inset 0 0 0 1px var(--st-run-ring),
+    0 0 0 3px rgb(37 99 235 / 0.22);
 }
 .step-todo {
   background-color: var(--st-todo-bg);
