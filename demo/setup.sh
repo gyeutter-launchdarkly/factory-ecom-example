@@ -296,26 +296,32 @@ ld_banner() {
   echo ""
 }
 
+# The prerequisite list is only useful when you are about to type credentials.
+# On a re-run with saved credentials it is noise, so it is printed later, and
+# only if needed.
+show_requirements() {
+  echo -e "  ${D}What you'll need:${R}"
+  echo -e "  ${D}  LaunchDarkly${R}"
+  echo -e "  ${D}    - Existing project${R}"
+  echo -e "  ${D}      (workspace needs Guarded Releases + AgentControl)${R}"
+  echo -e "  ${D}    - SDK key${R}"
+  echo -e "  ${D}    - API token (Admin)${R}"
+  echo -e "  ${D}  Anthropic API key${R}"
+  echo -e "  ${D}  GitHub PAT${R}"
+  echo -e "  ${D}  Docker installed and running${R}"
+  echo -e "  ${D}    (Docker Desktop or Colima)${R}"
+  echo -e "  ${D}  gh CLI installed${R}"
+  echo ""
+  if $IN_REPO; then
+    echo -e "${D}  Mode: already in repo, skipping clone${R}"
+  else
+    echo -e "${D}  Mode: fresh install, will clone repo first${R}"
+  fi
+}
+
 # banner
 clear
 ld_banner
-echo -e "  ${D}What you'll need:${R}"
-echo -e "  ${D}  LaunchDarkly${R}"
-echo -e "  ${D}    - Existing project${R}"
-echo -e "  ${D}      (workspace needs Guarded Releases + AgentControl)${R}"
-echo -e "  ${D}    - SDK key${R}"
-echo -e "  ${D}    - API token (Admin)${R}"
-echo -e "  ${D}  Anthropic API key${R}"
-echo -e "  ${D}  GitHub PAT${R}"
-echo -e "  ${D}  Docker installed and running${R}"
-echo -e "  ${D}    (Docker Desktop or Colima)${R}"
-echo -e "  ${D}  gh CLI installed${R}"
-echo ""
-if $IN_REPO; then
-  echo -e "${D}  Mode: already in repo, skipping clone${R}"
-else
-  echo -e "${D}  Mode: fresh install, will clone repo first${R}"
-fi
 
 # preflight
 step "Preflight"
@@ -349,6 +355,12 @@ if ! $ASSUME_KEEP && [[ -f .env.local && -n "${LD_API_KEY:-}" && -n "${LD_SDK_KE
   creds_ans=""
   read -r -p "  Credentials already exist, update them? [y/N] " creds_ans </dev/tty
   [[ "$creds_ans" =~ ^[Yy]$ ]] || ASSUME_KEEP=true
+fi
+
+# Only worth listing what you need if you are about to be asked for it.
+if ! $ASSUME_KEEP; then
+  echo ""
+  show_requirements
 fi
 
 step "Step 1 / 2 - Credentials"
