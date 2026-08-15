@@ -1,9 +1,15 @@
 #!/usr/bin/env bash
-# After a commit on main, bring the demo's feature/* branches forward.
+# After a commit on main, rebase the demo's feature/* branches onto it.
 #
 # A commit on main is what makes the scenario branches stale, so this is the
-# moment to fix it. Runs in the background against a scratch worktree, so it
-# neither slows the commit down nor touches your working tree.
+# moment to fix it, and why "needs rebase" should never be something you act on.
+#
+# Runs synchronously and local-only, which takes well under a second: the
+# rebases happen in a scratch worktree (yours is untouched) and nothing is
+# pushed here. An earlier version did this in the background, and a background
+# job killed mid-push left an orphaned worktree behind. Pushing is left to the
+# menu and to the paths that open a PR, where a slow network cannot strand
+# anything.
 #
 # Installed by `make hooks` (core.hooksPath=.githooks).
 
@@ -13,7 +19,7 @@
 branch=$(git symbolic-ref --short -q HEAD || true)
 [ "$branch" = "main" ] || exit 0
 
-# Mid-rebase or mid-merge, the branch tips are in flux; leave them alone.
+# Mid-rebase or mid-merge the branch tips are in flux; leave them alone.
 git_dir=$(git rev-parse --git-dir 2>/dev/null || echo .git)
 if [ -d "$git_dir/rebase-merge" ] || [ -d "$git_dir/rebase-apply" ] || [ -f "$git_dir/MERGE_HEAD" ]; then
   exit 0
@@ -23,15 +29,11 @@ root=$(git rev-parse --show-toplevel 2>/dev/null || true)
 [ -n "$root" ] || exit 0
 [ -x "$root/demo/sync-branches.sh" ] || exit 0
 
-mkdir -p "$root/.autofactory"
-
 # git exports GIT_DIR, GIT_WORK_TREE and GIT_INDEX_FILE to its hooks. Inherited
-# by the sync, they would point its worktree and index at this commit's, so they
-# are cleared rather than passed on.
-(
-  cd "$root" || exit 0
-  env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_PREFIX \
-    nohup ./demo/sync-branches.sh --auto >> .autofactory/sync.log 2>&1 &
-) >/dev/null 2>&1
+# by the sync, they would point its scratch worktree and index at this commit's,
+# so they are cleared rather than passed on.
+cd "$root" || exit 0
+env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_PREFIX \
+  SYNC_PUSH=0 ./demo/sync-branches.sh --auto 2>&1 | sed 's/^/  /'
 
 exit 0

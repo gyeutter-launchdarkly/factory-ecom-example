@@ -54,14 +54,25 @@ autosync() {
   # or the next reset throws the rebase away.
   git tag -f "demo-seed/$scenario" "feature/$scenario" >/dev/null 2>&1 || true
 
-  # A PR may already be open on this branch; without the push GitHub keeps
-  # serving the pre-rebase commits and the demo diff is wrong anyway.
-  if git ls-remote --exit-code --heads origin "feature/$scenario" >/dev/null 2>&1; then
-    git fetch -q origin "feature/$scenario" >/dev/null 2>&1 || true
-    git push -q origin "feature/$scenario" --force-with-lease >/dev/null 2>&1 \
-      || echo "  note: could not push the rebased feature/$scenario; GitHub still has the old commits."
-  fi
+  push_if_diverged "$scenario"
   return 0
+}
+
+# The post-commit hook rebases locally and does not push, so a branch can be
+# up to date here and still differ from what GitHub has — and an open PR would
+# then show the pre-rebase commits. The comparison is against the
+# remote-tracking ref, so it costs nothing when they already agree.
+push_if_diverged() {
+  local branch="feature/$1" local_sha remote_sha
+  git rev-parse --verify -q "refs/remotes/origin/$branch" >/dev/null 2>&1 || return 0
+
+  local_sha=$(git rev-parse "$branch" 2>/dev/null || true)
+  remote_sha=$(git rev-parse "refs/remotes/origin/$branch" 2>/dev/null || true)
+  [[ -n "$local_sha" && "$local_sha" != "$remote_sha" ]] || return 0
+
+  git fetch -q origin "$branch" >/dev/null 2>&1 || true
+  git push -q origin "$branch" --force-with-lease >/dev/null 2>&1 \
+    || echo "  note: could not push $branch; GitHub may still have the older commits."
 }
 
 # ensure_branch_ready <scenario>
@@ -82,7 +93,10 @@ ensure_branch_ready() {
     return 1
   fi
 
-  if is_current "$scenario"; then return 0; fi
+  if is_current "$scenario"; then
+    push_if_diverged "$scenario"
+    return 0
+  fi
 
   if tree_is_dirty; then
     if needs_attention "$scenario"; then
