@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getProduct } from '@/lib/products';
 import { calculateOrderTotal, applyDiscountCode, formatPrice } from '@/lib/pricing';
-import { track } from '@/lib/ld';
+import { track, stringVariation } from '@/lib/ld';
 import type { CartItem } from '@/lib/pricing';
 
 interface CheckoutBody {
@@ -44,14 +44,34 @@ export async function POST(req: NextRequest) {
   }
 
   const subtotal = calculateOrderTotal(items);
+  const userKey = body.customer.email || 'anonymous';
+
+  // Check if discount codes feature is enabled via feature flag
+  const discountCodesEnabled = await stringVariation('enable-discount-codes', userKey, 'control') === 'v1';
 
   // Apply discount code if provided
   let orderTotal = subtotal;
   let discountApplied: { code: string; amount: number } | null = null;
 
   if (body.discountCode) {
+    if (!discountCodesEnabled) {
+      // Track that discount was rejected because feature is off
+      await track('enable-discount-codes-error', userKey, undefined, {
+        reason: 'feature_disabled',
+        discountCode: body.discountCode,
+      });
+      return NextResponse.json(
+        { error: 'Discount codes are not currently enabled' },
+        { status: 400 },
+      );
+    }
     const result = applyDiscountCode(body.discountCode, subtotal);
     if (!result) {
+      // Track that discount code is invalid
+      await track('enable-discount-codes-error', userKey, undefined, {
+        reason: 'invalid_code',
+        discountCode: body.discountCode,
+      });
       return NextResponse.json(
         { error: `Invalid discount code: ${body.discountCode}` },
         { status: 400 },
@@ -62,7 +82,6 @@ export async function POST(req: NextRequest) {
   }
 
   const orderId = `ORD-${Date.now()}`;
-  const userKey = body.customer.email || 'anonymous';
 
   // Track checkout completion — the Metrics Author builds guarded-release
   // metrics on top of this event (error rate, latency, conversion).

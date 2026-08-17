@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useCart } from '@/components/CartProvider';
 import { formatPrice } from '@/lib/pricing';
@@ -11,9 +11,14 @@ interface OrderResult {
   discountApplied?: { code: string; amount: number } | null;
 }
 
+interface CheckoutFlags {
+  enableDiscountCodes: boolean;
+}
+
 export default function CheckoutPage() {
   const { items, total, clear } = useCart();
   const router = useRouter();
+  const [flags, setFlags] = useState<CheckoutFlags | null>(null);
   const [form, setForm] = useState({
     name: '',
     email: '',
@@ -28,6 +33,13 @@ export default function CheckoutPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [order, setOrder] = useState<OrderResult | null>(null);
+
+  // Fetch checkout flags (including enable-discount-codes)
+  useEffect(() => {
+    fetch('/api/checkout/flags')
+      .then((r) => r.json())
+      .then((data) => setFlags(data.flags));
+  }, []);
 
   if (items.length === 0 && !order) {
     router.replace('/cart');
@@ -181,13 +193,15 @@ export default function CheckoutPage() {
             </div>
           </section>
 
-          {/* Discount code. The AutoFactory flag will gate this section. */}
-          <section>
-            <p className="text-[11px] uppercase tracking-[0.16em] text-muted mb-4">Discount</p>
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="Discount code" field="discountCode" placeholder="SAVE10" span2 />
-            </div>
-          </section>
+          {/* Feature flag: enable-discount-codes (v1 treatment) */}
+          {flags?.enableDiscountCodes && (
+            <section>
+              <p className="text-[11px] uppercase tracking-[0.16em] text-muted mb-4">Discount</p>
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Discount code" field="discountCode" placeholder="SAVE10" span2 />
+              </div>
+            </section>
+          )}
 
           {error && (
             <p className="text-[13px] text-red-700 bg-red-50 border border-red-200 rounded-2xl px-4 py-3">
