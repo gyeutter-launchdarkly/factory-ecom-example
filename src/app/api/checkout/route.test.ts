@@ -84,6 +84,26 @@ describe('POST /api/checkout', () => {
       expect(data.discountApplied).toBeNull();
     });
 
+    it('tracks feature-disabled error when discount code is provided but flag is off', async () => {
+      const response = await POST(
+        createRequest({
+          ...validCheckoutBody,
+          discountCode: 'SAVE10',
+        }),
+      );
+
+      expect(response.status).toBe(200);
+      expect(track).toHaveBeenCalledWith(
+        'enable-discount-codes-error',
+        'jane@example.com',
+        undefined,
+        expect.objectContaining({
+          errorType: 'feature-disabled',
+          discountCode: 'SAVE10',
+        }),
+      );
+    });
+
     it('tracks checkout without discount metrics when flag is off', async () => {
       const response = await POST(
         createRequest({
@@ -186,6 +206,26 @@ describe('POST /api/checkout', () => {
 
       expect(response.status).toBe(400);
       expect(data.error).toMatch(/Invalid discount code/);
+    });
+
+    it('tracks invalid-code error when invalid discount code is provided', async () => {
+      const response = await POST(
+        createRequest({
+          ...validCheckoutBody,
+          discountCode: 'INVALID',
+        }),
+      );
+
+      expect(response.status).toBe(400);
+      expect(track).toHaveBeenCalledWith(
+        'enable-discount-codes-error',
+        'jane@example.com',
+        undefined,
+        expect.objectContaining({
+          errorType: 'invalid-code',
+          discountCode: 'INVALID',
+        }),
+      );
     });
 
     it('tracks discount metrics when discount is applied', async () => {

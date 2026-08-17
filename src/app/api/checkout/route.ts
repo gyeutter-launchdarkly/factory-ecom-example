@@ -53,9 +53,22 @@ export async function POST(req: NextRequest) {
   const userKey = body.customer.email || 'anonymous';
   const discountCodesVariation = await stringVariation('enable-discount-codes', userKey, 'control');
 
+  if (body.discountCode && discountCodesVariation !== 'v1') {
+    // Track when discount code is provided but feature is not enabled
+    await track('enable-discount-codes-error', userKey, undefined, {
+      errorType: 'feature-disabled',
+      discountCode: body.discountCode,
+    });
+  }
+
   if (body.discountCode && discountCodesVariation === 'v1') {
     const result = applyDiscountCode(body.discountCode, subtotal);
     if (!result) {
+      // Track discount code validation error
+      await track('enable-discount-codes-error', userKey, undefined, {
+        errorType: 'invalid-code',
+        discountCode: body.discountCode,
+      });
       return NextResponse.json(
         { error: `Invalid discount code: ${body.discountCode}` },
         { status: 400 },
