@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getProduct } from '@/lib/products';
 import { calculateOrderTotal, applyDiscountCode, formatPrice } from '@/lib/pricing';
-import { track } from '@/lib/ld';
+import { stringVariation, track } from '@/lib/ld';
 import type { CartItem } from '@/lib/pricing';
 
 interface CheckoutBody {
@@ -45,11 +45,15 @@ export async function POST(req: NextRequest) {
 
   const subtotal = calculateOrderTotal(items);
 
-  // Apply discount code if provided
+  // Apply discount code if provided and feature flag is enabled
   let orderTotal = subtotal;
   let discountApplied: { code: string; amount: number } | null = null;
 
-  if (body.discountCode) {
+  // Check if discount codes feature is enabled for this user
+  const userKey = body.customer.email || 'anonymous';
+  const discountCodesVariation = await stringVariation('enable-discount-codes', userKey, 'control');
+
+  if (body.discountCode && discountCodesVariation === 'v1') {
     const result = applyDiscountCode(body.discountCode, subtotal);
     if (!result) {
       return NextResponse.json(
@@ -62,7 +66,6 @@ export async function POST(req: NextRequest) {
   }
 
   const orderId = `ORD-${Date.now()}`;
-  const userKey = body.customer.email || 'anonymous';
 
   // Track checkout completion — the Metrics Author builds guarded-release
   // metrics on top of this event (error rate, latency, conversion).

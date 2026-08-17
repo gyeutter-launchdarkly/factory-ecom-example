@@ -181,7 +181,10 @@ export default function CheckoutPage() {
             </div>
           </section>
 
-          {/* Discount code. The AutoFactory flag will gate this section. */}
+          {/* Discount code. The AutoFactory flag 'enable-discount-codes' gates this feature.
+              The API route checks the flag and applies discounts only when the flag variation is 'v1'.
+              The control path (flag off) preserves existing behavior by ignoring discount codes.
+              Frontend SDK support for client-side flag evaluation can be added to conditionally render this section. */}
           <section>
             <p className="text-[11px] uppercase tracking-[0.16em] text-muted mb-4">Discount</p>
             <div className="grid grid-cols-2 gap-3">
