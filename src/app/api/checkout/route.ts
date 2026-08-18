@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getProduct } from '@/lib/products';
 import { calculateOrderTotal, applyDiscountCode, formatPrice } from '@/lib/pricing';
-import { track } from '@/lib/ld';
+import { boolVariation, track } from '@/lib/ld';
 import type { CartItem } from '@/lib/pricing';
 
 interface CheckoutBody {
@@ -44,14 +44,24 @@ export async function POST(req: NextRequest) {
   }
 
   const subtotal = calculateOrderTotal(items);
+  const userKey = body.customer.email || 'anonymous';
 
-  // Apply discount code if provided
+  // Evaluate enable-discount-codes flag
+  const enableDiscountCodes = await boolVariation('enable-discount-codes', userKey, false);
+
+  // Apply discount code if provided and flag is on
   let orderTotal = subtotal;
   let discountApplied: { code: string; amount: number } | null = null;
 
-  if (body.discountCode) {
+  if (enableDiscountCodes && body.discountCode) {
     const result = applyDiscountCode(body.discountCode, subtotal);
     if (!result) {
+      // Track invalid discount code error
+      await track('enable-discount-codes-error', userKey, undefined, {
+        orderId,
+        error: 'invalid_discount_code',
+        discountCode: body.discountCode,
+      });
       return NextResponse.json(
         { error: `Invalid discount code: ${body.discountCode}` },
         { status: 400 },
@@ -62,7 +72,6 @@ export async function POST(req: NextRequest) {
   }
 
   const orderId = `ORD-${Date.now()}`;
-  const userKey = body.customer.email || 'anonymous';
 
   // Track checkout completion — the Metrics Author builds guarded-release
   // metrics on top of this event (error rate, latency, conversion).
