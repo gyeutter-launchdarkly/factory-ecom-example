@@ -1,0 +1,17 @@
+{
+  "action": "opened",
+  "pull_request": {
+    "number": 22,
+    "head": { "ref": "feature/cat-bulk-quick-order" },
+    "base": { "ref": "main" },
+    "title": "feat: add bulk quick order by part number",
+    "body": "Turns the CAT Parts Store Quick Order navigation into a bulk ordering workflow. Customers can enter multiple part numbers and quantities, validate the list against the catalog, see unmatched rows without losing valid ones, and add every matched part to the cart in one action. Gate the workflow behind a multivariate control/quick-order feature flag. Track quick-order-opened, quick-order-list-validated, bulk-order-added, and quick-order-part-not-found; use bulk-order-added as the guarded-release conversion signal and part-not-found rate as a guardrail.",
+    "labels": []
+  },
+  "repository": {
+    "name": "factory-ecom-example",
+    "full_name": "gyeutter-launchdarkly/factory-ecom-example",
+    "default_branch": "main"
+  },
+  "sender": { "login": "demo" }
+}

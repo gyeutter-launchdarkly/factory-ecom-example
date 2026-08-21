@@ -201,10 +201,16 @@ seconds; no rebuild or refresh is needed. The CAT profile uses a local copy of C
 logo, hero, and category artwork so a conference network cannot blank the page.
 
 The profile is a boundary, not just a skin. It changes the catalog, cart storage, scenario
-picker, controls in the Factory pane, and the run/PR dropdown. CAT offers one customer
-scenario: **cat-equipment-fitment**. Its PR adds machine selection, factory-fit badges,
-incompatible-part warnings, and a fitment-only catalog filter, then asks AutoFactory to
-flag the experience and measure equipment selection plus compatible-part conversion.
+picker, controls in the Factory pane, and the run/PR dropdown. CAT offers two customer
+scenarios:
+
+- **cat-equipment-fitment** adds machine selection, factory-fit badges, incompatible-part
+  warnings, and a fitment-only catalog filter.
+- **cat-bulk-quick-order** turns a list of part numbers and quantities into one validated
+  cart addition while preserving unmatched rows for correction.
+
+Both ask AutoFactory for a controlled rollout and workflow-specific conversion plus
+guardrail metrics.
 
 Generic pricing, ratings, and checkout branches are intentionally hidden: they change the
 old storefront or tell a weaker CAT story. New CAT scenarios should use a `cat-` branch and

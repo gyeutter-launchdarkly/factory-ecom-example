@@ -29,7 +29,7 @@ export const PROFILE_SCENARIOS: Record<DemoProfile, readonly string[]> = {
     'stripe-checkout',
     'tiered-pricing',
   ],
-  cat: ['cat-equipment-fitment'],
+  cat: ['cat-equipment-fitment', 'cat-bulk-quick-order'],
 };
 
 export function scenarioBelongsToProfile(scenario: string, profile: DemoProfile): boolean {
