@@ -1,0 +1,17 @@
+{
+  "action": "opened",
+  "pull_request": {
+    "number": 21,
+    "head": { "ref": "feature/cat-equipment-fitment" },
+    "base": { "ref": "main" },
+    "title": "feat: show parts that fit the customer's equipment",
+    "body": "Adds an equipment selector to the CAT Parts Store. Once a customer selects their Cat 320 excavator, product cards show an explicit factory-fit status and the catalog can hide incompatible parts. This change affects part discovery and conversion, so ship it behind a multivariate feature flag with control and fitment variations. Track equipment-selected, fitment-filter-enabled, compatible-part-added, and incompatible-part-viewed events; use compatible-part-added as the guarded-release conversion signal.",
+    "labels": []
+  },
+  "repository": {
+    "name": "factory-ecom-example",
+    "full_name": "gyeutter-launchdarkly/factory-ecom-example",
+    "default_branch": "main"
+  },
+  "sender": { "login": "demo" }
+}

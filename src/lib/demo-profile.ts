@@ -29,10 +29,7 @@ export const PROFILE_SCENARIOS: Record<DemoProfile, readonly string[]> = {
     'stripe-checkout',
     'tiered-pricing',
   ],
-  // These existing feature branches make sense on a heavy-equipment parts
-  // storefront and are known-good before the customer demo. A later CAT-only
-  // branch can be added simply by prefixing it `cat-`.
-  cat: ['dynamic-pricing', 'tiered-pricing'],
+  cat: ['cat-equipment-fitment'],
 };
 
 export function scenarioBelongsToProfile(scenario: string, profile: DemoProfile): boolean {

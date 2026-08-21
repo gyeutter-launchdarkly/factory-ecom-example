@@ -201,14 +201,13 @@ seconds; no rebuild or refresh is needed. The CAT profile uses a local copy of C
 logo, hero, and category artwork so a conference network cannot blank the page.
 
 The profile is a boundary, not just a skin. It changes the catalog, cart storage, scenario
-picker, controls in the Factory pane, and the run/PR dropdown. CAT currently offers only:
+picker, controls in the Factory pane, and the run/PR dropdown. CAT offers one customer
+scenario: **cat-equipment-fitment**. Its PR adds machine selection, factory-fit badges,
+incompatible-part warnings, and a fitment-only catalog filter, then asks AutoFactory to
+flag the experience and measure equipment selection plus compatible-part conversion.
 
-- **dynamic-pricing** — changes the unit prices shown for low-stock parts
-- **tiered-pricing** — adds quantity discounts to parts orders
-
-Those are the existing branches whose code genuinely affects the CAT experience. Generic
-product ratings and express checkout touch only the old product-card component and are
-therefore intentionally hidden. New CAT-specific scenarios should use a `cat-` branch and
+Generic pricing, ratings, and checkout branches are intentionally hidden: they change the
+old storefront or tell a weaker CAT story. New CAT scenarios should use a `cat-` branch and
 event-file prefix; they will appear only on the CAT profile.
 
 ### The terminal in the page

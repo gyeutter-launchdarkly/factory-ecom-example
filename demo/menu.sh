@@ -65,7 +65,7 @@ scenarios() {
   for f in "$EVENTS_DIR"/*.json; do
     s=$(basename "$f" .json)
     case "${DEMO_PROFILE:-commerce}:$s" in
-      cat:cat-* | cat:dynamic-pricing | cat:tiered-pricing)
+      cat:cat-*)
         echo "$s"
         ;;
       commerce:cat-*) ;;
