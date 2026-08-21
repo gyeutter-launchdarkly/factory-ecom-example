@@ -1,5 +1,10 @@
 {
   "action": "opened",
+  "demo": {
+    "problem": "Promotions require a deploy, and an unmeasured discount can trade margin for noise.",
+    "goal": "Ship discount codes behind a flag and measure whether they improve completed checkouts.",
+    "payoff": "Marketing can launch safely, prove conversion lift, and roll back without another deploy."
+  },
   "pull_request": {
     "number": 2,
     "head": { "ref": "feature/discount-codes" },

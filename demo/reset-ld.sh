@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Delete all LaunchDarkly resources tagged 'auto-factory' from an existing project.
 # Safe to run against a shared project — only removes demo-created resources.
-# The seed flag (show-product-reviews) is preserved.
+# The Terraform-managed seed flags are preserved.
 #
 # Usage: ./demo/reset-ld.sh
 #   (reads LD_API_KEY and LD_APP_PROJECT_KEY from .env.local)
@@ -23,7 +23,9 @@ fi
 
 BASE="https://app.launchdarkly.com/api/v2"
 AUTH="Authorization: $LD_API_KEY"
-SEED="show-product-reviews"
+# Seed flags carry the auto-factory tag so they appear in the demo's LD view,
+# which also puts them in this delete list — skip them by key.
+SEED_FLAGS=("show-product-reviews" "catalog-sort-order")
 
 ld_get()    { /usr/bin/curl -sf -H "$AUTH" "$BASE$1"; }
 ld_delete() { /usr/bin/curl -sf -X DELETE -H "$AUTH" "$BASE$1" -o /dev/null -w "%{http_code}"; }
@@ -44,7 +46,11 @@ flags=$(ld_get "/flags/$LD_APP_PROJECT_KEY?filter=tags%3Aauto-factory&limit=200"
 
 n=0
 for key in $flags; do
-  if [[ "$key" == "$SEED" ]]; then
+  is_seed=""
+  for seed in "${SEED_FLAGS[@]}"; do
+    [[ "$key" == "$seed" ]] && is_seed=1 && break
+  done
+  if [[ -n "$is_seed" ]]; then
     echo "  skip     $key  (seed — managed by Terraform)"
     continue
   fi

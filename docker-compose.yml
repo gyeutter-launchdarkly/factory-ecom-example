@@ -9,6 +9,12 @@ services:
       # The factory progress stream is written on the host by
       # demo/lib/progress-tap.mjs; the in-app flowchart tails it read-only.
       - ./.autofactory:/app/.autofactory:ro
+      # The pane's buttons (reset, run a scenario) need a way to ask the host to
+      # do something: the container has no repo, no gh and no LD key. It drops a
+      # request file here and demo/lib/control-watch.sh, running on the host,
+      # picks it up. Writable, and deliberately a separate mount so the progress
+      # stream above stays read-only and cannot be corrupted from the browser.
+      - ./.autofactory/control:/app/.autofactory/control:rw
     env_file:
       - path: .env.local
         required: false

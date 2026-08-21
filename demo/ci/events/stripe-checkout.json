@@ -1,5 +1,10 @@
 {
   "action": "opened",
+  "demo": {
+    "problem": "A payment migration is too consequential for an all-at-once release.",
+    "goal": "Protect the Stripe path with a flag, payment success metrics, and deterministic tests.",
+    "payoff": "Payments can migrate incrementally with an immediate rollback path and visible failures."
+  },
   "pull_request": {
     "number": 6,
     "head": { "ref": "feature/stripe-checkout" },

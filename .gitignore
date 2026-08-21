@@ -43,3 +43,18 @@ tsconfig.tsbuildinfo
 # Branch sync: log of the automatic post-commit rebases, and its lock
 .autofactory/sync.log
 .autofactory/.sync.lock
+
+# GitHub health: last failed call's reason, and the outage marker the TUI reads
+.autofactory/.gh-last-error
+.autofactory/github-offline
+
+# Generated ttyd launcher (see demo/lib/tty.sh)
+.autofactory/.ttyd-run.sh
+
+# UI control channel (requests from the pane, status back from the watcher)
+.autofactory/control/
+
+# Customer demo packs. Names, branding, scenarios, recordings, and assets stay
+# local or in a private fork; the public repository contains only the framework.
+.autofactory/packs/
+.autofactory/local-runs/

@@ -1,5 +1,10 @@
 {
   "action": "opened",
+  "demo": {
+    "problem": "High-intent shoppers abandon a checkout that asks for more steps than they need.",
+    "goal": "Test a one-item Buy Now path with a controlled audience and a clear conversion metric.",
+    "payoff": "The team learns whether speed lifts conversion before replacing the standard journey."
+  },
   "pull_request": {
     "number": 5,
     "head": { "ref": "feature/express-checkout" },

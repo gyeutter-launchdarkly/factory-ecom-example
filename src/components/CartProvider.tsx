@@ -1,6 +1,7 @@
 'use client';
 
 import { createContext, useContext, useEffect, useState } from 'react';
+import { useDemoPack } from '@/lib/use-demo-pack';
 
 export interface CartLineItem {
   productId: string;
@@ -24,18 +25,23 @@ interface CartContextValue {
 const CartContext = createContext<CartContextValue | null>(null);
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
+  const pack = useDemoPack();
   const [items, setItems] = useState<CartLineItem[]>([]);
+  const [loadedKey, setLoadedKey] = useState('');
+  const storageKey = `${pack.id}-cart`;
 
   useEffect(() => {
     try {
-      const stored = localStorage.getItem('darkcommerce-cart');
-      if (stored) setItems(JSON.parse(stored));
+      const stored = localStorage.getItem(storageKey);
+      setItems(stored ? JSON.parse(stored) : []);
+      setLoadedKey(storageKey);
     } catch {}
-  }, []);
+  }, [storageKey]);
 
   useEffect(() => {
-    localStorage.setItem('darkcommerce-cart', JSON.stringify(items));
-  }, [items]);
+    if (loadedKey !== storageKey) return;
+    localStorage.setItem(storageKey, JSON.stringify(items));
+  }, [items, loadedKey, storageKey]);
 
   const add = (item: Omit<CartLineItem, 'quantity'>) => {
     setItems((prev) => {

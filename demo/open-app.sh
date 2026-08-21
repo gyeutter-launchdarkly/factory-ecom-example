@@ -16,33 +16,27 @@ TIMEOUT="${TIMEOUT:-90}"
 
 B=$'\033[1m'; GR=$'\033[32m'; D=$'\033[2m'; R=$'\033[0m'
 
-# Wait for a real HTTP response, not just an open socket.
-# ### track while the app comes up.
-deadline=$(( $(date +%s) + TIMEOUT ))
-tick=0
+# Wait for a real HTTP response, not just an open socket. One line, rewritten
+# in place: a banner and a progress track cost five lines to say what fits in
+# one, and on a projector the useful part scrolls away.
+started=$(date +%s)
+deadline=$(( started + TIMEOUT ))
 until curl -fsS -o /dev/null --max-time 2 "$URL" 2>/dev/null; do
-  tick=$(( tick + 1 ))
-  [ -t 1 ] && printf '\r  starting the app  [%-24s]' "$(printf '#%.0s' $(seq 1 $(( tick % 25 ))))"
+  [ -t 1 ] && printf '\r  app     waiting for it to answer  %ds\033[K' "$(( $(date +%s) - started ))"
   [ "$(date +%s)" -ge "$deadline" ] && {
-    [ -t 1 ] && printf '\r%-60s\r' " "
-    printf '%s\n' "  App did not respond on ${URL} within ${TIMEOUT}s." >&2
-    printf '%s\n' "${D}  Check 'docker compose logs app'.${R}" >&2
+    [ -t 1 ] && printf '\r\033[K'
+    printf '%s\n' "  app     ${URL} did not answer within ${TIMEOUT}s — docker compose logs app" >&2
     # Non-zero, so a caller is not told the app is up when it is not. Callers
     # that must not fail on this (`make dev`, the setup wizard) append `|| true`.
     exit 1
   }
   sleep 1
 done
-[ -t 1 ] && printf '\r%-60s\r' " "
+[ -t 1 ] && printf '\r\033[K'
 
-printf '\n%s\n' "${GR}${B}  +--------------------------------------------------+"
-printf '%s\n'   "  |   Demo app ready                                 |"
-printf '%s\n'   "  |                                                  |"
-printf '%s\n'   "  |   ${URL}$(printf '%*s' $(( 47 - ${#URL} )) '')|"
-printf '%s\n'   "  +--------------------------------------------------+${R}"
+printf '%s\n' "  app     ${GR}ready${R}  ${B}${URL}${R}"
 
 if [ -n "${NO_OPEN:-}" ]; then
-  printf '%s\n\n' "${D}  NO_OPEN set, not opening the browser.${R}"
   exit 0
 fi
 if [ ! -t 1 ]; then
@@ -56,7 +50,6 @@ elif command -v wslview >/dev/null 2>&1; then     # WSL
 elif command -v xdg-open >/dev/null 2>&1; then    # Linux
   xdg-open "$URL" >/dev/null 2>&1
 else
-  printf '%s\n' "${D}  Open ${URL} in your browser.${R}"
+  printf '%s\n' "${D}  open ${URL} in your browser${R}"
 fi
-printf '\n'
 exit 0

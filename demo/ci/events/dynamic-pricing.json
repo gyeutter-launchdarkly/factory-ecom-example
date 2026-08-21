@@ -1,5 +1,10 @@
 {
   "action": "opened",
+  "demo": {
+    "problem": "Inventory pressure changes faster than a pricing release cycle.",
+    "goal": "Introduce demand pricing gradually while watching conversion and revenue guardrails.",
+    "payoff": "The team can respond to supply in real time without exposing every shopper at once."
+  },
   "pull_request": {
     "number": 3,
     "head": { "ref": "feature/dynamic-pricing" },

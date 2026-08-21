@@ -332,6 +332,13 @@ env -u GH_TOKEN -u GITHUB_TOKEN gh auth status &>/dev/null && ok "gh authenticat
   || warn "gh is installed but not logged in; run 'gh auth login' for GitHub setup"
 docker info &>/dev/null 2>&1 && ok "Docker running" \
   || die "Docker is not running. Start Docker Desktop first."
+# Optional: with both installed the menu mirrors its own terminal into the app
+# pane. Absent, the pane shows its console panel instead and nothing else changes.
+if command -v tmux &>/dev/null && command -v ttyd &>/dev/null; then
+  ok "tmux + ttyd (terminal mirrored into the app pane)"
+else
+  warn "tmux + ttyd not installed; 'brew install tmux ttyd' adds the terminal to the app pane"
+fi
 
 # clone (if needed)
 if ! $IN_REPO; then

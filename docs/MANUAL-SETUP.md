@@ -29,8 +29,15 @@ patterns. Install it with `make hooks`.
 make setup
 ```
 
-Creates the seed flag `show-product-reviews` in your existing project (via Terraform in
-Docker), installs the git hooks, and tags the current `feature/*` tips as `demo-seed/*`.
+Creates the two seed flags in your existing project (via Terraform in Docker), installs the
+git hooks, and tags the current `feature/*` tips as `demo-seed/*`.
+
+The seed flags exist to be copied. Agents grep the app for an evaluation call and follow its
+shape, so the repo ships one of each: `show-product-reviews` (boolean) and
+`catalog-sort-order` (multivariate `control`/`v1`, the shape the factory itself creates).
+Both are wired in `src/app/api/products/route.ts`. Dropping the multivariate one is how runs
+start failing `[variation-wired-in-code]`: agents copy the boolean call, and since every
+string variation is truthy, the control path becomes unreachable.
 
 This never creates or destroys a project. Yours must already exist, bootstrapped with the
 AutoFactory AI configs
@@ -112,6 +119,27 @@ the `uses:` line of `.github/workflows/auto-factory.yml` if you host it elsewher
 make dev     # foreground, with logs
 make menu    # detached, plus the interactive demo menu
 ```
+
+`make menu` also mirrors itself into the app pane when `tmux` and `ttyd` are installed: it
+re-execs inside a tmux session named `autofactory` and starts ttyd on loopback port 7681
+(in a second session, `autofactory-web`, so the web terminal outlives the shell that
+launched it). The pane iframes that port as its **Terminal** tab. It all runs on a private
+tmux socket (`tmux -L autofactory`), so the demo's options — status bar off, mouse on,
+copy-on-select to the system clipboard — never touch a personal tmux config, and quitting
+tears the whole thing down cleanly. To do it by hand:
+
+```bash
+tmux -L autofactory new-session -d -s autofactory 'FACTORY_TTY=0 bash demo/menu.sh'
+tmux -L autofactory new-session -d -s autofactory-web \
+  'ttyd -p 7681 -i lo0 -W tmux -L autofactory attach -t autofactory -f ignore-size'  # -i lo on Linux
+tmux -L autofactory attach -t autofactory
+```
+
+`ttyd -W` and an attach without `-r` are what make the mouse work in the browser: the wheel
+scrolls tmux's history and a drag copies to the clipboard (via `pbcopy`, or
+`wl-copy`/`xclip`/`xsel` on Linux). `ignore-size` keeps that viewer from resizing the
+session. Set `FACTORY_TTY=0` to opt out entirely, `FACTORY_TTY_PORT` to move the port, and
+`FACTORY_TTY_READONLY=1` to attach with `-r` instead, which locks the page out of both.
 
 ## Resetting by hand
 

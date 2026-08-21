@@ -2,9 +2,12 @@
 /**
  * Factory progress tap.
  *
- * Reads the factory's stdout on stdin, echoes every line through unchanged (so
- * the terminal experience is identical), and appends a structured NDJSON event
- * stream to .autofactory/runs.ndjson for the in-app flowchart to read.
+ * Reads the factory's stdout on stdin and appends a structured NDJSON event
+ * stream to .autofactory/runs.ndjson for the in-app flowchart to read. Direct
+ * commands echo every line through unchanged; the menu sets
+ * FACTORY_PROGRESS_ONLY=1, which leaves the terminal with the numbered steps
+ * its runner prints, the progress bar, and problems — everything else is the
+ * pane's job.
  *
  * Usage:  <factory command> 2>&1 | node demo/lib/progress-tap.mjs <scenario>
  *
@@ -16,8 +19,8 @@
  * Two producers are recognised:
  *
  *   phase1-cli  emits live per-step lines as each agent starts and finishes:
- *                 "▶ step 1: Research & plan (autofactory-research-planner)"
- *                 "■ step 1 done: Research & plan (...) [ok] tags: {...}"
+ *                 "▶ step 1: Plan (autofactory-research-planner)"
+ *                 "■ step 1 done: Plan (...) [ok] tags: {...}"
  *               This is the only producer that gives a genuinely live flowchart.
  *
  *   the Action (what `make ci` runs under act) emits nothing per-step; it dumps
@@ -34,10 +37,19 @@ const OUT = process.env.FACTORY_PROGRESS_FILE
   ? resolve(process.env.FACTORY_PROGRESS_FILE)
   : resolve('.autofactory/runs.ndjson');
 
-const ROTATE_BYTES = 512 * 1024;
+// Every line is also mirrored into the log as a `log` event so the pane can
+// show the console the terminal is no longer printing in full. That is more
+// bytes per run, hence the larger rotation budget.
+const ROTATE_BYTES = 2 * 1024 * 1024;
+const PROGRESS_ONLY = process.env.FACTORY_PROGRESS_ONLY === '1';
+const MAX_LOG_CHARS = 400;
 
 const scenario = process.argv[2] ?? 'unknown';
-const runId = `${scenario}-${Date.now()}`;
+// The runner opens the run before this tap exists — it announces itself while
+// the PR is still being created, so the pane can light up immediately instead of
+// waiting a minute for GitHub to hand back a run id. Adopting its id keeps that
+// head start and the streamed events as one run rather than two.
+const runId = process.env.FACTORY_RUN_ID || `${scenario}-${Date.now()}`;
 
 mkdirSync(dirname(OUT), { recursive: true });
 
@@ -89,6 +101,11 @@ function parseTags(text) {
 
 const rl = createInterface({ input: process.stdin, crlfDelay: Infinity });
 
+// Set while the "why: <agent>" block is streaming (the deciding agent's own
+// words after a rejection). Its first substantive line becomes a note, so the
+// reason is on screen in the pane instead of only in the console scrollback.
+let whyAgent = null;
+
 rl.on('line', (line) => {
   // Heartbeats exist only to tell the pane a slow run is still alive, so they
   // are consumed rather than echoed: printing one every 30s would bury the
@@ -98,14 +115,53 @@ rl.on('line', (line) => {
     return;
   }
 
-  // Pass through first, always — the tap must never swallow output.
-  process.stdout.write(line + '\n');
+  // The terminal is the summary and the pane is the detail, so every line goes
+  // to the pane's console whatever the terminal is told. Carriage returns and
+  // ANSI colour would render as noise in HTML, so they are stripped here rather
+  // than in the browser.
+  const text = line.replace(/\x1b\[[0-9;]*m/g, '').replace(/\r/g, '').trimEnd();
+  if (text) emit({ t: 'log', text: text.slice(0, MAX_LOG_CHARS) });
+
+  // Direct commands remain verbose for debugging. The TUI keeps only what needs
+  // a person: the runner already prints a numbered line per step and the bar
+  // shows the chain, so narration (`» `) is the pane's — repeating it in the
+  // terminal is the same story twice. Problems still come through, stripped of
+  // the ::directive:: syntax that means nothing outside Actions.
+  const problem =
+    /::(?:error|warning)::|⛔|⏸|awaiting approval|\[(?:failed|failure)\]|^\s*(?:error|fatal|warning|failed to|could not)\b/i.test(
+      line,
+    );
+  if (!PROGRESS_ONLY) {
+    process.stdout.write(line + '\n');
+  } else if (problem) {
+    const warn = /::warning::|⏸|awaiting approval|^\s*warning\b/i.test(line);
+    const clean = text.replace(/^.*?(?:::(?:error|warning)::|⛔|⏸)\s*/, '').trim() || text;
+    process.stdout.write(`  \x1b[${warn ? 33 : 31}m!\x1b[0m ${clean}\n`);
+  }
 
   // act prefixes lines with "[Workflow/job] ", so match anywhere, not anchored.
 
+  // The rejecting agent's rationale, printed by the runner when a run does not
+  // end in an approval. The header is deliberately not the Action's "════" node
+  // dump: this is an explanation, not a status, and must not re-mark the step.
+  let m = line.match(/────+\s*why:\s*(autofactory-[a-z0-9-]+)\s*\[([a-z-]+)\]/i);
+  if (m) {
+    whyAgent = m[1];
+    return;
+  }
+  if (whyAgent) {
+    const first = text.trim();
+    // Fenced verdict JSON and dividers are not the reason; keep waiting.
+    if (first && !/^[`─═-]+$/.test(first) && !/^\s*{/.test(first)) {
+      emit({ t: 'note', level: 'error', text: `${whyAgent}: ${first}`.slice(0, 400) });
+      whyAgent = null;
+    }
+    return;
+  }
+
   // The PR this run belongs to, so the pane can label the flow. The same line
   // carries the provider (the coding agent backend: anthropic | cursor | vega).
-  let m = line.match(/Phase 1:\s*PR #(\d+)/);
+  m = line.match(/Phase 1:\s*PR #(\d+)/);
   if (m) {
     emit({ t: 'pr', number: Number(m[1]) });
     const prov = line.match(/\[provider:\s*([a-z]+)\]/i);
@@ -140,7 +196,19 @@ rl.on('line', (line) => {
   if (m) {
     const key = keyOf(m[2]);
     const status = /\[failed\]/i.test(m[2]) ? 'failed' : 'done';
-    if (key) emit({ t: 'node', key, status, index: Number(m[1]), tags: parseTags(m[2]) });
+    const tags = parseTags(m[2]);
+    if (key) emit({ t: 'node', key, status, index: Number(m[1]), tags });
+    // The reviewer reports its call as a routing tag, and this line used to
+    // return before the verdict block below ever saw it — so a rejection
+    // reached the pane only if the log happened to also print the compact
+    // verdict line, and the Review box stayed green when it did not.
+    if (tags && 'review_approved' in tags) {
+      emit({
+        t: 'verdict',
+        approved: String(tags.review_approved) === 'true',
+        risk: typeof tags.risk_level === 'string' ? tags.risk_level : null,
+      });
+    }
     return;
   }
 
@@ -165,25 +233,79 @@ rl.on('line', (line) => {
     return;
   }
 
-  // Stalls, gates, and deterministic-check failures are worth surfacing.
-  if (/⏸\s*approval gate|awaiting approval before/.test(line)) {
-    emit({ t: 'note', level: 'warn', text: line.replace(/^.*?(⏸|::warning::)\s*/, '').slice(0, 200) });
-    return;
-  }
-  if (/⛔|::error::/.test(line)) {
-    emit({ t: 'note', level: 'error', text: line.replace(/^.*?(⛔|::error::)\s*/, '').slice(0, 200) });
+  // A LaunchDarkly judge's score for the node it evaluated. Judges are sampled
+  // and non-blocking, so a score is quality signal rather than a gate — but it
+  // is the platform's own evaluation of the agent's work, and until now it
+  // reached the pane only as a line of console text nobody reads on stage.
+  m = line.match(/\[judge\]\s+(autofactory-[a-z0-9-]+)\s*←\s*'([^']+)'\s+score=([0-9.]+|n\/a)/i);
+  if (m) {
+    const reasoning = line.split('—').slice(1).join('—').trim();
+    emit({
+      t: 'judge',
+      key: m[1],
+      judge: m[2],
+      score: m[3] === 'n/a' ? null : Number(m[3]),
+      ...(reasoning ? { reasoning: reasoning.slice(0, 300) } : {}),
+    });
     return;
   }
 
-  // Flag / metric links the factory reports, so the pane can deep-link to LD.
-  m = line.match(/^\s*(?:\[[^\]]*\]\s*\|?\s*)?(Flag|Metric):\s*([a-z0-9-]+)\s*→\s*(\S+)/i);
+  // The closing summary repeats the score without naming the judge, and is the
+  // only form a log-reconciled run may have.
+  m = line.match(/^\s*Judge:\s*(autofactory-[a-z0-9-]+)\s+scored\s+([0-9.]+)/i);
+  if (m) {
+    emit({ t: 'judge', key: m[1], judge: null, score: Number(m[2]) });
+    return;
+  }
+
+  // Deterministic handoff checks: the gates that re-derive an agent's claims
+  // from LaunchDarkly and the checkout instead of trusting its own report.
+  m = line.match(/\[verify\]\s+(autofactory-[a-z0-9-]+)\s+([✓✗])\s+([a-z0-9-]+):\s*(.*)$/i);
+  if (m) {
+    emit({ t: 'check', key: m[1], name: m[3], ok: m[2] === '✓', detail: m[4].trim().slice(0, 200) });
+    return;
+  }
+
+  // The failure summary names every failed check at once. Not consumed: a
+  // halted chain is also the run's error, so it falls through to the note.
+  m = line.match(/Deterministic check failed after '(autofactory-[a-z0-9-]+)':\s*(.+)$/);
+  if (m) {
+    for (const part of m[2].split(';')) {
+      const failure = part.trim().match(/^\[([a-z0-9-]+)\]\s*(.*)$/i);
+      if (failure) {
+        emit({ t: 'check', key: m[1], name: failure[1], ok: false, detail: failure[2].slice(0, 200) });
+      }
+    }
+  }
+
+  // Stalls, gates, and deterministic-check failures are worth surfacing. The
+  // cap is generous because a note can end in a URL (the verdict comment), and
+  // clipping that would turn a working link into a 404.
+  if (/⏸\s*approval gate|awaiting approval before/.test(line)) {
+    emit({ t: 'note', level: 'warn', text: line.replace(/^.*?(⏸|::warning::)\s*/, '').slice(0, 400) });
+    return;
+  }
+  if (/⛔|::error::/.test(line)) {
+    emit({ t: 'note', level: 'error', text: line.replace(/^.*?(⛔|::error::)\s*/, '').slice(0, 400) });
+    return;
+  }
+
+  // Flag / metric links the factory reports, so the pane can deep-link to LD;
+  // "Run" is the runner's own link to the GitHub Actions run, and "Verdict" the
+  // reviewer's comment on the PR — where a rejection is actually explained.
+  m = line.match(
+    /^\s*(?:»\s*)?(?:\[[^\]]*\]\s*\|?\s*)?(Flag|Metric|Run|Verdict):\s*([a-z0-9-]+)\s*→\s*(\S+)/i,
+  );
   if (m) {
     emit({ t: 'resource', kind: m[1].toLowerCase(), key: m[2], url: m[3] });
     return;
   }
 
   // Final verdict block.
-  m = line.match(/"review_approved"\s*:\s*(true|false|null)/);
+  // Agent tags are strings ("false"), while the compact synthetic verdict is a
+  // boolean (false). Accept both; previously real review verdicts never reached
+  // the pane even though the terminal printed them.
+  m = line.match(/"review_approved"\s*:\s*"?(true|false|null)"?/);
   if (m) {
     const risk = line.match(/"risk_level"\s*:\s*"([^"]+)"/);
     emit({ t: 'verdict', approved: m[1] === 'true', risk: risk ? risk[1] : null });

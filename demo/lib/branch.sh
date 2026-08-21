@@ -10,17 +10,36 @@
 # Source this file from the repo root; it defines is_current, is_spent,
 # needs_attention, autosync and ensure_branch_ready.
 
+if ! declare -F pack_event_file >/dev/null 2>&1; then
+  # shellcheck source=pack.sh
+  source demo/lib/pack.sh
+fi
+
+scenario_branch() {
+  local file branch
+  file=$(pack_event_file "$1" 2>/dev/null || true)
+  branch=$([[ -n "$file" ]] && jq -r '.pull_request.head.ref // empty' "$file" || true)
+  printf '%s' "${branch:-feature/$1}"
+}
+
+scenario_base() {
+  local file base
+  file=$(pack_event_file "$1" 2>/dev/null || true)
+  base=$([[ -n "$file" ]] && jq -r '.pull_request.base.ref // empty' "$file" || true)
+  printf '%s' "${base:-main}"
+}
+
 # A branch is current if main is an ancestor of it — i.e. it has been rebased
 # onto the current UI. Computed, not hardcoded, so it stays honest as branches
 # are rebased.
 is_current() {
-  git merge-base --is-ancestor main "feature/$1" 2>/dev/null
+  git merge-base --is-ancestor "$(scenario_base "$1")" "$(scenario_branch "$1")" 2>/dev/null
 }
 
 # A scenario whose diff against main is empty has already been merged: there is
 # nothing left to demo, and opening a PR fails with "No commits between".
 is_spent() {
-  git diff --quiet main.."feature/$1" -- src 2>/dev/null
+  git diff --quiet "$(scenario_base "$1")".."$(scenario_branch "$1")" -- src 2>/dev/null
 }
 
 # True when the branch is missing commits from main that touched the app itself.
@@ -29,7 +48,7 @@ is_spent() {
 needs_attention() {
   if is_current "$1"; then return 1; fi
   local changed
-  changed=$(git diff --name-only "feature/$1"...main -- src 2>/dev/null | head -1)
+  changed=$(git diff --name-only "$(scenario_branch "$1")"..."$(scenario_base "$1")" -- src 2>/dev/null | head -1)
   [[ -n "$changed" ]]
 }
 
@@ -44,7 +63,7 @@ autosync() {
   start=$(git branch --show-current 2>/dev/null || true)
 
   local rebased=1
-  git rebase main "feature/$scenario" >/dev/null 2>&1 && rebased=0
+  git rebase "$(scenario_base "$scenario")" "$(scenario_branch "$scenario")" >/dev/null 2>&1 && rebased=0
   [[ $rebased -eq 0 ]] || git rebase --abort >/dev/null 2>&1 || true
 
   git checkout -q "${start:-main}" 2>/dev/null || git checkout -q main 2>/dev/null || true
@@ -52,7 +71,7 @@ autosync() {
 
   # The seed tag is what `make reset` rewinds to, so it has to follow the rebase
   # or the next reset throws the rebase away.
-  git tag -f "demo-seed/$scenario" "feature/$scenario" >/dev/null 2>&1 || true
+  git tag -f "demo-seed/$scenario" "$(scenario_branch "$scenario")" >/dev/null 2>&1 || true
 
   push_if_diverged "$scenario"
   return 0
@@ -63,7 +82,8 @@ autosync() {
 # then show the pre-rebase commits. The comparison is against the
 # remote-tracking ref, so it costs nothing when they already agree.
 push_if_diverged() {
-  local branch="feature/$1" local_sha remote_sha
+  local branch local_sha remote_sha
+  branch=$(scenario_branch "$1")
   git rev-parse --verify -q "refs/remotes/origin/$branch" >/dev/null 2>&1 || return 0
 
   local_sha=$(git rev-parse "$branch" 2>/dev/null || true)
@@ -79,7 +99,9 @@ push_if_diverged() {
 # Non-interactive gate for the paths that open a PR. Returns non-zero when the
 # scenario cannot be demoed correctly, with the reason and the fix.
 ensure_branch_ready() {
-  local scenario="$1" branch="feature/$1"
+  local scenario="$1" branch base
+  branch=$(scenario_branch "$1")
+  base=$(scenario_base "$1")
 
   if ! git show-ref --verify --quiet "refs/heads/$branch"; then
     echo "  $branch does not exist locally."
@@ -88,8 +110,8 @@ ensure_branch_ready() {
   fi
 
   if is_spent "$scenario"; then
-    echo "  $branch is already merged into main: its diff is empty, so no PR can be opened."
-    echo "  Revert the merge on main to demo it again, or pick another scenario."
+    echo "  $branch is already merged into $base: its diff is empty, so no PR can be opened."
+    echo "  Revert the merge on $base to demo it again, or pick another scenario."
     return 1
   fi
 
@@ -100,22 +122,22 @@ ensure_branch_ready() {
 
   if tree_is_dirty; then
     if needs_attention "$scenario"; then
-      echo "  $branch is behind main, and the working tree is dirty so it cannot be rebased."
-      echo "  main has app changes this branch does not; its PR diff would revert them."
+      echo "  $branch is behind $base, and the working tree is dirty so it cannot be rebased."
+      echo "  $base has app changes this branch does not; its PR diff would revert them."
       echo "  Commit or stash, then run: make sync"
       return 1
     fi
-    echo "  note: $branch is behind main by tooling commits only; leaving it as it is."
+    echo "  note: $branch is behind $base by tooling commits only; leaving it as it is."
     return 0
   fi
 
-  echo "  $branch is behind main; rebasing so the PR diff shows only the feature."
+  echo "  $branch is behind $base; rebasing so the PR diff shows only the feature."
   if autosync "$scenario"; then
-    echo "  rebased feature/$scenario onto main"
+    echo "  rebased $(scenario_branch "$scenario") onto $(scenario_base "$scenario")"
     return 0
   fi
 
   echo "  rebase hit conflicts. Resolve by hand:"
-  echo "    git rebase main $branch"
+  echo "    git rebase $base $branch"
   return 1
 }

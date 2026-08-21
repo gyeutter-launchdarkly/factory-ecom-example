@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getProduct } from '@/lib/products';
+import { resolveProduct } from '@/lib/catalog';
 import { calculateOrderTotal, formatPrice } from '@/lib/pricing';
 import { track } from '@/lib/ld';
 import type { CartItem } from '@/lib/pricing';
@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
 
   const items: CartItem[] = [];
   for (const line of body.items) {
-    const product = getProduct(line.productId);
+    const product = await resolveProduct(line.productId);
     if (!product) {
       return NextResponse.json(
         { error: `Unknown product: ${line.productId}` },

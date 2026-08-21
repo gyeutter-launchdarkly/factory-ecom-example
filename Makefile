@@ -11,7 +11,7 @@ TF_RUN := docker compose run --rm \
   -e TF_VAR_environment_key='$(or $(LD_ENVIRONMENT_KEY),production)' \
   terraform
 
-.PHONY: setup dev menu open hooks pr hosted sync reset reset-ld run ci demo-progress _tag-seeds help
+.PHONY: setup dev menu open hooks pr hosted local recorded pack sync reset reset-ld run ci demo-progress _tag-seeds help
 
 # One source of truth for the scenario list: the event payloads that define them.
 SCENARIOS := $(basename $(notdir $(wildcard demo/ci/events/*.json)))
@@ -19,7 +19,10 @@ SCENARIOS := $(basename $(notdir $(wildcard demo/ci/events/*.json)))
 help:
 	@echo "make menu                   Interactive menu: pick scenarios, run, reset (start here)"
 	@echo "make hosted SCENARIO=<name> Real PR + factory on Actions, live in the app pane"
-	@echo "make setup                  First-time setup: create seed flag + LD View, tag branches"
+	@echo "make local SCENARIO=<name>  Real factory CLI against a disposable clone; no PR"
+	@echo "make recorded SCENARIO=<n>  Replay a captured real run at accelerated speed"
+	@echo "make pack PACK=<id>         Create an ignored private customer demo pack"
+	@echo "make setup                  First-time setup: create seed flags + LD View, tag branches"
 	@echo "make dev                    Run the app locally (Docker)"
 	@echo "make reset                  Full reset: delete auto-factory LD resources + reset branches"
 	@echo "make reset-ld               Delete only the auto-factory LD flags + metrics"
@@ -34,16 +37,17 @@ help:
 	@echo ""
 	@echo "Scenarios: $(SCENARIOS)"
 
-## Install the git hooks: block committing real API keys (pre-commit), and
-## rebase the scenario branches whenever main moves (post-commit)
+## Install the git hooks: block API keys, keep customer refs private, and rebase
+## scenario branches whenever main moves.
 hooks:
 	@git config core.hooksPath .githooks
 	@chmod +x .githooks/*
 	@echo "Git hooks installed (core.hooksPath=.githooks)"
 	@echo "  pre-commit   blocks commits containing API keys"
+	@echo "  pre-push     blocks customer/* refs unless GitHub confirms the remote is private"
 	@echo "  post-commit  rebases feature/* onto main after a commit on main"
 
-## First-time setup: create seed flag in existing project, tag seed branches
+## First-time setup: create seed flags in existing project, tag seed branches
 setup:
 	@$(MAKE) hooks
 	$(TF_RUN) init
@@ -71,6 +75,20 @@ ifeq ($(origin SCENARIO),file)
 else
 	@./demo/ci/run-hosted.sh $(SCENARIO)
 endif
+
+## Real agents through phase1-cli; no PR or GitHub Actions queue.
+local:
+	@./demo/ci/run-local.sh $(SCENARIO)
+
+## Accelerated replay of a real run captured into the active pack.
+recorded:
+	@./demo/replay-recording.sh $(SCENARIO)
+
+## Create a customer pack outside Git tracking. Set VISIBILITY=public explicitly
+## only when the pack contains no customer-confidential material.
+pack:
+	@test -n "$(PACK)" || { echo "usage: make pack PACK=<id> [VISIBILITY=private]"; exit 2; }
+	@./demo/create-pack.sh "$(PACK)" "$(or $(VISIBILITY),private)"
 
 ## Real PR on GitHub, factory run locally by act. Currently a no-op: the action
 ## bundle exits in ~190ms under act without running the chain.

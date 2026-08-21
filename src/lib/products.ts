@@ -3,7 +3,8 @@ export interface Product {
   name: string;
   description: string;
   basePrice: number;
-  category: 'electronics' | 'clothing' | 'home';
+  /** Free-form: a demo pack supplies its own categories for its own catalog. */
+  category: string;
   emoji: string;
   inventory: number;
 }

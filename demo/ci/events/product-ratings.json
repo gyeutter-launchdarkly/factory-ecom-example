@@ -1,5 +1,10 @@
 {
   "action": "opened",
+  "demo": {
+    "problem": "Customers lack the social proof they need to choose confidently.",
+    "goal": "Roll out product ratings while measuring product engagement and purchase conversion.",
+    "payoff": "Merchandising gets evidence that ratings help buyers instead of adding visual clutter."
+  },
   "pull_request": {
     "number": 1,
     "head": { "ref": "feature/product-ratings" },

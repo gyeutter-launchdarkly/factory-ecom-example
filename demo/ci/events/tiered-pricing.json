@@ -1,5 +1,10 @@
 {
   "action": "opened",
+  "demo": {
+    "problem": "Bulk buyers receive no incentive to increase order size.",
+    "goal": "Test quantity tiers with conversion and order-value metrics before a broad release.",
+    "payoff": "The business can grow basket size while monitoring whether discounts protect margin."
+  },
   "pull_request": {
     "number": 4,
     "head": { "ref": "feature/tiered-pricing" },

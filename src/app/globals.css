@@ -23,18 +23,30 @@
   --rose-text: #b4685c;
 
   /* Factory step status. Semantic, deliberately outside the brand palette:
-     green = done, blue = in progress, grey = to do, red = failed. */
+     green = done, blue = in progress, grey = to do, red = failed.
+     All four are a pale wash carrying dark type, so the running step reads as
+     one of the set rather than a saturated block that outshouts the flowchart;
+     its ring is what marks it as current. */
   --st-done-bg: #e9f5ee;
   --st-done-fg: #1b7a44;
   --st-done-line: #4fa877;
-  --st-run-bg: #1d4ed8;
-  --st-run-fg: #ffffff;
-  --st-run-ring: #1d4ed8;
+  --st-run-bg: #e8eefc;
+  --st-run-fg: #24499e;
+  --st-run-ring: #b7c9f2;
   --st-todo-bg: #f1eeeb;
   --st-todo-fg: #8c837d;
   --st-fail-bg: #fbeae8;
   --st-fail-fg: #9b2c22;
   --st-fail-ring: #e0a49c;
+
+  /* Ownership on the pipeline rail. Two adjacent violets say "both of these
+     are LaunchDarkly's"; the customer's own tooling is deliberately neutral,
+     so the eye reads the split without reading the legend. */
+  --c-own-ld: #5b4ae0;
+  --c-own-ld-text: #4335b8;
+  --c-own-af: #a05ad6;
+  --c-own-af-text: #7c3ba8;
+  --c-own-ext: #b0a79f;
 
   --shadow-soft: 0 1px 2px rgba(26, 24, 23, 0.04), 0 8px 24px -12px rgba(26, 24, 23, 0.1);
   --shadow-lift: 0 2px 4px rgba(26, 24, 23, 0.05), 0 16px 40px -16px rgba(26, 24, 23, 0.16);
@@ -57,14 +69,22 @@
   --st-done-bg: #16301f;
   --st-done-fg: #86d6a4;
   --st-done-line: #3f8a60;
-  --st-run-bg: #2563eb;
-  --st-run-fg: #ffffff;
-  --st-run-ring: #60a5fa;
+  --st-run-bg: #182a47;
+  --st-run-fg: #a8c4f5;
+  --st-run-ring: #35538c;
   --st-todo-bg: #241f1e;
   --st-todo-fg: #9c918b;
   --st-fail-bg: #341917;
   --st-fail-fg: #f2a79d;
   --st-fail-ring: #7d3b34;
+
+  /* Lifted for a dark ground: the light-mode violets go muddy on it, and the
+     accent rule is a 3px sliver that has to hold its own. */
+  --c-own-ld: #9b8cff;
+  --c-own-ld-text: #b9adff;
+  --c-own-af: #d69bf5;
+  --c-own-af-text: #e3b9f7;
+  --c-own-ext: #6b625d;
 
   /* On a dark ground, elevation reads through a hairline rim plus depth. */
   --shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.5), 0 10px 28px -14px rgba(0, 0, 0, 0.7),
@@ -86,6 +106,31 @@ body {
   background: rgb(var(--c-ground));
   color: rgb(var(--c-ink));
   font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+/* Demo-pack storefronts. The variables are written at runtime from the pack's
+   storefront.json (see components/PackTheme.tsx); these rules only say how they
+   are used, so no customer's palette lives in this repository. Defaults keep the
+   pack renderer legible if a pack omits a colour. */
+:root {
+  --pack-surface: rgb(var(--c-surface));
+  --pack-shell: rgb(var(--c-shell));
+  --pack-ink: rgb(var(--c-ink));
+  --pack-muted: rgb(var(--c-muted));
+  --pack-border: rgb(var(--c-hair));
+  --pack-accent: rgb(var(--c-rose));
+  --pack-accent-ink: rgb(var(--c-ink));
+  --pack-header-bg: rgb(var(--c-ink));
+  --pack-header-ink: rgb(var(--c-surface));
+  --pack-topbar-bg: rgb(var(--c-ink));
+}
+
+[data-pack-store] body {
+  font-family: var(--pack-font, 'Inter', ui-sans-serif, system-ui, sans-serif);
+}
+
+.pack-border {
+  border-color: var(--pack-border);
 }
 
 /* `rose` is the accent background; accent text uses the higher-contrast tint. */
@@ -147,7 +192,7 @@ body {
   color: var(--st-run-fg);
   box-shadow:
     inset 0 0 0 1px var(--st-run-ring),
-    0 0 0 3px rgb(37 99 235 / 0.22);
+    0 0 0 3px rgb(37 99 235 / 0.14);
 }
 .step-todo {
   background-color: var(--st-todo-bg);
@@ -163,4 +208,102 @@ body {
 }
 .step-line-todo {
   background-color: rgb(var(--c-hair));
+}
+
+/* Ownership, the second encoding on the rail. Status owns the card fill above,
+   so ownership takes the rule along the card's top edge: two channels, each
+   readable on its own. The two LaunchDarkly hues are neighbours because both
+   are LaunchDarkly's — the platform a customer already buys, and the pipeline
+   that runs on it; a customer's own tools are the neutral one. */
+.own-ld {
+  --own: var(--c-own-ld);
+}
+.own-af {
+  --own: var(--c-own-af);
+}
+.own-ext {
+  --own: var(--c-own-ext);
+}
+.own-swatch {
+  background-color: var(--own);
+}
+.stage-card {
+  border-top: 3px solid var(--own);
+}
+
+/* A stage after this run's boundary: merge onward. Outlined rather than filled,
+   because a filled card is a claim that something happened. */
+.step-beyond {
+  background-color: transparent;
+  color: rgb(var(--c-muted));
+  border: 1px dashed rgb(var(--c-hair));
+  border-top: 3px solid var(--own);
+}
+
+/* Evidence pills: who vouched for a step, as opposed to what it claimed. */
+.pill-ld,
+.pill-af,
+.pill-fail {
+  font-size: 10px;
+  line-height: 1.5;
+  padding: 1px 6px;
+  border-radius: 9999px;
+  white-space: nowrap;
+}
+.pill-ld {
+  background-color: color-mix(in srgb, var(--c-own-ld) 18%, transparent);
+  color: var(--c-own-ld-text);
+}
+.pill-af {
+  background-color: color-mix(in srgb, var(--c-own-af) 18%, transparent);
+  color: var(--c-own-af-text);
+}
+.pill-fail {
+  background-color: var(--st-fail-bg);
+  color: var(--st-fail-fg);
+  box-shadow: inset 0 0 0 1px var(--st-fail-ring);
+}
+
+/* Return paths under the rail. Quiet until the run actually takes one. */
+.loop-arc {
+  fill: none;
+  stroke: rgb(var(--c-hair));
+  stroke-width: 1.25;
+  stroke-dasharray: 3 3;
+}
+.loop-head {
+  fill: rgb(var(--c-hair));
+}
+/* Exercised, and working as designed — the judge loop scoring a run. */
+.loop-arc-taken {
+  stroke: var(--c-own-ld);
+  stroke-width: 1.6;
+  stroke-dasharray: none;
+}
+.loop-head-taken {
+  fill: var(--c-own-ld);
+}
+/* Exercised as a stop: a failed gate, or a rejected review. */
+.loop-arc-stopped {
+  stroke: var(--st-fail-ring);
+  stroke-width: 1.75;
+  stroke-dasharray: none;
+}
+.loop-head-stopped {
+  fill: var(--st-fail-ring);
+}
+.loop-label {
+  font-size: 9.5px;
+  fill: rgb(var(--c-muted));
+  /* A halo in the page colour, so a label crossing its own arc stays legible. */
+  paint-order: stroke;
+  stroke: rgb(var(--c-surface));
+  stroke-width: 3px;
+  stroke-linejoin: round;
+}
+.loop-label-taken {
+  fill: var(--c-own-ld-text);
+}
+.loop-label-stopped {
+  fill: var(--st-fail-fg);
 }

@@ -5,13 +5,13 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-# Derived from the event payloads rather than listed again here: a hardcoded
-# copy in every script is a list that eventually disagrees with itself.
+# shellcheck source=lib/pack.sh
+source demo/lib/pack.sh
+# shellcheck source=lib/branch.sh
+source demo/lib/branch.sh
+
 SCENARIOS=()
-for f in demo/ci/events/*.json; do
-  [[ -e "$f" ]] || break   # unmatched glob stays literal; do not "reset" a branch called *
-  SCENARIOS+=("$(basename "$f" .json)")
-done
+while IFS= read -r scenario; do SCENARIOS+=("$scenario"); done < <(pack_scenarios)
 
 if (( ${#SCENARIOS[@]} == 0 )); then
   echo "  no scenarios found in demo/ci/events; nothing to reset"
@@ -29,7 +29,7 @@ if [[ "$CURRENT" != "main" ]]; then
 fi
 
 for scenario in "${SCENARIOS[@]}"; do
-  branch="feature/${scenario}"
+  branch=$(scenario_branch "$scenario")
   tag="demo-seed/${scenario}"
 
   if ! git rev-parse "$tag" &>/dev/null; then
