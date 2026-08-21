@@ -19,7 +19,7 @@ SCENARIOS := $(basename $(notdir $(wildcard demo/ci/events/*.json)))
 help:
 	@echo "make menu                   Interactive menu: pick scenarios, run, reset (start here)"
 	@echo "make hosted SCENARIO=<name> Real PR + factory on Actions, live in the app pane"
-	@echo "make setup                  First-time setup: create seed flag + LD View, tag branches"
+	@echo "make setup                  First-time setup: create seed flags + LD View, tag branches"
 	@echo "make dev                    Run the app locally (Docker)"
 	@echo "make reset                  Full reset: delete auto-factory LD resources + reset branches"
 	@echo "make reset-ld               Delete only the auto-factory LD flags + metrics"
@@ -43,7 +43,7 @@ hooks:
 	@echo "  pre-commit   blocks commits containing API keys"
 	@echo "  post-commit  rebases feature/* onto main after a commit on main"
 
-## First-time setup: create seed flag in existing project, tag seed branches
+## First-time setup: create seed flags in existing project, tag seed branches
 setup:
 	@$(MAKE) hooks
 	$(TF_RUN) init

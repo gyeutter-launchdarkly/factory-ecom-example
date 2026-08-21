@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useDemoProfile } from '@/lib/use-demo-profile';
 
 // Live AutoFactory flowchart, docked to the bottom of the page. Subscribes to
 // /api/factory-progress (SSE, fed by demo/lib/progress-tap.mjs).
@@ -18,18 +19,32 @@ type Status = 'pending' | 'running' | 'done' | 'failed' | 'skipped';
 type View = 'expanded' | 'collapsed' | 'hidden';
 type Size = 'normal' | 'large';
 
-// Chain order matches phase1-cli's NODE_TITLES. The Cursor extension's panel
-// omits manifest-steward; it is a real node, so it is included here.
-const CHAIN: ReadonlyArray<{ key: string; title: string }> = [
-  { key: 'autofactory-research-planner', title: 'Research & plan' },
-  { key: 'autofactory-flag-implementer', title: 'Flag' },
-  { key: 'autofactory-metrics-author', title: 'Metrics' },
-  { key: 'autofactory-manifest-steward', title: 'Manifest' },
-  { key: 'autofactory-flag-testing', title: 'Tests' },
-  { key: 'autofactory-code-reviewer', title: 'Review' },
+// The six Phase-1 agents, labelled for a demo audience rather than by their
+// config keys. "Release" is the Beacon handoff (`.release-flags/`); Manifest
+// as a word meant nothing to anyone who was not already in the weeds.
+const CHAIN: ReadonlyArray<{ key: string; title: string; blurb: string }> = [
+  { key: 'autofactory-research-planner', title: 'Plan', blurb: 'decides if this needs a flag' },
+  { key: 'autofactory-flag-implementer', title: 'Flag', blurb: 'creates the flag, wires the code' },
+  { key: 'autofactory-metrics-author', title: 'Metrics', blurb: 'adds metrics, wires the events' },
+  { key: 'autofactory-manifest-steward', title: 'Release', blurb: 'writes the Beacon rollout handoff' },
+  { key: 'autofactory-flag-testing', title: 'Tests', blurb: 'writes and runs flag tests' },
+  { key: 'autofactory-code-reviewer', title: 'Review', blurb: 'approves or rejects the diff' },
 ];
 
+const REVIEWER = 'autofactory-code-reviewer';
+
 const MAX_RUNS = 12;
+
+/** "1m12s" / "43s" — a demo is minutes, so hours never come up. */
+function duration(ms: number): string {
+  const secs = Math.round(ms / 1000);
+  if (secs < 60) return `${secs}s`;
+  return `${Math.floor(secs / 60)}m${String(secs % 60).padStart(2, '0')}s`;
+}
+
+// Console scrollback per run. The terminal only prints progress and errors now,
+// so this is where the full narration lives; a demo run is a few hundred lines.
+const MAX_LOG_LINES = 400;
 
 // A run with no events for this long, that never reported completion, is
 // reported as stalled rather than claimed to be running — the factory process
@@ -69,8 +84,12 @@ type Run = {
   startedAt: number;
   /** Timestamp of this run's most recent event, used to detect a stalled run. */
   lastEventAt: number;
+  /** When the run reported completion, so the clock stops rather than runs on. */
+  endedAt: number | null;
   finished: boolean;
   statuses: Record<string, Status>;
+  /** First and last time each node was seen, for its elapsed time. */
+  timings: Record<string, { startedAt: number; endedAt: number | null }>;
   /** Routing tags each node emitted — its claims (flag_key, metric_keys, ...). */
   tags: Record<string, Record<string, string>>;
   /** Which model ran each node, resolved from its LaunchDarkly AI config. */
@@ -82,6 +101,8 @@ type Run = {
   note: { level: string; text: string } | null;
   /** The code reviewer's closing call, once it has one. */
   verdict: { approved: boolean; risk: string | null } | null;
+  /** Everything the runner printed, for the console panel. */
+  log: string[];
 };
 
 function emptyRun(id: string, scenario: string, at: number): Run {
@@ -91,8 +112,10 @@ function emptyRun(id: string, scenario: string, at: number): Run {
     pr: null,
     startedAt: at,
     lastEventAt: at,
+    endedAt: null,
     finished: false,
     statuses: {},
+    timings: {},
     tags: {},
     agents: {},
     provider: null,
@@ -100,6 +123,7 @@ function emptyRun(id: string, scenario: string, at: number): Run {
     resources: [],
     note: null,
     verdict: null,
+    log: [],
   };
 }
 
@@ -173,12 +197,483 @@ function detailsFor(run: Run, nodeKey: string): Detail[] {
   return out.slice(0, 5);
 }
 
+// Console lines arrive as plain text; the interesting ones carry a URL (the PR,
+// the Actions run, a flag or metric in LaunchDarkly), so they are made
+// clickable rather than left for copy-paste mid-demo.
+//
+// The last character cannot be punctuation: runner narration writes "see
+// https://…/pull/9." and a href with the sentence's full stop on the end is a
+// 404 — which looks exactly like a broken link, not a broken match.
+const URL_RE = /(https?:\/\/[^\s<>"')]*[^\s<>"'),.;:!?])/g;
+
+/** Every link the pane opens goes to its own tab; the demo stays put. */
+function Link({ href, className, title, children }: {
+  href: string;
+  className?: string;
+  title?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <a href={href} target="_blank" rel="noopener noreferrer" className={className} title={title}>
+      {children}
+    </a>
+  );
+}
+
+/** Plain text with its URLs turned into links. */
+function Linkify({ text, className }: { text: string; className?: string }) {
+  return (
+    <>
+      {text.split(URL_RE).map((part, i) =>
+        /^https?:\/\//.test(part) ? (
+          <Link key={i} href={part} className={className}>
+            {part}
+          </Link>
+        ) : (
+          <span key={i}>{part}</span>
+        ),
+      )}
+    </>
+  );
+}
+
+const TITLE_OF = new Map(CHAIN.map((n, i) => [n.key, { title: n.title, step: i + 1 }]));
+
+/**
+ * The factory's wire format, said in English.
+ *
+ * `[node] autofactory-flag-implementer anthropic model → 'claude-haiku-4-5-…'`
+ * is the *start* of a step, and `■ step 2 done: key (key) [ok] tags: {}` its
+ * end — but neither reads that way, the key is printed twice, and "[node]" says
+ * nothing about what is happening. These lines are the parser's contract, so
+ * they are rewritten here for display only and left untouched on the wire.
+ */
+function prettifyLogLine(text: string): string {
+  // A step starting.
+  let m = text.match(/^\s*\[node\]\s+(autofactory-[a-z0-9-]+)\s+([a-z]+)\s+model\s*→\s*'([^']+)'/i);
+  if (m) {
+    const node = TITLE_OF.get(m[1]);
+    const label = node ? `step ${node.step}/${CHAIN.length} ${node.title}` : m[1];
+    return `▸ ${label} — started on ${m[2]} ${shortModel(m[3])}`;
+  }
+
+  // A step finishing, with whatever it claimed. The hosted watcher names the
+  // node twice and the replay leads with its title, so the key is found
+  // wherever it sits and the step number carries the line if it is absent.
+  m = text.match(/^\s*■\s*step\s+(\d+)\s+done:\s*(.+)$/);
+  if (m) {
+    const rest = m[2];
+    const key = rest.match(/autofactory-[a-z0-9-]+/)?.[0];
+    const node = (key && TITLE_OF.get(key)) || {
+      title: CHAIN[Number(m[1]) - 1]?.title,
+      step: Number(m[1]),
+    };
+    const label = node.title
+      ? `step ${node.step}/${CHAIN.length} ${node.title}`
+      : `step ${m[1]}/${CHAIN.length}`;
+    const state = rest.match(/\[([a-z]+)\]/i)?.[1] ?? 'ok';
+    const tagsJson = rest.match(/tags:\s*(\{.*\})\s*$/)?.[1];
+    const ok = /ok/i.test(state);
+    let outcome = ok ? 'finished' : state;
+    let claims = '';
+    let mark = ok ? '✓' : '✗';
+    try {
+      const tags = tagsJson ? (JSON.parse(tagsJson) as Record<string, unknown>) : {};
+      // The reviewer's step succeeds even when its verdict is a rejection, so
+      // "finished" alone would report a blocked PR as a clean pass.
+      if ('review_approved' in tags) {
+        const approved = String(tags.review_approved) === 'true';
+        outcome = approved ? 'approved the diff' : 'rejected the diff';
+        if (!approved) mark = '✗';
+      }
+      // The same vocabulary the step boxes use, so the console and the
+      // flowchart never describe one result two different ways.
+      const parts = Object.entries(tags)
+        .filter(([k, v]) => v && !TAG_SKIP.has(k))
+        .map(([k, v]) => {
+          const short = String(v).split('/').pop() ?? String(v);
+          return `${TAG_LABELS[k] ?? k.replace(/_/g, ' ')}: ${short}`;
+        });
+      if (tags.risk_level) parts.push(`risk: ${tags.risk_level}`);
+      if (parts.length) claims = ` — ${parts.join(', ')}`;
+    } catch {
+      // Malformed tags are not worth losing the line over.
+    }
+    return `${mark} ${label} — ${outcome}${claims}`;
+  }
+
+  // phase1-cli announces a step too, without the model the [node] line carries.
+  m = text.match(/^\s*▶\s*step\s+(\d+):\s*(.+)$/);
+  if (m) {
+    const key = m[2].match(/autofactory-[a-z0-9-]+/)?.[0];
+    const node = (key && TITLE_OF.get(key)) || {
+      title: CHAIN[Number(m[1]) - 1]?.title,
+      step: Number(m[1]),
+    };
+    return `▸ step ${node.step}/${CHAIN.length} ${node.title ?? m[2]} — started`;
+  }
+
+  // The closing summary names every node again; the flowchart already shows it.
+  m = text.match(/^\s*Ran\s+(\d+)\s+node\(s\):/i);
+  if (m) return `✓ chain complete — ${m[1]} of ${CHAIN.length} steps ran`;
+
+  // The reviewer's verdict arrives as a bare JSON object when the log did not
+  // carry a readable one. Unreadable as-is, and it is the run's conclusion.
+  m = text.match(/^\s*\{"review_approved":\s*(true|false)(?:,\s*"risk_level":\s*"([a-z]+)")?\s*\}\s*$/i);
+  if (m) {
+    const approved = m[1] === 'true';
+    return `${approved ? '✓' : '✗'} Review — ${approved ? 'approved the diff' : 'rejected the diff'}${
+      m[2] ? ` — risk: ${m[2]}` : ''
+    }`;
+  }
+
+  // ::error:: and ::warning:: are how a step talks to GitHub Actions; outside a
+  // workflow log they are punctuation in the way of the sentence.
+  m = text.match(/^\s*::(error|warning)::\s*(.+)$/i);
+  if (m) return `${m[1].toLowerCase() === 'error' ? '✗' : '⚠'} ${m[2]}`;
+
+  return text;
+}
+
+/**
+ * Both a `▶ step` line and a `[node]` line can announce the same step, and they
+ * prettify to the same sentence bar the model. Where that happens the shorter
+ * one is dropped, so announcing a step twice does not read as running it twice.
+ */
+function consoleLines(lines: string[]): string[] {
+  const shown = lines.map(prettifyLogLine);
+  return shown.filter((line, i) => {
+    const next = shown[i + 1];
+    return !(next && next !== line && next.startsWith(line));
+  });
+}
+
+function logLineClass(text: string): string {
+  if (/⛔|✗|::error::|^\s*(?:error|fatal|failed)\b/i.test(text)) return 'text-red-700';
+  if (/⏸|⚠|::warning::|^\s*warning\b/i.test(text)) return 'text-amber-900';
+  // Step boundaries are the spine of the run, so they read as strongly as the
+  // runner's own narration; everything else stays quiet behind them.
+  if (/^\s*[▸✓]/.test(text)) return 'text-ink';
+  if (/^\s*»|^\s*(?:Flag|Metric|Run):/i.test(text)) return 'text-ink';
+  return 'text-muted';
+}
+
+function LogLine({ text }: { text: string }) {
+  return (
+    <div className={`whitespace-pre-wrap break-words ${logLineClass(text)}`}>
+      <Linkify
+        text={text}
+        className="underline decoration-rose decoration-1 underline-offset-2 hover:text-rose"
+      />
+    </div>
+  );
+}
+
+// demo/lib/tty.sh serves the demo's tmux session here (read-only) whenever tmux
+// and ttyd are installed. It is the host's port, not the container's: the
+// browser reaches it directly, which is also why availability can only be
+// decided in the browser.
+const TERMINAL_URL = `http://127.0.0.1:${process.env.NEXT_PUBLIC_TERMINAL_PORT ?? '7681'}`;
+
+/** Whether the mirrored terminal is being served right now. */
+function useTerminalUp(): boolean {
+  const [up, setUp] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    // no-cors: ttyd sends no CORS headers, so the response is opaque. Enough to
+    // tell "something is listening" from "connection refused", which is all
+    // this decides — the iframe does the real loading.
+    const probe = () =>
+      fetch(`${TERMINAL_URL}/token`, { mode: 'no-cors', cache: 'no-store' })
+        .then(() => alive && setUp(true))
+        .catch(() => alive && setUp(false));
+    void probe();
+    // Re-probed so starting `make menu` after the page is open still lights the
+    // tab up, and quitting it takes the tab away again.
+    const t = setInterval(() => void probe(), 10_000);
+    return () => {
+      alive = false;
+      clearInterval(t);
+    };
+  }, []);
+  return up;
+}
+
+/** The runner's console, mirrored from the terminal into the page. */
+function Console({
+  lines,
+  tall,
+  active,
+}: {
+  lines: string[];
+  tall: boolean;
+  /** What is running right now, pinned below the scrollback. */
+  active?: string | null;
+}) {
+  const box = useRef<HTMLDivElement>(null);
+  // Follow the tail, unless the viewer has scrolled up to read something.
+  const pinned = useRef(true);
+  const shown = useMemo(() => consoleLines(lines), [lines]);
+
+  useEffect(() => {
+    const el = box.current;
+    if (el && pinned.current) el.scrollTop = el.scrollHeight;
+  }, [lines.length, tall]);
+
+  return (
+    <div className="bg-shell rounded-2xl overflow-hidden">
+      <div
+        ref={box}
+        onScroll={(e) => {
+          const el = e.currentTarget;
+          pinned.current = el.scrollHeight - el.scrollTop - el.clientHeight < 24;
+        }}
+        className={`px-4 py-3 overflow-y-auto font-mono leading-relaxed ${
+          tall ? 'h-72 text-[12.5px]' : 'h-40 text-[11.5px]'
+        }`}
+        aria-label="Factory console output"
+      >
+        {shown.map((line, i) => (
+          <LogLine key={`${i}-${line}`} text={line} />
+        ))}
+      </div>
+
+      {/* An agent can work for minutes without printing anything, so the log
+          alone cannot answer "what is it doing now". Pinned rather than appended
+          so scrolling back to read something does not hide it. */}
+      {active && (
+        <div
+          className={`border-t border-hair px-4 py-2 font-mono text-ink ${
+            tall ? 'text-[12.5px]' : 'text-[11.5px]'
+          }`}
+          aria-live="polite"
+        >
+          <span className="animate-pulse">{active}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+type ControlAction = 'reset' | 'run' | 'replay' | 'clear-history';
+type ControlInfo = { available: boolean; busy: boolean; scenarios: { key: string; title: string }[] };
+type Job = { id: string; action: ControlAction; state: string; message: string; detail?: string };
+
+/**
+ * Reset the demo, or start a run, without leaving the page.
+ *
+ * Nothing here executes anything: the app is a container with no repo and no
+ * credentials. Each button posts an action to /api/factory-control, which
+ * leaves a request for the host-side watcher, and the buttons stay disabled
+ * until that watcher's heartbeat says someone is there to answer.
+ */
+function DemoControls({
+  onCleared,
+  onRunStarted,
+  currentScenario,
+}: {
+  onCleared: () => void;
+  onRunStarted: () => void;
+  /** The run on screen, so re-running it does not mean re-picking it. */
+  currentScenario?: string;
+}) {
+  const [info, setInfo] = useState<ControlInfo>({ available: false, busy: false, scenarios: [] });
+  const [scenario, setScenario] = useState('');
+  const [confirming, setConfirming] = useState(false);
+  const [job, setJob] = useState<Job | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    const tick = () =>
+      fetch('/api/factory-control', { cache: 'no-store' })
+        .then((r) => r.json())
+        .then((j: ControlInfo) => alive && setInfo(j))
+        .catch(() => alive && setInfo((p) => ({ ...p, available: false })));
+    void tick();
+    const t = setInterval(() => void tick(), 3000);
+    return () => {
+      alive = false;
+      clearInterval(t);
+    };
+  }, []);
+
+  // Follow the run being watched: after a rejection the next thing anyone wants
+  // is that same scenario again, and hunting for it in the dropdown mid-demo is
+  // the fumble this is meant to remove.
+  useEffect(() => {
+    if (currentScenario && info.scenarios.some((s) => s.key === currentScenario)) {
+      setScenario(currentScenario);
+    }
+  }, [currentScenario, info.scenarios]);
+
+  useEffect(() => {
+    if (!scenario && info.scenarios.length > 0) setScenario(info.scenarios[0].key);
+  }, [info.scenarios, scenario]);
+
+  const settled = job?.state === 'done' || job?.state === 'error';
+
+  // Follow the job the watcher is running. A reset takes long enough that the
+  // page has to say something while it happens, or it reads as a dead button.
+  useEffect(() => {
+    if (!job || !job.id || settled) return;
+    const t = setInterval(() => {
+      void fetch(`/api/factory-control?id=${job.id}`, { cache: 'no-store' })
+        .then((r) => r.json())
+        .then((s: Partial<Job>) => {
+          setJob((prev) => (prev && prev.id === job.id ? { ...prev, ...s, id: prev.id } : prev));
+          // A reset wipes the stream on the host; the pane is holding runs that
+          // no longer exist anywhere, so drop them rather than show ghosts.
+          if (s.state === 'done' && job.action !== 'run') onCleared();
+        })
+        .catch(() => {});
+    }, 1500);
+    return () => clearInterval(t);
+  }, [job, settled, onCleared]);
+
+  const send = (action: ControlAction) => {
+    setConfirming(false);
+    setJob({ id: '', action, state: 'queued', message: 'Sending…' });
+    // A run started from here prints into the watcher's log, not the mirrored
+    // terminal, so the terminal tab would sit still while the factory works.
+    if (action === 'run' || action === 'replay') onRunStarted();
+    void fetch('/api/factory-control', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action, scenario }),
+    })
+      .then(async (r) => {
+        const j = await r.json();
+        if (!r.ok) throw new Error(j.error ?? 'The request was refused');
+        setJob({ id: j.id, action, state: 'queued', message: 'Queued…' });
+      })
+      .catch((e: Error) => setJob({ id: '', action, state: 'error', message: e.message }));
+  };
+
+  const working = info.busy || (!!job && !settled);
+  const disabled = !info.available || working;
+  const btn =
+    'text-[12px] rounded-pill px-3 py-1.5 transition-colors disabled:opacity-40 disabled:cursor-not-allowed';
+
+  return (
+    <div className="border-t border-hair px-5 py-3 flex flex-wrap items-center gap-x-3 gap-y-2">
+      <span className="text-[11px] uppercase tracking-[0.16em] text-muted shrink-0">demo</span>
+
+      <select
+        value={scenario}
+        onChange={(e) => setScenario(e.target.value)}
+        disabled={disabled || info.scenarios.length === 0}
+        className="bg-shell text-ink text-[12px] rounded-pill px-3 py-1.5 max-w-[260px] truncate focus:outline-none focus:ring-1 focus:ring-rose disabled:opacity-40"
+        aria-label="Scenario to run"
+      >
+        {info.scenarios.length === 0 && <option value="">no scenarios</option>}
+        {info.scenarios.map((s) => (
+          <option key={s.key} value={s.key} title={s.title}>
+            {s.key}
+          </option>
+        ))}
+      </select>
+
+      <button
+        onClick={() => send('run')}
+        disabled={disabled || !scenario}
+        className={`${btn} bg-ink text-cream hover:bg-rose hover:text-ink`}
+        title="Open or reuse the PR and run the real agents on GitHub Actions (~6 min)"
+      >
+        Run factory
+      </button>
+
+      {/* The one path that always ends approved. Labelled synthetic so the
+          presenter knows what they are showing; the audience sees the same six
+          steps either way. */}
+      <button
+        onClick={() => send('replay')}
+        disabled={disabled || !scenario}
+        className={`${btn} bg-shell text-ink hover:text-rose`}
+        title="Synthetic run: the same six steps, always approved, about 12 seconds. Creates nothing."
+      >
+        Rehearse
+      </button>
+
+      {confirming ? (
+        <span className="flex items-center gap-2">
+          <span className="text-[12px] text-red-800">
+            Close PRs, delete flags, rewind branches?
+          </span>
+          <button
+            onClick={() => send('reset')}
+            className={`${btn} bg-red-700 text-white hover:bg-red-800`}
+          >
+            Yes, reset
+          </button>
+          <button
+            onClick={() => setConfirming(false)}
+            className={`${btn} text-muted hover:text-ink`}
+          >
+            Cancel
+          </button>
+        </span>
+      ) : (
+        <button
+          onClick={() => setConfirming(true)}
+          disabled={disabled}
+          className={`${btn} border border-red-200 text-red-800 hover:bg-red-50`}
+          title="Full reset: closes PRs, deletes AutoFactory flags and metrics, rewinds branches"
+        >
+          Reset demo
+        </button>
+      )}
+
+      <button
+        onClick={() => send('clear-history')}
+        disabled={disabled}
+        className={`${btn} bg-shell text-ink hover:text-rose`}
+        title="Empty this pane's run list; leaves PRs and LaunchDarkly alone"
+      >
+        Clear history
+      </button>
+
+      <span className="ml-auto text-[12px] text-muted text-right">
+        {!info.available
+          ? 'controls need the demo menu running (make menu)'
+          : job
+            ? job.message
+            : working
+              ? 'busy'
+              : ''}
+      </span>
+
+      {job?.state === 'error' && job.detail && (
+        <pre className="w-full bg-shell rounded-2xl px-4 py-3 text-[11.5px] font-mono whitespace-pre-wrap max-h-40 overflow-y-auto">
+          {/* The tail of a failed reset or run — the PR and Actions URLs in it
+              are the first place anybody goes next. */}
+          <Linkify
+            text={job.detail}
+            className="underline decoration-rose decoration-1 underline-offset-2"
+          />
+        </pre>
+      )}
+    </div>
+  );
+}
+
 export function FactoryPane() {
+  const { profile, scenarios: profileScenarios } = useDemoProfile();
   const [view, setView] = useState<View>('collapsed');
   const [size, setSize] = useState<Size>('normal');
   const [runs, setRuns] = useState<Record<string, Run>>({});
   const [selected, setSelected] = useState<string | null>(null);
   const [live, setLive] = useState(false);
+  const [showPanel, setShowPanel] = useState(true);
+  const [panel, setPanel] = useState<'console' | 'terminal'>('console');
+  const userPickedPanel = useRef(false);
+  const terminalUp = useTerminalUp();
+
+  // The mirrored terminal is the better view when it exists — it is the actual
+  // demo session, not a reconstruction — so prefer it until asked otherwise.
+  useEffect(() => {
+    if (terminalUp && !userPickedPanel.current) setPanel('terminal');
+    if (!terminalUp) setPanel('console');
+  }, [terminalUp]);
   // Respect a manual hide, and a manual PR choice: a new run should not yank
   // the pane open or steal the selection out from under you.
   const userHid = useRef(false);
@@ -215,8 +710,19 @@ export function FactoryPane() {
           case 'pr':
             run.pr = typeof m.number === 'number' ? m.number : run.pr;
             break;
-          case 'node':
-            run.statuses = { ...run.statuses, [String(m.key)]: m.status as Status };
+          case 'node': {
+            const key = String(m.key);
+            const status = m.status as Status;
+            run.statuses = { ...run.statuses, [key]: status };
+            const prevTiming = run.timings[key];
+            run.timings = {
+              ...run.timings,
+              [key]: {
+                startedAt: prevTiming?.startedAt ?? at,
+                // Re-running a node (a retry) reopens its clock.
+                endedAt: status === 'running' ? null : at,
+              },
+            };
             if (m.tags && typeof m.tags === 'object') {
               run.tags = {
                 ...run.tags,
@@ -224,6 +730,7 @@ export function FactoryPane() {
               };
             }
             break;
+          }
           case 'agent':
             run.agents = {
               ...run.agents,
@@ -244,15 +751,30 @@ export function FactoryPane() {
               ];
             }
             break;
+          case 'log': {
+            const text = typeof m.text === 'string' ? m.text : '';
+            if (!text) break;
+            const next = [...run.log, text];
+            run.log = next.length > MAX_LOG_LINES ? next.slice(-MAX_LOG_LINES) : next;
+            break;
+          }
           case 'note':
             run.note = { level: String(m.level), text: String(m.text) };
             break;
-          case 'verdict':
-            run.verdict = {
-              approved: m.approved === true,
-              risk: typeof m.risk === 'string' ? m.risk : null,
+          case 'verdict': {
+            const approved = m.approved === true;
+            run.verdict = { approved, risk: typeof m.risk === 'string' ? m.risk : null };
+            // A rejection is the reviewer doing its job, but it is still a red
+            // outcome: the node reported "done" on its way to saying no, and a
+            // green Review box next to "not approved" reads as a contradiction.
+            run.statuses = { ...run.statuses, [REVIEWER]: approved ? 'done' : 'failed' };
+            const t = run.timings[REVIEWER];
+            run.timings = {
+              ...run.timings,
+              [REVIEWER]: { startedAt: t?.startedAt ?? at, endedAt: at },
             };
             break;
+          }
           // Carry no data of their own, but they are proof the run is alive, so
           // they must still refresh lastEventAt rather than fall to `default`.
           case 'heartbeat':
@@ -260,6 +782,7 @@ export function FactoryPane() {
             break;
           case 'run-done':
             run.finished = true;
+            run.endedAt = run.endedAt ?? at;
             break;
           default:
             return prev;
@@ -291,20 +814,46 @@ export function FactoryPane() {
     return () => es.close();
   }, []);
 
-  // Stall detection is time-based, so the view needs a heartbeat to re-evaluate.
+  const showConsole = useCallback(() => {
+    userPickedPanel.current = true;
+    setPanel('console');
+    setShowPanel(true);
+  }, []);
+
+  const clearRuns = useCallback(() => {
+    setRuns({});
+    setSelected(null);
+    userPicked.current = false;
+  }, []);
+
+  // Stall detection and the elapsed clocks are both time-based, so the view
+  // needs its own heartbeat. Every second, because a timer that jumps five at
+  // a time looks broken.
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), 5000);
+    const t = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(t);
   }, []);
 
-  // Newest first, so the dropdown reads like a PR list.
+  // Newest first, so the dropdown reads like a PR list. The customer profile is
+  // a hard boundary: a CAT page must never offer an unrelated commerce PR just
+  // because both runs share the same append-only progress stream.
   const ordered = useMemo(
-    () => Object.values(runs).sort((a, b) => b.startedAt - a.startedAt),
-    [runs],
+    () => {
+      const allowed = new Set(profileScenarios);
+      return Object.values(runs)
+        .filter((run) =>
+          profile === 'cat'
+            ? run.scenario.startsWith('cat-') || allowed.has(run.scenario)
+            : !run.scenario.startsWith('cat-') && (allowed.size === 0 || allowed.has(run.scenario)),
+        )
+        .sort((a, b) => b.startedAt - a.startedAt);
+    },
+    [profile, profileScenarios, runs],
   );
 
-  const current = (selected && runs[selected]) || ordered[0] || null;
+  const selectedRun = selected ? ordered.find((run) => run.id === selected) : null;
+  const current = selectedRun || ordered[0] || null;
 
   const statusOf = (run: Run, key: string): Status => run.statuses[key] ?? 'pending';
   const doneCount = current
@@ -326,6 +875,41 @@ export function FactoryPane() {
         : 'idle';
 
   const label = (r: Run) => `${r.pr ? `PR #${r.pr}` : 'local'} · ${r.scenario}`;
+
+  const runLink = current?.resources.find((r) => r.kind === 'run') ?? null;
+  // Where the reviewer said it: its comment on the PR. The PR itself is the
+  // fallback, since a link to roughly the right place beats none.
+  const verdictLink =
+    current?.resources.find((r) => r.kind === 'verdict')?.url ??
+    (current?.pr && current.repo ? `https://github.com/${current.repo}/pull/${current.pr}` : null);
+
+  // Wall clock for the whole run, still ticking while it works.
+  const totalElapsed = current ? (current.endedAt ?? now) - current.startedAt : 0;
+
+  /** How long a step took, or has been taking. */
+  const stepElapsed = (run: Run, key: string): string | null => {
+    const t = run.timings[key];
+    if (!t) return null;
+    const ms = (t.endedAt ?? now) - t.startedAt;
+    // Sub-second means the step was reconciled from the log in one go rather
+    // than watched, so a "0s" would be a measurement artefact, not a fact.
+    return ms >= 1000 ? duration(ms) : null;
+  };
+
+  // The console's pinned line: which step is working, for how long, on what.
+  // Only while the run is genuinely live — a stalled or finished run still
+  // claiming to be "running" is exactly the lie the stall detector prevents.
+  const activeLine =
+    current && running && isRunning(current)
+      ? `▸ step ${CHAIN.findIndex((n) => n.key === running.key) + 1}/${CHAIN.length} ` +
+        `${running.title} — running` +
+        `${stepElapsed(current, running.key) ? ` ${stepElapsed(current, running.key)}` : ''}` +
+        `${
+          current.agents[running.key]
+            ? ` on ${current.agents[running.key].provider} ${shortModel(current.agents[running.key].model)}`
+            : ''
+        }`
+      : null;
 
   if (view === 'hidden') {
     return (
@@ -391,15 +975,26 @@ export function FactoryPane() {
 
             {/* PR deep link, only when the runner told us the repo slug. */}
             {current?.pr && current.repo && (
-              <a
+              <Link
                 href={`https://github.com/${current.repo}/pull/${current.pr}`}
-                target="_blank"
-                rel="noreferrer"
                 className="text-[12px] text-muted hover:text-ink underline decoration-dotted underline-offset-2 shrink-0"
                 title={`Open PR #${current.pr} on GitHub`}
               >
                 PR #{current.pr} on GitHub
-              </a>
+              </Link>
+            )}
+
+            {/* The Actions run, kept beside the PR rather than only in the
+                footer: the terminal is the default panel, and its own links are
+                the embedded terminal's to handle, not ours. */}
+            {runLink && (
+              <Link
+                href={runLink.url}
+                className="text-[12px] text-muted hover:text-ink underline decoration-dotted underline-offset-2 shrink-0"
+                title="Open the GitHub Actions run"
+              >
+                run on GitHub
+              </Link>
             )}
 
             {current?.provider && (
@@ -419,6 +1014,13 @@ export function FactoryPane() {
                 <span>
                   {running ? `${running.title} · ` : ''}
                   {doneCount}/{CHAIN.length}
+                  {' · '}
+                  <span
+                    className="tabular-nums"
+                    title={current.endedAt ? 'Total run time' : 'Elapsed so far'}
+                  >
+                    {duration(totalElapsed)}
+                  </span>
                 </span>
               )}
               <span aria-hidden>{view === 'expanded' ? '▾' : '▴'}</span>
@@ -446,11 +1048,12 @@ export function FactoryPane() {
           </div>
 
           {view === 'expanded' && current && (
-            <div className="border-t border-hair px-5 py-5">
+            <div className="border-t border-hair px-5 py-5 max-h-[72vh] overflow-y-auto">
               <ol className="flex items-start gap-0 overflow-x-auto pb-1">
                 {CHAIN.map((node, i) => {
                   const st = statusOf(current, node.key);
                   const details = detailsFor(current, node.key);
+                  const elapsed = stepElapsed(current, node.key);
                   const isLast = i === CHAIN.length - 1;
                   return (
                     <li key={node.key} className="flex items-start shrink-0">
@@ -463,7 +1066,8 @@ export function FactoryPane() {
                           <span className={`font-medium leading-tight truncate ${size === 'large' ? 'text-[19px]' : 'text-[13px]'}`}>
                             {node.title}
                           </span>
-                          <span className="text-[11px] leading-none shrink-0 opacity-80">
+                          <span className="text-[11px] leading-none shrink-0 opacity-80 flex items-baseline gap-1.5">
+                            {elapsed && <span className="tabular-nums opacity-70">{elapsed}</span>}
                             {st === 'done' && '✓'}
                             {st === 'running' && (
                               <span className={isRunning(current) ? 'animate-pulse font-medium' : 'font-medium'}>
@@ -476,21 +1080,26 @@ export function FactoryPane() {
                           </span>
                         </div>
 
+                        {/* Plain-language purpose, always shown so the label is
+                            never bare jargon — the detail lines below are what it
+                            actually produced, which only exist once it runs. */}
+                        <div className={`mt-0.5 opacity-60 leading-snug ${size === 'large' ? 'text-[13px]' : 'text-[10px]'}`}>
+                          {node.blurb}
+                        </div>
+
                         {/* What this node actually did: model + emitted claims. */}
                         <div className="mt-2 space-y-0.5 text-left">
                           {details.length > 0 ? (
                             details.map((d) =>
                               d.url ? (
-                                <a
+                                <Link
                                   key={d.text}
                                   href={d.url}
-                                  target="_blank"
-                                  rel="noreferrer"
                                   className="block text-[10.5px] leading-snug truncate underline decoration-dotted underline-offset-2 hover:decoration-solid"
                                   title={`${d.text} — open in LaunchDarkly`}
                                 >
                                   {d.text}
-                                </a>
+                                </Link>
                               ) : (
                                 <div
                                   key={d.text}
@@ -530,36 +1139,124 @@ export function FactoryPane() {
                       : 'bg-amber-50 text-amber-900 border border-amber-200'
                   }`}
                 >
-                  {current.note.text}
+                  {/* Notes are error text from the runner, which regularly
+                      carries the run or PR URL. */}
+                  <Linkify text={current.note.text} className="underline underline-offset-2" />
                 </p>
               )}
 
               {current.verdict && (
-                <p className="mt-4 text-[12px] text-muted">
+                <p
+                  className={`mt-4 text-[12px] ${
+                    current.verdict.approved ? 'text-muted' : 'text-red-800'
+                  }`}
+                >
                   review:{' '}
-                  <span className="text-ink">
-                    {current.verdict.approved ? 'approved' : 'not approved'}
+                  <span className={current.verdict.approved ? 'text-ink' : 'font-medium'}>
+                    {current.verdict.approved ? 'approved' : 'rejected'}
                   </span>
                   {current.verdict.risk ? ` · risk ${current.verdict.risk}` : ''}
+                  {/* A rejection is a talking point, so the reasoning has to be
+                      one click away rather than somewhere in the PR. */}
+                  {!current.verdict.approved && verdictLink && (
+                    <>
+                      {' · '}
+                      <Link
+                        href={verdictLink}
+                        className="underline decoration-2 decoration-red-300 underline-offset-4 hover:text-red-900"
+                        title="Open the reviewer's verdict on GitHub"
+                      >
+                        read the verdict
+                      </Link>
+                    </>
+                  )}
                 </p>
               )}
 
-              {current.resources.length > 0 && (
+              {(current.resources.length > 0 || (current.pr && current.repo)) && (
                 <div className="mt-4 pt-4 border-t border-hair flex flex-wrap items-center gap-x-5 gap-y-2">
+                  {current.pr && current.repo && (
+                    <Link
+                      href={`https://github.com/${current.repo}/pull/${current.pr}`}
+                      className="text-[13px] text-ink underline decoration-rose decoration-2 underline-offset-4 hover:text-rose transition-colors"
+                    >
+                      pr: #{current.pr}
+                    </Link>
+                  )}
                   {current.resources.map((r) => (
-                    <a
+                    <Link
                       key={r.key}
                       href={r.url}
-                      target="_blank"
-                      rel="noreferrer"
                       className="text-[13px] text-ink underline decoration-rose decoration-2 underline-offset-4 hover:text-rose transition-colors"
                     >
                       {r.kind}: {r.key}
-                    </a>
+                    </Link>
                   ))}
                 </div>
               )}
+
+              {(current.log.length > 0 || terminalUp) && (
+                <div className="mt-4 pt-4 border-t border-hair">
+                  <div className="flex items-center gap-4">
+                    {(['console', 'terminal'] as const).map((p) =>
+                      p === 'terminal' && !terminalUp ? null : (
+                        <button
+                          key={p}
+                          onClick={() => {
+                            userPickedPanel.current = true;
+                            setPanel(p);
+                            setShowPanel(true);
+                          }}
+                          className={`text-[11px] uppercase tracking-[0.16em] transition-colors ${
+                            panel === p && showPanel ? 'text-ink' : 'text-muted hover:text-ink'
+                          }`}
+                        >
+                          {p}
+                        </button>
+                      ),
+                    )}
+                    <button
+                      onClick={() => setShowPanel(!showPanel)}
+                      className="ml-auto text-[12px] text-muted hover:text-ink transition-colors"
+                      aria-expanded={showPanel}
+                    >
+                      {showPanel ? '▾' : `▴ ${current.log.length} lines`}
+                    </button>
+                  </div>
+
+                  {showPanel && (
+                    <div className="mt-2">
+                      {panel === 'terminal' && terminalUp ? (
+                        <iframe
+                          src={TERMINAL_URL}
+                          title="Demo terminal"
+                          className={`w-full rounded-2xl border border-hair bg-[#131010] ${
+                            size === 'large' ? 'h-[26rem]' : 'h-56'
+                          }`}
+                        />
+                      ) : (
+                        <Console
+                          lines={current.log}
+                          tall={size === 'large'}
+                          active={activeLine}
+                        />
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
+          )}
+
+          {/* Always available while the pane is open, including when there are
+              no runs left to show — after a reset, starting the next one is the
+              only thing anybody wants to do. */}
+          {view === 'expanded' && (
+            <DemoControls
+              onCleared={clearRuns}
+              onRunStarted={showConsole}
+              currentScenario={current?.scenario}
+            />
           )}
         </div>
       </div>

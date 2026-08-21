@@ -23,13 +23,16 @@
   --rose-text: #b4685c;
 
   /* Factory step status. Semantic, deliberately outside the brand palette:
-     green = done, blue = in progress, grey = to do, red = failed. */
+     green = done, blue = in progress, grey = to do, red = failed.
+     All four are a pale wash carrying dark type, so the running step reads as
+     one of the set rather than a saturated block that outshouts the flowchart;
+     its ring is what marks it as current. */
   --st-done-bg: #e9f5ee;
   --st-done-fg: #1b7a44;
   --st-done-line: #4fa877;
-  --st-run-bg: #1d4ed8;
-  --st-run-fg: #ffffff;
-  --st-run-ring: #1d4ed8;
+  --st-run-bg: #e8eefc;
+  --st-run-fg: #24499e;
+  --st-run-ring: #b7c9f2;
   --st-todo-bg: #f1eeeb;
   --st-todo-fg: #8c837d;
   --st-fail-bg: #fbeae8;
@@ -57,9 +60,9 @@
   --st-done-bg: #16301f;
   --st-done-fg: #86d6a4;
   --st-done-line: #3f8a60;
-  --st-run-bg: #2563eb;
-  --st-run-fg: #ffffff;
-  --st-run-ring: #60a5fa;
+  --st-run-bg: #182a47;
+  --st-run-fg: #a8c4f5;
+  --st-run-ring: #35538c;
   --st-todo-bg: #241f1e;
   --st-todo-fg: #9c918b;
   --st-fail-bg: #341917;
@@ -86,6 +89,25 @@ body {
   background: rgb(var(--c-ground));
   color: rgb(var(--c-ink));
   font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+/* CAT customer profile. The Factory pane keeps the shared semantic status
+   palette; only the storefront adopts the parts.cat.com neutral/yellow system. */
+[data-profile='cat'] {
+  color-scheme: light;
+  --c-ground: 244 244 244;
+  --c-surface: 255 255 255;
+  --c-shell: 238 238 238;
+  --c-blush: 255 241 183;
+  --c-rose: 255 205 17;
+  --c-ink: 16 16 16;
+  --c-muted: 91 91 91;
+  --c-hair: 211 211 211;
+  --rose-text: #765d00;
+}
+
+[data-profile='cat'] body {
+  font-family: Arial, Helvetica, sans-serif;
 }
 
 /* `rose` is the accent background; accent text uses the higher-contrast tint. */
@@ -147,7 +169,7 @@ body {
   color: var(--st-run-fg);
   box-shadow:
     inset 0 0 0 1px var(--st-run-ring),
-    0 0 0 3px rgb(37 99 235 / 0.22);
+    0 0 0 3px rgb(37 99 235 / 0.14);
 }
 .step-todo {
   background-color: var(--st-todo-bg);

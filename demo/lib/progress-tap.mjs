@@ -2,9 +2,12 @@
 /**
  * Factory progress tap.
  *
- * Reads the factory's stdout on stdin, echoes every line through unchanged (so
- * the terminal experience is identical), and appends a structured NDJSON event
- * stream to .autofactory/runs.ndjson for the in-app flowchart to read.
+ * Reads the factory's stdout on stdin and appends a structured NDJSON event
+ * stream to .autofactory/runs.ndjson for the in-app flowchart to read. Direct
+ * commands echo every line through unchanged; the menu sets
+ * FACTORY_PROGRESS_ONLY=1, which leaves the terminal with the numbered steps
+ * its runner prints, the progress bar, and problems — everything else is the
+ * pane's job.
  *
  * Usage:  <factory command> 2>&1 | node demo/lib/progress-tap.mjs <scenario>
  *
@@ -16,8 +19,8 @@
  * Two producers are recognised:
  *
  *   phase1-cli  emits live per-step lines as each agent starts and finishes:
- *                 "▶ step 1: Research & plan (autofactory-research-planner)"
- *                 "■ step 1 done: Research & plan (...) [ok] tags: {...}"
+ *                 "▶ step 1: Plan (autofactory-research-planner)"
+ *                 "■ step 1 done: Plan (...) [ok] tags: {...}"
  *               This is the only producer that gives a genuinely live flowchart.
  *
  *   the Action (what `make ci` runs under act) emits nothing per-step; it dumps
@@ -34,10 +37,19 @@ const OUT = process.env.FACTORY_PROGRESS_FILE
   ? resolve(process.env.FACTORY_PROGRESS_FILE)
   : resolve('.autofactory/runs.ndjson');
 
-const ROTATE_BYTES = 512 * 1024;
+// Every line is also mirrored into the log as a `log` event so the pane can
+// show the console the terminal is no longer printing in full. That is more
+// bytes per run, hence the larger rotation budget.
+const ROTATE_BYTES = 2 * 1024 * 1024;
+const PROGRESS_ONLY = process.env.FACTORY_PROGRESS_ONLY === '1';
+const MAX_LOG_CHARS = 400;
 
 const scenario = process.argv[2] ?? 'unknown';
-const runId = `${scenario}-${Date.now()}`;
+// The runner opens the run before this tap exists — it announces itself while
+// the PR is still being created, so the pane can light up immediately instead of
+// waiting a minute for GitHub to hand back a run id. Adopting its id keeps that
+// head start and the streamed events as one run rather than two.
+const runId = process.env.FACTORY_RUN_ID || `${scenario}-${Date.now()}`;
 
 mkdirSync(dirname(OUT), { recursive: true });
 
@@ -98,8 +110,29 @@ rl.on('line', (line) => {
     return;
   }
 
-  // Pass through first, always — the tap must never swallow output.
-  process.stdout.write(line + '\n');
+  // The terminal is the summary and the pane is the detail, so every line goes
+  // to the pane's console whatever the terminal is told. Carriage returns and
+  // ANSI colour would render as noise in HTML, so they are stripped here rather
+  // than in the browser.
+  const text = line.replace(/\x1b\[[0-9;]*m/g, '').replace(/\r/g, '').trimEnd();
+  if (text) emit({ t: 'log', text: text.slice(0, MAX_LOG_CHARS) });
+
+  // Direct commands remain verbose for debugging. The TUI keeps only what needs
+  // a person: the runner already prints a numbered line per step and the bar
+  // shows the chain, so narration (`» `) is the pane's — repeating it in the
+  // terminal is the same story twice. Problems still come through, stripped of
+  // the ::directive:: syntax that means nothing outside Actions.
+  const problem =
+    /::(?:error|warning)::|⛔|⏸|awaiting approval|\[(?:failed|failure)\]|^\s*(?:error|fatal|warning|failed to|could not)\b/i.test(
+      line,
+    );
+  if (!PROGRESS_ONLY) {
+    process.stdout.write(line + '\n');
+  } else if (problem) {
+    const warn = /::warning::|⏸|awaiting approval|^\s*warning\b/i.test(line);
+    const clean = text.replace(/^.*?(?:::(?:error|warning)::|⛔|⏸)\s*/, '').trim() || text;
+    process.stdout.write(`  \x1b[${warn ? 33 : 31}m!\x1b[0m ${clean}\n`);
+  }
 
   // act prefixes lines with "[Workflow/job] ", so match anywhere, not anchored.
 
@@ -140,7 +173,19 @@ rl.on('line', (line) => {
   if (m) {
     const key = keyOf(m[2]);
     const status = /\[failed\]/i.test(m[2]) ? 'failed' : 'done';
-    if (key) emit({ t: 'node', key, status, index: Number(m[1]), tags: parseTags(m[2]) });
+    const tags = parseTags(m[2]);
+    if (key) emit({ t: 'node', key, status, index: Number(m[1]), tags });
+    // The reviewer reports its call as a routing tag, and this line used to
+    // return before the verdict block below ever saw it — so a rejection
+    // reached the pane only if the log happened to also print the compact
+    // verdict line, and the Review box stayed green when it did not.
+    if (tags && 'review_approved' in tags) {
+      emit({
+        t: 'verdict',
+        approved: String(tags.review_approved) === 'true',
+        risk: typeof tags.risk_level === 'string' ? tags.risk_level : null,
+      });
+    }
     return;
   }
 
@@ -165,25 +210,34 @@ rl.on('line', (line) => {
     return;
   }
 
-  // Stalls, gates, and deterministic-check failures are worth surfacing.
+  // Stalls, gates, and deterministic-check failures are worth surfacing. The
+  // cap is generous because a note can end in a URL (the verdict comment), and
+  // clipping that would turn a working link into a 404.
   if (/⏸\s*approval gate|awaiting approval before/.test(line)) {
-    emit({ t: 'note', level: 'warn', text: line.replace(/^.*?(⏸|::warning::)\s*/, '').slice(0, 200) });
+    emit({ t: 'note', level: 'warn', text: line.replace(/^.*?(⏸|::warning::)\s*/, '').slice(0, 400) });
     return;
   }
   if (/⛔|::error::/.test(line)) {
-    emit({ t: 'note', level: 'error', text: line.replace(/^.*?(⛔|::error::)\s*/, '').slice(0, 200) });
+    emit({ t: 'note', level: 'error', text: line.replace(/^.*?(⛔|::error::)\s*/, '').slice(0, 400) });
     return;
   }
 
-  // Flag / metric links the factory reports, so the pane can deep-link to LD.
-  m = line.match(/^\s*(?:\[[^\]]*\]\s*\|?\s*)?(Flag|Metric):\s*([a-z0-9-]+)\s*→\s*(\S+)/i);
+  // Flag / metric links the factory reports, so the pane can deep-link to LD;
+  // "Run" is the runner's own link to the GitHub Actions run, and "Verdict" the
+  // reviewer's comment on the PR — where a rejection is actually explained.
+  m = line.match(
+    /^\s*(?:»\s*)?(?:\[[^\]]*\]\s*\|?\s*)?(Flag|Metric|Run|Verdict):\s*([a-z0-9-]+)\s*→\s*(\S+)/i,
+  );
   if (m) {
     emit({ t: 'resource', kind: m[1].toLowerCase(), key: m[2], url: m[3] });
     return;
   }
 
   // Final verdict block.
-  m = line.match(/"review_approved"\s*:\s*(true|false|null)/);
+  // Agent tags are strings ("false"), while the compact synthetic verdict is a
+  // boolean (false). Accept both; previously real review verdicts never reached
+  // the pane even though the terminal printed them.
+  m = line.match(/"review_approved"\s*:\s*"?(true|false|null)"?/);
   if (m) {
     const risk = line.match(/"risk_level"\s*:\s*"([^"]+)"/);
     emit({ t: 'verdict', approved: m[1] === 'true', risk: risk ? risk[1] : null });

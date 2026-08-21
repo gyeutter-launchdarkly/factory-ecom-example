@@ -9,6 +9,9 @@
 # Source this file; it defines gate_get and gate_set. Both are quiet no-ops when
 # there is no token or no remote, so nothing here can fail a demo.
 
+# shellcheck source=retry.sh
+source "$(dirname "${BASH_SOURCE[0]}")/retry.sh"
+
 gate_repo_slug() {
   git remote get-url origin 2>/dev/null \
     | sed -E 's#(git@github.com:|https://github.com/)##; s#\.git$##' || true
@@ -69,7 +72,8 @@ gate_set() {
   local ok=false err=""
   if gate_gh_ok; then
     # Capture the reason: swallowing it here made a real failure undiagnosable.
-    if err=$(gh_keyring variable set AUTOFACTORY_REQUIRE_LABEL --repo "$slug" --body "$want" 2>&1); then
+    # Retried, because a GitHub 5xx here used to abort the whole run.
+    if err=$(gh_retry gh_keyring variable set AUTOFACTORY_REQUIRE_LABEL --repo "$slug" --body "$want" 2>&1); then
       ok=true
     fi
   else
@@ -108,7 +112,15 @@ gate_set() {
   else
     echo "  The hosted run may stay gated, so opening a PR would do nothing."
   fi
-  echo "  Most likely the gh token lacks the Actions scope. Either:"
-  echo "    gh auth refresh -h github.com -s repo,workflow"
-  echo "  or set it once by hand: repo Settings > Secrets and variables > Actions > Variables"
+  # Don't send the presenter to re-auth a perfectly good token when GitHub was
+  # simply having a moment: a 5xx already retried above, so if it still failed,
+  # say so plainly instead of blaming the scope.
+  if is_transient "$err"; then
+    echo "  This was a transient GitHub error (5xx), not your setup. Wait a few"
+    echo "  seconds and re-run; nothing was changed."
+  else
+    echo "  Most likely the gh token lacks the Actions scope. Either:"
+    echo "    gh auth refresh -h github.com -s repo,workflow"
+    echo "  or set it once by hand: repo Settings > Secrets and variables > Actions > Variables"
+  fi
 }

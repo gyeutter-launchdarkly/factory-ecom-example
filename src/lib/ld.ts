@@ -37,7 +37,15 @@ export async function boolVariation(
   return client.variation(flagKey, userContext(userKey), defaultValue);
 }
 
-// Evaluate a string multivariate flag. Returns defaultValue when LD is unavailable.
+// Evaluate a string multivariate flag. Returns defaultValue when LD is
+// unavailable. Every flag AutoFactory creates is this shape ('control' plus
+// 'v1'), so gate on the variation NAME:
+//
+//   const variant = await stringVariation('catalog-sort-order', userKey, 'control');
+//   if (variant === 'v1') { ... }
+//
+// Passing a multivariate flag through boolVariation compiles and looks right,
+// but every non-empty string is truthy, so the control path never runs.
 export async function stringVariation(
   flagKey: string,
   userKey: string,

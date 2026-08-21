@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { ProductCard } from '@/components/ProductCard';
+import { CatPartsHome } from '@/components/CatPartsHome';
+import { useDemoProfile } from '@/lib/use-demo-profile';
 
 interface Product {
   id: string;
@@ -11,26 +13,46 @@ interface Product {
   emoji: string;
   displayPrice: string;
   basePrice: number;
+  partNumber?: string;
+  imageUrl?: string;
 }
 
 interface ProductsResponse {
+  profile: 'commerce' | 'cat';
   products: Product[];
-  flags: { showProductReviews: boolean };
+  flags: { showProductReviews: boolean; catalogSortOrder: string };
 }
 
 export default function HomePage() {
   const [data, setData] = useState<ProductsResponse | null>(null);
+  const { profile } = useDemoProfile();
 
   useEffect(() => {
-    fetch('/api/products')
+    let alive = true;
+    setData(null);
+    fetch('/api/products', { cache: 'no-store' })
       .then((r) => r.json())
-      .then(setData);
-  }, []);
+      .then((next: ProductsResponse) => {
+        // A response for the storefront we just left must not land on top of
+        // the one we switched to.
+        if (alive) setData(next);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [profile]);
 
-  if (!data) {
-    return (
-      <div className="py-24 text-center text-[13px] text-muted">Loading</div>
-    );
+  // The header and the catalog arrive from two different requests, so they can
+  // briefly disagree about which storefront this is. Waiting for them to agree
+  // is the difference between a clean switch and CAT parts under a
+  // DarkCommerce header.
+  if (!data || data.profile !== profile) {
+    return <div className="py-24 text-center text-[13px] text-muted">Loading</div>;
+  }
+
+  if (profile === 'cat') {
+    return <CatPartsHome products={data.products} />;
   }
 
   return (

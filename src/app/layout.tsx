@@ -11,15 +11,22 @@ import './globals.css';
 import { CartProvider } from '@/components/CartProvider';
 import { Header } from '@/components/Header';
 import { FactoryPane } from '@/components/FactoryPane';
+import { demoProfile, PROFILE_SCENARIOS } from '@/lib/demo-profile';
+import { DemoProfileProvider } from '@/lib/use-demo-profile';
 
 export const metadata: Metadata = {
   title: 'DarkCommerce',
   description: 'LaunchDarkly AutoFactory demo store',
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+// The selected storefront lives in a host-mounted TUI settings file and can
+// change without rebuilding the image, so the root shell cannot be prerendered.
+export const dynamic = 'force-dynamic';
+
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const profile = await demoProfile();
   return (
-    <html lang="en" data-theme="light">
+    <html lang="en" data-theme="light" data-profile={profile}>
       <head>
         {/* Apply the stored theme before first paint so switching does not
             flash the default. Light unless dark was explicitly chosen. */}
@@ -32,12 +39,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body className="bg-cream min-h-screen text-ink antialiased">
-        <CartProvider>
-          <Header />
-          {/* Bottom padding leaves room for the collapsed factory pane. */}
-          <main className="max-w-6xl mx-auto px-6 py-14 pb-28">{children}</main>
-          <FactoryPane />
-        </CartProvider>
+        <DemoProfileProvider initial={{ profile, scenarios: [...PROFILE_SCENARIOS[profile]] }}>
+          <CartProvider>
+            <Header />
+            {/* Bottom padding leaves room for the collapsed factory pane. */}
+            <main className="max-w-6xl mx-auto px-6 py-14 pb-28">{children}</main>
+            <FactoryPane />
+          </CartProvider>
+        </DemoProfileProvider>
       </body>
     </html>
   );

@@ -3,9 +3,11 @@ export interface Product {
   name: string;
   description: string;
   basePrice: number;
-  category: 'electronics' | 'clothing' | 'home';
+  category: string;
   emoji: string;
   inventory: number;
+  partNumber?: string;
+  imageUrl?: string;
 }
 
 export const PRODUCTS: Product[] = [
@@ -65,6 +67,58 @@ export const PRODUCTS: Product[] = [
   },
 ];
 
+/**
+ * Representative parts for the CAT demo profile. Images are Caterpillar's
+ * official public category assets from parts.cat.com; they keep this facsimile
+ * recognizable without checking customer-owned artwork into the repository.
+ */
+export const CAT_PRODUCTS: Product[] = [
+  {
+    id: 'cat-1r-1808',
+    partNumber: '1R-1808',
+    name: 'Engine Oil Filter',
+    description: 'Advanced-efficiency spin-on engine oil filter',
+    basePrice: 41.86,
+    category: 'Filters & Fluids',
+    emoji: '⚙',
+    inventory: 36,
+    imageUrl: '/cat/filters.png',
+  },
+  {
+    id: 'cat-9w-2932',
+    partNumber: '9W-2932',
+    name: 'Bucket Tip',
+    description: 'General-duty ground engaging tool for excavator buckets',
+    basePrice: 128.4,
+    category: 'Ground Engaging Tools',
+    emoji: '⛏',
+    inventory: 14,
+    imageUrl: '/cat/ground-tools.png',
+  },
+  {
+    id: 'cat-247-5212',
+    partNumber: '247-5212',
+    name: 'Hydraulic Hose Assembly',
+    description: 'High-pressure XT hose assembly with permanent couplings',
+    basePrice: 186.72,
+    category: 'Hoses & Tubes',
+    emoji: '〰',
+    inventory: 8,
+    imageUrl: '/cat/hoses.png',
+  },
+  {
+    id: 'cat-153-5515',
+    partNumber: '153-5515',
+    name: 'Seal Kit',
+    description: 'Hydraulic cylinder seal kit for contamination protection',
+    basePrice: 92.15,
+    category: 'Hardware, Seals & Consumables',
+    emoji: '◉',
+    inventory: 22,
+    imageUrl: '/cat/hardware.png',
+  },
+];
+
 export function getProduct(id: string): Product | undefined {
-  return PRODUCTS.find((p) => p.id === id);
+  return [...PRODUCTS, ...CAT_PRODUCTS].find((p) => p.id === id);
 }
