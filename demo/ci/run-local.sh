@@ -73,10 +73,23 @@ export FACTORY_REPO="local"
 LOG="$ROOT/factory-run.log"
 
 set +e
-node "$FACTORY_DIR/packages/phase1-cli/dist/cli.js" run \
-  --root "$ROOT" \
-  --base "$BASE" \
-  2>&1 | tee "$LOG" | node demo/lib/progress-tap.mjs "$SCENARIO"
+{
+  echo "» Resource: local-run ${RUN_ID} @ext-ci → /api/factory-runs/${RUN_ID}/log"
+  if [[ -n "${LD_PROJECT_KEY:-}" ]]; then
+    for agent in \
+      autofactory-research-planner \
+      autofactory-flag-implementer \
+      autofactory-metrics-author \
+      autofactory-manifest-steward \
+      autofactory-flag-testing \
+      autofactory-code-reviewer; do
+      echo "» Resource: agent-config ${agent} @${agent} → https://app.launchdarkly.com/projects/${LD_PROJECT_KEY}/ai-configs/${agent}/monitoring?env=${LD_ENVIRONMENT_KEY:-production}"
+    done
+  fi
+  node "$FACTORY_DIR/packages/phase1-cli/dist/cli.js" run \
+    --root "$ROOT" \
+    --base "$BASE"
+} 2>&1 | tee "$LOG" | node demo/lib/progress-tap.mjs "$SCENARIO"
 status=${PIPESTATUS[0]}
 set -e
 

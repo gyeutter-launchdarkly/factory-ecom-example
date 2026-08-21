@@ -32,10 +32,9 @@ fi
 
 PROJECT="${LD_APP_PROJECT_KEY:-checkout-demo}"
 LD_ENV="${LD_ENVIRONMENT_KEY:-production}"
-# Repo slug so the replayed run gets a working PR link, same as the real runners.
-: "${FACTORY_REPO:=$(git remote get-url origin 2>/dev/null \
-    | sed -E 's#(git@github.com:|https://github.com/)##; s#\.git$##' || true)}"
-export FACTORY_REPO
+# A rehearsal creates no PR. Do not attach the real repository to its synthetic
+# PR number: that used to produce a convincing link to an unrelated real PR.
+unset FACTORY_REPO
 
 # key : title : model : tags-json
 # Mirrors the real output shape: a "[node] ... model -> '...'" line per node,
@@ -87,17 +86,11 @@ fi
     sleep "$STEP_SECS"
     echo "■ step $i done: $title ($key) [ok] tags: $tags"
 
-    # Emit the resource links at the points the real chain reports them.
-    # Same URL shapes demo/lib/watch-hosted.mjs emits, so a rehearsal exercises
-    # the links the real run will produce.
-    if [[ -z "$SIMULATION_REASON" && "$key" = "autofactory-flag-implementer" ]]; then
-      echo "Flag: ${SCENARIO} → https://app.launchdarkly.com/projects/${PROJECT}/flags/${SCENARIO}/targeting?env=${LD_ENV}"
-    fi
-    if [[ -z "$SIMULATION_REASON" && "$key" = "autofactory-metrics-author" ]]; then
-      # One line per metric, matching phase1-cli which loops over metric_keys.
-      for mk in "${SCENARIO}-conversion" "${SCENARIO}-error-rate"; do
-        echo "Metric: ${mk} → https://app.launchdarkly.com/projects/${PROJECT}/metrics/${mk}?env=${LD_ENV}"
-      done
+    # The AI Config is real even during rehearsal; PRs, flags and metrics are
+    # not. Link only to the real governing resource rather than manufacturing
+    # convincing destinations for artifacts that were never created.
+    if [[ -z "$SIMULATION_REASON" ]]; then
+      echo "Resource: agent-config ${key} @${key} → https://app.launchdarkly.com/projects/${PROJECT}/ai-configs/${key}/monitoring?env=${LD_ENV}"
     fi
 
     # The evidence a step produces besides its own claim: the deterministic

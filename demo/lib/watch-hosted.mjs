@@ -356,6 +356,13 @@ async function tick() {
     const manifest = files.find((f) => f.includes('.release-flags/'));
     if (manifest || /release-flags/.test(haystack)) {
       finish('autofactory-manifest-steward', manifest ? { manifest_path: manifest } : {});
+      if (manifest && !announced.has(`manifest:${manifest}`)) {
+        announced.add(`manifest:${manifest}`);
+        say(
+          `Resource: manifest ${manifest} @autofactory-manifest-steward → ` +
+            `https://github.com/${slug}/pull/${pr}/files`,
+        );
+      }
     }
     if (files.some((f) => /\.(test|spec)\./.test(f)) || /\btests?\b|\bspec\b/.test(haystack)) {
       finish('autofactory-flag-testing', { tests_last_run: 'pass' });

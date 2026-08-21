@@ -5,6 +5,11 @@ import { useDemoPack } from '@/lib/use-demo-pack';
 import { Link, Linkify } from './links';
 import { PipelineRail } from './PipelineRail';
 import {
+  aiConfigResources,
+  githubResources,
+  localRunResource,
+} from '@/lib/pipeline-links';
+import {
   AGENTS,
   CONTROL_PLANE,
   EVIDENCE_GATES,
@@ -13,6 +18,8 @@ import {
   type Check,
   type Detail,
   type Judge,
+  type PipelineResource,
+  type ResourceKind,
 } from '@/lib/pipeline';
 
 // Live AutoFactory flowchart, docked to the bottom of the page. Subscribes to
@@ -70,8 +77,6 @@ const HEALTH_TITLE: Record<Health, string> = {
   stalled: 'A run started but has not reported for a while',
 };
 
-type Resource = { kind: string; key: string; url: string };
-
 type Run = {
   id: string;
   scenario: string;
@@ -96,7 +101,7 @@ type Run = {
   provider: string | null;
   /** owner/repo, for PR deep links. Absent means no link is offered. */
   repo: string | null;
-  resources: Resource[];
+  resources: PipelineResource[];
   note: { level: string; text: string } | null;
   /** The code reviewer's closing call, once it has one. */
   verdict: { approved: boolean; risk: string | null } | null;
@@ -194,6 +199,40 @@ function detailsFor(run: Run, nodeKey: string): Detail[] {
   }
 
   return out.slice(0, 5);
+}
+
+/**
+ * Old recordings predate typed station resources. Fill only links that can be
+ * derived without guessing, so they get the same metro experience as a new run.
+ */
+function displayResources(run: Run): PipelineResource[] {
+  const resources = [...run.resources];
+  if (run.pr && run.repo && run.repo !== 'local') {
+    for (const resource of githubResources(run.repo, run.pr)) {
+      if (!resources.some((item) => item.kind === resource.kind)) {
+        resources.push(resource);
+      }
+    }
+  }
+  if (
+    run.id.includes('-local-') &&
+    !resources.some((resource) => resource.kind === 'local-run')
+  ) {
+    resources.push(localRunResource(run.id));
+  }
+
+  const ldLink = resources.find(
+    (resource) => resource.kind === 'flag' || resource.kind === 'metric',
+  )?.url;
+  const match = ldLink?.match(
+    /app\.launchdarkly\.com\/projects\/([^/]+)\/.*[?&]env=([^&]+)/,
+  );
+  if (match && !resources.some((resource) => resource.kind === 'agent-config')) {
+    resources.push(
+      ...aiConfigResources(decodeURIComponent(match[1]), decodeURIComponent(match[2])),
+    );
+  }
+  return resources;
 }
 
 const TITLE_OF = new Map(CHAIN.map((n, i) => [n.key, { title: n.title, step: i + 1 }]));
@@ -1129,10 +1168,20 @@ export function FactoryPane() {
             run.repo = String(m.repo);
             break;
           case 'resource':
-            if (!run.resources.some((r) => r.key === m.key)) {
+            if (
+              !run.resources.some(
+                (r) => r.kind === m.kind && r.key === m.key && r.url === m.url,
+              )
+            ) {
               run.resources = [
                 ...run.resources,
-                { kind: String(m.kind), key: String(m.key), url: String(m.url) },
+                {
+                  kind: String(m.kind) as ResourceKind,
+                  key: String(m.key),
+                  url: String(m.url),
+                  ...(typeof m.station === 'string' ? { station: m.station } : {}),
+                  ...(typeof m.label === 'string' ? { label: m.label } : {}),
+                },
               ];
             }
             break;
@@ -1246,10 +1295,16 @@ export function FactoryPane() {
 
   const selectedRun = selected ? ordered.find((run) => run.id === selected) : null;
   const current = selectedRun || ordered[0] || null;
+  const currentResources = useMemo(
+    () => (current ? displayResources(current) : []),
+    [current],
+  );
 
   const statusOf = (run: Run, key: string): Status => run.statuses[key] ?? 'pending';
   const doneCount = current
-    ? CHAIN.filter((n) => ['done', 'skipped'].includes(statusOf(current, n.key))).length
+    ? CHAIN.filter((n) =>
+        ['done', 'failed', 'skipped'].includes(statusOf(current, n.key)),
+      ).length
     : 0;
   const running = current ? CHAIN.find((n) => statusOf(current, n.key) === 'running') : undefined;
   // "Running" means a run is unfinished AND has reported recently. Anything
@@ -1268,11 +1323,10 @@ export function FactoryPane() {
 
   const label = (r: Run) => `${r.pr ? `PR #${r.pr}` : 'local'} · ${r.scenario}`;
 
-  const runLink = current?.resources.find((r) => r.kind === 'run') ?? null;
   // Where the reviewer said it: its comment on the PR. The PR itself is the
   // fallback, since a link to roughly the right place beats none.
   const verdictLink =
-    current?.resources.find((r) => r.kind === 'verdict')?.url ??
+    currentResources.find((r) => r.kind === 'verdict')?.url ??
     (current?.pr && current.repo ? `https://github.com/${current.repo}/pull/${current.pr}` : null);
 
   // Wall clock for the whole run, still ticking while it works.
@@ -1365,30 +1419,6 @@ export function FactoryPane() {
               <span className="text-[13px] text-muted">waiting for a run</span>
             )}
 
-            {/* PR deep link, only when the runner told us the repo slug. */}
-            {current?.pr && current.repo && (
-              <Link
-                href={`https://github.com/${current.repo}/pull/${current.pr}`}
-                className="text-[12px] text-muted hover:text-ink underline decoration-dotted underline-offset-2 shrink-0"
-                title={`Open PR #${current.pr} on GitHub`}
-              >
-                PR #{current.pr} on GitHub
-              </Link>
-            )}
-
-            {/* The Actions run, kept beside the PR rather than only in the
-                footer: the terminal is the default panel, and its own links are
-                the embedded terminal's to handle, not ours. */}
-            {runLink && (
-              <Link
-                href={runLink.url}
-                className="text-[12px] text-muted hover:text-ink underline decoration-dotted underline-offset-2 shrink-0"
-                title="Open the GitHub Actions run"
-              >
-                run on GitHub
-              </Link>
-            )}
-
             {current?.provider && (
               <span className="text-[12px] text-muted shrink-0">via {current.provider}</span>
             )}
@@ -1457,7 +1487,7 @@ export function FactoryPane() {
               } px-5 py-5 ${guided ? 'max-h-[48vh]' : 'max-h-[72vh]'} overflow-y-auto`}
             >
               <PipelineRail
-                run={current}
+                run={{ ...current, resources: currentResources }}
                 size={size}
                 live={isRunning(current)}
                 details={(key) => detailsFor(current, key)}
@@ -1504,28 +1534,6 @@ export function FactoryPane() {
                     </>
                   )}
                 </p>
-              )}
-
-              {(current.resources.length > 0 || (current.pr && current.repo)) && (
-                <div className="mt-4 pt-4 border-t border-hair flex flex-wrap items-center gap-x-5 gap-y-2">
-                  {current.pr && current.repo && (
-                    <Link
-                      href={`https://github.com/${current.repo}/pull/${current.pr}`}
-                      className="text-[13px] text-ink underline decoration-rose decoration-2 underline-offset-4 hover:text-rose transition-colors"
-                    >
-                      pr: #{current.pr}
-                    </Link>
-                  )}
-                  {current.resources.map((r) => (
-                    <Link
-                      key={r.key}
-                      href={r.url}
-                      className="text-[13px] text-ink underline decoration-rose decoration-2 underline-offset-4 hover:text-rose transition-colors"
-                    >
-                      {r.kind}: {r.key}
-                    </Link>
-                  ))}
-                </div>
               )}
 
               {(current.log.length > 0 || terminalUp) && (

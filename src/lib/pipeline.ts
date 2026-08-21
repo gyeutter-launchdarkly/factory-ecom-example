@@ -61,6 +61,11 @@ export const CODING_AGENT = 'ext-coding-agent';
 export const GUARDED_RELEASE = 'ld-guarded-release';
 export const REVIEWER = 'autofactory-code-reviewer';
 export const FLAG_AGENT = 'autofactory-flag-implementer';
+export const METRICS_AGENT = 'autofactory-metrics-author';
+export const RELEASE_AGENT = 'autofactory-manifest-steward';
+export const TEST_AGENT = 'autofactory-flag-testing';
+export const PULL_REQUEST = 'ext-pull-request';
+export const CI_RUN = 'ext-ci';
 
 /**
  * Stage order is the story order. The agent sub-sequence keeps the order the
@@ -94,11 +99,11 @@ export const PIPELINE: readonly Stage[] = [
   },
   {
     key: 'ext-ci',
-    title: 'CI run',
-    blurb: 'starts the factory on the PR',
+    title: 'Factory run',
+    blurb: 'runs the agent chain',
     owner: 'external',
     kind: 'stage',
-    detail: 'GitHub Actions',
+    detail: 'GitHub Actions or local',
   },
   {
     key: CONTROL_PLANE,
@@ -256,6 +261,88 @@ export const LOOPS: readonly Loop[] = [
 /** One line of what a stage produced; a URL makes it a link into the platform. */
 export type Detail = { text: string; url?: string };
 
+export type ResourceKind =
+  | 'pr'
+  | 'commits'
+  | 'run'
+  | 'local-run'
+  | 'agent-config'
+  | 'flag'
+  | 'metric'
+  | 'event'
+  | 'manifest'
+  | 'verdict';
+
+/** A linkable piece of evidence produced by or governing one station. */
+export type PipelineResource = {
+  kind: ResourceKind;
+  key: string;
+  url: string;
+  station?: string;
+  label?: string;
+};
+
+const RESOURCE_STATION: Record<ResourceKind, string> = {
+  pr: PULL_REQUEST,
+  commits: CODING_AGENT,
+  run: CI_RUN,
+  'local-run': CI_RUN,
+  'agent-config': CONTROL_PLANE,
+  flag: FLAG_AGENT,
+  metric: METRICS_AGENT,
+  event: METRICS_AGENT,
+  manifest: RELEASE_AGENT,
+  verdict: REVIEWER,
+};
+
+export function stationForResource(resource: PipelineResource): string {
+  if (resource.station) return resource.station;
+  if (resource.kind === 'agent-config' && PIPELINE.some((stage) => stage.key === resource.key)) {
+    return resource.key;
+  }
+  return RESOURCE_STATION[resource.kind];
+}
+
+export function resourceLabel(resource: PipelineResource): string {
+  if (resource.label) return resource.label;
+  switch (resource.kind) {
+    case 'pr':
+      return `PR ${resource.key}`;
+    case 'commits':
+      return 'code changes';
+    case 'run':
+      return 'GitHub Actions run';
+    case 'local-run':
+      return 'full local run log';
+    case 'agent-config':
+      return 'AI Config monitoring';
+    case 'flag':
+      return `flag: ${resource.key}`;
+    case 'metric':
+      return `metric: ${resource.key}`;
+    case 'event':
+      return `event: ${resource.key}`;
+    case 'manifest':
+      return `manifest: ${resource.key.split('/').pop()}`;
+    case 'verdict':
+      return 'review verdict';
+  }
+}
+
+export function resourcesForStation(
+  resources: readonly PipelineResource[],
+  station: string,
+): PipelineResource[] {
+  const seen = new Set<string>();
+  return resources.filter((resource) => {
+    if (stationForResource(resource) !== station) return false;
+    const identity = `${resource.kind}:${resource.key}:${resource.url}`;
+    if (seen.has(identity)) return false;
+    seen.add(identity);
+    return true;
+  });
+}
+
 /** A check the deterministic verifier ran after a node. */
 export type Check = { name: string; ok: boolean; detail?: string };
 
@@ -273,7 +360,7 @@ export interface RunView {
   pr: number | null;
   statuses: Record<string, string>;
   agents: Record<string, unknown>;
-  resources: readonly { kind: string }[];
+  resources: readonly PipelineResource[];
   checks: Record<string, readonly Check[]>;
   judges: Record<string, readonly Judge[]>;
   finished: boolean;
@@ -308,8 +395,10 @@ export function stageStatus(stage: Stage, run: RunView): Status {
     case 'ext-pull-request':
       return run.pr !== null ? 'done' : 'skipped';
     case 'ext-ci': {
-      const hosted = run.resources.some((resource) => resource.kind === 'run');
-      if (!hosted) return 'skipped';
+      const execution = run.resources.some(
+        (resource) => resource.kind === 'run' || resource.kind === 'local-run',
+      );
+      if (!execution) return 'skipped';
       return run.finished ? 'done' : 'running';
     }
     // Resolved when the first agent reports the model its AI Config selected.

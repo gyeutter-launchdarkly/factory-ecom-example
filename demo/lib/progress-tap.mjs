@@ -293,6 +293,24 @@ rl.on('line', (line) => {
   // Flag / metric links the factory reports, so the pane can deep-link to LD;
   // "Run" is the runner's own link to the GitHub Actions run, and "Verdict" the
   // reviewer's comment on the PR — where a rejection is actually explained.
+  //
+  // The general form also places evidence at a metro station:
+  //   Resource: agent-config autofactory-flag-implementer
+  //             @autofactory-flag-implementer → https://...
+  m = line.match(
+    /^\s*(?:»\s*)?Resource:\s*([a-z-]+)\s+(\S+?)(?:\s+@([a-z0-9-]+))?\s*→\s*(\S+)/i,
+  );
+  if (m) {
+    emit({
+      t: 'resource',
+      kind: m[1].toLowerCase(),
+      key: m[2],
+      url: m[4],
+      ...(m[3] ? { station: m[3] } : {}),
+    });
+    return;
+  }
+
   m = line.match(
     /^\s*(?:»\s*)?(?:\[[^\]]*\]\s*\|?\s*)?(Flag|Metric|Run|Verdict):\s*([a-z0-9-]+)\s*→\s*(\S+)/i,
   );

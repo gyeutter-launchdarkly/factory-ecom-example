@@ -16,14 +16,14 @@ it.
 
 ## The pipeline, and who owns what
 
-The pane draws one lane from request to released, and colours the rule along the top of
-each card by who provides that stage. The distinction is the argument: the agents writing
-code are the part any vendor can claim, so the chart's job is to show the parts around
-them.
+The pane draws one metro route from request to released. Route colour says who provides a
+stage; station fill says whether it is waiting, running, complete, or failed. The
+distinction is the argument: agents writing code are the part any vendor can claim, so the
+map's job is to show the operating system around them.
 
 ```mermaid
 flowchart LR
-  Request[Request] --> Agent[Coding agent] --> PR[Pull request] --> CI[CI run]
+  Request[Request] --> Agent[Coding agent] --> PR[Pull request] --> CI[Factory run]
   CI --> Control[Agent control plane]
   Control --> Plan --> Flag --> Metrics --> Release --> Tests --> Gates[Evidence gates] --> Review
   Review --> Merge --> Deploy --> Beacon --> Guarded[Guarded release] --> Released
@@ -31,13 +31,15 @@ flowchart LR
   Flag -. "judge scores tune the next run" .-> Control
   Review -. "rejected: back for revision" .-> Agent
   Guarded -. "regression: rolled back, then fixed here" .-> Agent
-  classDef ld fill:#efecff,stroke:#5b4ae0,color:#241f1e
-  classDef af fill:#f8effd,stroke:#a05ad6,color:#241f1e
-  classDef ext fill:#f4f2f0,stroke:#b0a79f,color:#241f1e
-  class Control,Guarded,Released ld
-  class Plan,Flag,Metrics,Release,Tests,Gates,Review,Beacon af
-  class Request,Agent,PR,CI,Merge,Deploy ext
 ```
+
+The small branches off a station are not more steps: they are evidence you can open in
+the system that owns it. A hosted run links to the PR, changed commits, GitHub Actions,
+the review verdict, each agent's AI Config Monitoring page, and every flag and metric it
+created in LaunchDarkly. A local run replaces Actions with the complete local factory log.
+Click any station (or use left/right arrow keys) to open its detail drawer: purpose,
+resolved model, elapsed time, judge scores, deterministic checks, and all links for that
+stop. Rehearsal omits PR/flag/metric links because it creates none.
 
 Three colours, and the first two are neighbours on purpose:
 
@@ -55,10 +57,11 @@ Concretely, per run: one multivariate flag (`control` + `v1`, off in every envir
 the release gate, the metrics the revert decision reads, and `auto-factory-*` flags that
 configure the factory itself.
 
-Status stays the card fill — green done, blue running, grey waiting, red failed — so the
-two questions ("where is it" and "whose is it") never compete for the same colour. Stages
-after merge are drawn dashed and unfilled: the model is worth explaining, but nothing on
-screen should claim to have run when it did not.
+Status stays the station fill — green done, blue running, grey waiting, red failed — so
+the two questions ("where is it" and "whose is it") never compete for the same colour.
+Interchange rings call out the control plane, evidence gates, and guarded release. The
+line after merge is dashed: the model is worth explaining, but nothing on screen should
+claim to have run when it did not.
 
 The four dashed return paths all exist today. The one a customer will ask for and not find
 is a judge score sending work back to the coding agent: judges are sampled and

@@ -316,7 +316,18 @@ export LD_ENVIRONMENT_KEY="${LD_ENV:-production}"
 # progress-only mode.
 {
   echo "» Phase 1: PR #${PR} — ${BRANCH}"
-  echo "» Run: ${RUN} → https://github.com/${SLUG}/actions/runs/${RUN}"
+  echo "» Resource: pr #${PR} @ext-pull-request → https://github.com/${SLUG}/pull/${PR}"
+  echo "» Resource: commits #${PR} @ext-coding-agent → https://github.com/${SLUG}/pull/${PR}/commits"
+  echo "» Resource: run ${RUN} @ext-ci → https://github.com/${SLUG}/actions/runs/${RUN}"
+  for agent in \
+    autofactory-research-planner \
+    autofactory-flag-implementer \
+    autofactory-metrics-author \
+    autofactory-manifest-steward \
+    autofactory-flag-testing \
+    autofactory-code-reviewer; do
+    echo "» Resource: agent-config ${agent} @${agent} → https://app.launchdarkly.com/projects/${LD_PROJECT}/ai-configs/${agent}/monitoring?env=${LD_ENV:-production}"
+  done
   node demo/lib/watch-hosted.mjs "$SCENARIO" "$PR" "$RUN" "$SLUG" "$LD_PROJECT" "${LD_ENV:-production}"
 } | node demo/lib/progress-tap.mjs "$SCENARIO"
 
