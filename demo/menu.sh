@@ -143,6 +143,8 @@ SETTINGS_FILE=".autofactory/demo-settings"
 # Honest execution modes. `act` is intentionally absent: it currently exits
 # successfully without running agents.
 RUNNER="hosted"
+# The Factory GitHub App target repo. Override to demo against another.
+FACTORY_APP_SLUG="${FACTORY_APP_SLUG:-Conveyor-Test/my-first-repo}"
 PR_STRATEGY="new"
 REPLAY_SECS="2"
 AUTO_OPEN="on"
@@ -208,6 +210,7 @@ runner_label() {
         && echo "Live PR · attach to active Actions run" \
         || echo "Live PR · start a new Actions run"
       ;;
+    factory) echo "Factory GitHub App · $(basename "${FACTORY_APP_SLUG:-Conveyor-Test/my-first-repo}")" ;;
     local) echo "Local agents · real chain, no PR" ;;
     recorded) echo "Recorded real run · accelerated replay" ;;
     rehearsal) echo "Rehearsal · synthetic, guaranteed" ;;
@@ -218,13 +221,14 @@ runner_label() {
 runner_eta() {
   case "$RUNNER" in
     hosted) [[ "$PR_STRATEGY" == "attach" ]] && echo "already running" || echo "5–10 min" ;;
+    factory) echo "App-driven" ;;
     local) echo "3–8 min" ;;
     recorded) echo "30–90 sec" ;;
     rehearsal) echo "~12 sec" ;;
   esac
 }
 
-runner_needs_branch() { [[ "$RUNNER" == "hosted" || "$RUNNER" == "local" ]]; }
+runner_needs_branch() { [[ "$RUNNER" == "hosted" || "$RUNNER" == "local" || "$RUNNER" == "factory" ]]; }
 
 # Dispatch a scenario through whichever runner is selected.
 run_scenario() {
@@ -236,6 +240,7 @@ run_scenario() {
       FACTORY_ATTACH="$([[ "$PR_STRATEGY" == "attach" ]] && echo 1 || echo 0)" \
         FACTORY_PROGRESS_ONLY=1 make hosted SCENARIO="$1"
       ;;
+    factory) ./demo/ci/run-factory.sh "$1" ;;
     local) FACTORY_PROGRESS_ONLY=1 ./demo/ci/run-local.sh "$1" ;;
     recorded)
       [[ -f "$(pack_recordings_dir)/$1.ndjson" ]] || {
@@ -280,6 +285,7 @@ settings_screen() {
           pack_has_recordings || printf ' (none captured in this pack)'
         )"
         echo "    4) Rehearsal     synthetic, deterministic, no agents"
+        echo "    5) Factory App   real PR on ${FACTORY_APP_SLUG}"
         echo ""
         echo -e "  ${D}act is hidden: it currently exits successfully without running agents.${R}"
         echo ""
@@ -290,6 +296,7 @@ settings_screen() {
           2) RUNNER="local" ;;
           3) RUNNER="recorded" ;;
           4) RUNNER="rehearsal" ;;
+          5) RUNNER="factory" ;;
         esac
         save_settings
         echo ""

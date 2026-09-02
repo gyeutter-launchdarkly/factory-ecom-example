@@ -58,3 +58,6 @@ tsconfig.tsbuildinfo
 # local or in a private fork; the public repository contains only the framework.
 .autofactory/packs/
 .autofactory/local-runs/
+
+# Managed clones of target repos (Factory GitHub App demos)
+.autofactory/targets/

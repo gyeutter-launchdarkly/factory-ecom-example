@@ -18,7 +18,8 @@ SCENARIOS := $(basename $(notdir $(wildcard demo/ci/events/*.json)))
 
 help:
 	@echo "make menu                   Interactive menu: pick scenarios, run, reset (start here)"
-	@echo "make hosted SCENARIO=<name> Real PR + factory on Actions, live in the app pane"
+	@echo "make hosted SCENARIO=<name> Real PR + AutoFactory on Actions, live in the app pane"
+	@echo "make factory SCENARIO=<name> Real PR on the Factory GitHub App repo"
 	@echo "make local SCENARIO=<name>  Real factory CLI against a disposable clone; no PR"
 	@echo "make recorded SCENARIO=<n>  Replay a captured real run at accelerated speed"
 	@echo "make pack PACK=<id>         Create an ignored private customer demo pack"
@@ -67,6 +68,18 @@ dev:
 
 ## Real PR + factory on GitHub Actions, progress streamed into the app pane.
 ## This is the path that actually runs the agents. Usage: make hosted SCENARIO=...
+## Run a scenario against the Factory GitHub App repo (Conveyor-Test/my-first-repo).
+## Factory reacts to the PR itself; nothing is checked into that repo.
+## Usage: make factory SCENARIO=dynamic-pricing
+factory:
+ifeq ($(origin SCENARIO),file)
+	@echo "make factory needs an explicit scenario: it opens a PR on another repo."
+	@echo "  make factory SCENARIO=dynamic-pricing"
+	@exit 1
+else
+	@./demo/ci/run-factory.sh $(SCENARIO)
+endif
+
 hosted:
 ifeq ($(origin SCENARIO),file)
 	@echo "make hosted needs an explicit scenario: it opens a PR and runs the agents."

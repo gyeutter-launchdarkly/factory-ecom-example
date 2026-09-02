@@ -169,6 +169,32 @@ and it replays the current run from the start.
 A hosted run reports a heartbeat every 30s, so the pane can tell "an agent is thinking"
 from "the watcher is gone" — it only says `stalled` after five minutes of silence.
 
+## Two factories, two repos
+
+The demo drives either product, selected in **Settings → Execution mode**:
+
+| Mode | Repo | What drives the chain |
+|------|------|-----------------------|
+| Live PR (default) | this repo | AutoFactory, a checked-in Actions workflow the demo triggers with the `autofactory` label |
+| Factory App | `Conveyor-Test/my-first-repo` | LaunchDarkly Factory, a GitHub App: opening the PR is the whole trigger |
+
+They are separate because the products differ. AutoFactory's chain is checked in here, so
+the demo owns the trigger, the label gate and the run it watches. Factory is an App on
+another repo, so nothing is checked in there, there is no workflow to start, and the demo
+watches the PR itself for the App's commits, checks and comment.
+
+```bash
+make factory SCENARIO=dynamic-pricing     # the Factory App path
+```
+
+The target repo is kept as a managed clone under `.autofactory/targets/` (gitignored). A
+scenario's change is taken from this repo's `feature/*` branch and applied there with a
+three-way merge, so both products demo the same six scenarios from one definition.
+
+That repo deliberately contains no factory tooling: no workflow, no agent config, no TUI.
+It needs the storefront on its default branch first — `make factory` says so plainly if it
+is still an open PR rather than failing on a patch.
+
 ## Running it
 
 ```bash
