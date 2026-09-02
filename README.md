@@ -176,7 +176,7 @@ The demo drives either product, selected in **Settings → Execution mode**:
 | Mode | Repo | What drives the chain |
 |------|------|-----------------------|
 | Live PR (default) | this repo | AutoFactory, a checked-in Actions workflow the demo triggers with the `autofactory` label |
-| Factory App | `Conveyor-Test/my-first-repo` | LaunchDarkly Factory, a GitHub App: opening the PR is the whole trigger |
+| Factory App | `launchdarkly-labs/gyeutter-factory-demo` | LaunchDarkly Factory, a GitHub App: opening the PR is the whole trigger |
 
 They are separate because the products differ. AutoFactory's chain is checked in here, so
 the demo owns the trigger, the label gate and the run it watches. Factory is an App on

@@ -144,7 +144,7 @@ SETTINGS_FILE=".autofactory/demo-settings"
 # successfully without running agents.
 RUNNER="hosted"
 # The Factory GitHub App target repo. Override to demo against another.
-FACTORY_APP_SLUG="${FACTORY_APP_SLUG:-Conveyor-Test/my-first-repo}"
+FACTORY_APP_SLUG="${FACTORY_APP_SLUG:-launchdarkly-labs/gyeutter-factory-demo}"
 PR_STRATEGY="new"
 REPLAY_SECS="2"
 AUTO_OPEN="on"
@@ -210,7 +210,7 @@ runner_label() {
         && echo "Live PR · attach to active Actions run" \
         || echo "Live PR · start a new Actions run"
       ;;
-    factory) echo "Factory GitHub App · $(basename "${FACTORY_APP_SLUG:-Conveyor-Test/my-first-repo}")" ;;
+    factory) echo "Factory GitHub App · $(basename "${FACTORY_APP_SLUG:-launchdarkly-labs/gyeutter-factory-demo}")" ;;
     local) echo "Local agents · real chain, no PR" ;;
     recorded) echo "Recorded real run · accelerated replay" ;;
     rehearsal) echo "Rehearsal · synthetic, guaranteed" ;;

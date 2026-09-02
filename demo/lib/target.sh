@@ -7,7 +7,7 @@
 #                that we trigger ourselves (the `autofactory` label), so the
 #                demo owns the gate and watches the run it started.
 #
-#   factory      Conveyor-Test/my-first-repo, driven by LaunchDarkly Factory,
+#   factory      launchdarkly-labs/gyeutter-factory-demo, driven by LaunchDarkly Factory,
 #                the GitHub App. Nothing is checked in there and there is no
 #                workflow to trigger: opening a PR is the whole trigger, and the
 #                App reacts on its own. The demo therefore never sets a gate and
@@ -23,7 +23,7 @@ if [[ -z "$FACTORY_TARGET" && -f .autofactory/demo-settings ]]; then
 fi
 FACTORY_TARGET="${FACTORY_TARGET:-autofactory}"
 
-FACTORY_APP_SLUG="${FACTORY_APP_SLUG:-Conveyor-Test/my-first-repo}"
+FACTORY_APP_SLUG="${FACTORY_APP_SLUG:-launchdarkly-labs/gyeutter-factory-demo}"
 TARGETS_DIR=".autofactory/targets"
 
 target_id() { printf '%s' "$FACTORY_TARGET"; }
