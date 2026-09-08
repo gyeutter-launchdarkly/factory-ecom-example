@@ -74,6 +74,7 @@ function emit(event) {
 }
 
 emit({ t: 'run-start' });
+emit({ t: 'mode', mode: process.env.FACTORY_EXECUTION_MODE || 'hosted' });
 
 // Repo slug for PR deep links. Set by the runner scripts (they know it from the
 // event payload or the git remote); absent means the pane omits the PR link

@@ -70,11 +70,12 @@ target_ensure_repo() {
     env -u GH_TOKEN -u GITHUB_TOKEN gh repo clone "$slug" "$dir" -- -q 2>/dev/null \
       || { echo "  could not clone ${slug}"; return 1; }
   fi
-  git -C "$dir" fetch -q origin 2>/dev/null || true
+  [[ -z "$(git -C "$dir" status --porcelain)" ]] || { echo "target has local changes: $dir" >&2; return 1; }
+  git -C "$dir" fetch -q origin || return 1
   local base
   base=$(target_base_branch)
-  git -C "$dir" checkout -q "$base" 2>/dev/null || true
-  git -C "$dir" reset -q --hard "origin/${base}" 2>/dev/null || true
+  git -C "$dir" checkout -q "$base" || return 1
+  git -C "$dir" merge -q --ff-only "origin/${base}" || return 1
 }
 
 target_base_branch() {
@@ -101,8 +102,7 @@ target_prepare_scenario() {
   dir=$(target_dir); base=$(target_base_branch); branch="feature/${scenario}"
 
   if ! git rev-parse --verify -q "refs/heads/$branch" >/dev/null; then
-    echo "  no local $branch to take the change from"
-    return 1
+    git branch --track "$branch" "origin/$branch" >&2 || return 1
   fi
 
   patch=$(mktemp "${TMPDIR:-/tmp}/scenario.XXXXXX.patch")
@@ -112,7 +112,7 @@ target_prepare_scenario() {
     rm -f "$patch"; return 1
   fi
 
-  git -C "$dir" checkout -q -B "$branch" "origin/${base}" 2>/dev/null
+  git -C "$dir" checkout -q -B "$branch" "origin/${base}" || return 1
   if ! git -C "$dir" apply --3way "$patch" 2>/dev/null; then
     echo "  the $scenario change did not apply to $(target_slug)"
     echo "  resolve by hand in $dir, or pick another scenario"
@@ -120,7 +120,7 @@ target_prepare_scenario() {
   fi
   rm -f "$patch"
 
-  git -C "$dir" add -A src
+  git -C "$dir" add -A src || return 1
   if git -C "$dir" diff --cached --quiet; then
     echo "  nothing to commit for $scenario"
     return 1
@@ -128,9 +128,8 @@ target_prepare_scenario() {
   local title
   title=$(jq -r '.pull_request.title // empty' "$(pack_event_file "$scenario")" 2>/dev/null)
   git -C "$dir" -c user.email=demo@launchdarkly.com -c user.name="LaunchDarkly Demo" \
-    commit -q -m "${title:-feat: $scenario}"
+    commit -q -m "${title:-feat: $scenario}" || return 1
   git -C "$dir" push -q --force-with-lease origin "$branch" 2>/dev/null \
-    || git -C "$dir" push -q --force origin "$branch" 2>/dev/null \
     || { echo "  could not push $branch to $(target_slug)"; return 1; }
   printf '%s' "$branch"
 }

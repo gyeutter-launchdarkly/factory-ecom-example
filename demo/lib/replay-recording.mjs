@@ -25,6 +25,7 @@ for (const original of source) {
 
   const event = {
     ...original,
+    ...(original.t === 'mode' ? { mode: 'recorded' } : {}),
     run,
     scenario,
     seq: ++seq,
@@ -33,6 +34,7 @@ for (const original of source) {
   await appendFile(out, `${JSON.stringify(event)}\n`);
 
   if (event.t === 'run-start') {
+    await appendFile(out, JSON.stringify({ run, scenario, seq: ++seq, at: Date.now(), t: 'mode', mode: 'recorded' }) + '\n');
     await appendFile(
       out,
       `${JSON.stringify({

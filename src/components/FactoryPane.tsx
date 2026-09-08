@@ -98,6 +98,7 @@ type Run = {
   judges: Record<string, Judge[]>;
   /** Deterministic handoff checks per node — the gates, not the model. */
   checks: Record<string, Check[]>;
+  mode: string | null;
   provider: string | null;
   /** owner/repo, for PR deep links. Absent means no link is offered. */
   repo: string | null;
@@ -124,6 +125,7 @@ function emptyRun(id: string, scenario: string, at: number): Run {
     agents: {},
     judges: {},
     checks: {},
+    mode: null,
     provider: null,
     repo: null,
     resources: [],
@@ -158,7 +160,9 @@ const TAG_SKIP = new Set([
 function shortModel(model: string): string {
   // "claude-sonnet-4-5-20250929" -> "sonnet-4-5"
   const m = model.match(/(opus|sonnet|haiku|fable)-([0-9]+(?:-[0-9]+)?)/i);
-  return m ? `${m[1].toLowerCase()}-${m[2]}` : model.replace(/^claude-/, '').slice(0, 18);
+  return m
+    ? `${m[1].toLowerCase()}-${m[2]}`
+    : model.replace(/^claude-/, '').slice(0, 18);
 }
 
 /** URL the factory itself reported for a flag/metric key, if any. */
@@ -177,19 +181,26 @@ function detailsFor(run: Run, nodeKey: string): Detail[] {
   // Flags and metrics link to LaunchDarkly using the URLs the factory printed,
   // so the pane never has to synthesise an app URL.
   if (tags.flag_key) {
-    out.push({ text: `flag: ${tags.flag_key}`, url: resourceUrl(run, tags.flag_key) });
+    out.push({
+      text: `flag: ${tags.flag_key}`,
+      url: resourceUrl(run, tags.flag_key),
+    });
   }
   for (const key of ['metric_keys', 'metric_event_keys'] as const) {
     const raw = tags[key];
     if (!raw) continue;
     const prefix = key === 'metric_keys' ? 'metric' : 'event';
-    for (const k of raw.split(',').map((x) => x.trim()).filter(Boolean)) {
+    for (const k of raw
+      .split(',')
+      .map((x) => x.trim())
+      .filter(Boolean)) {
       if (out.length >= 5) break;
       out.push({ text: `${prefix}: ${k}`, url: resourceUrl(run, k) });
     }
   }
   if (tags.tests_last_run) out.push({ text: `tests: ${tags.tests_last_run}` });
-  if (tags.manifest_path) out.push({ text: `manifest: ${tags.manifest_path.split('/').pop()}` });
+  if (tags.manifest_path)
+    out.push({ text: `manifest: ${tags.manifest_path.split('/').pop()}` });
 
   // Anything else the node claimed that is not already covered.
   for (const [k, v] of Object.entries(tags)) {
@@ -227,15 +238,23 @@ function displayResources(run: Run): PipelineResource[] {
   const match = ldLink?.match(
     /app\.launchdarkly\.com\/projects\/([^/]+)\/.*[?&]env=([^&]+)/,
   );
-  if (match && !resources.some((resource) => resource.kind === 'agent-config')) {
+  if (
+    match &&
+    !resources.some((resource) => resource.kind === 'agent-config')
+  ) {
     resources.push(
-      ...aiConfigResources(decodeURIComponent(match[1]), decodeURIComponent(match[2])),
+      ...aiConfigResources(
+        decodeURIComponent(match[1]),
+        decodeURIComponent(match[2]),
+      ),
     );
   }
   return resources;
 }
 
-const TITLE_OF = new Map(CHAIN.map((n, i) => [n.key, { title: n.title, step: i + 1 }]));
+const TITLE_OF = new Map(
+  CHAIN.map((n, i) => [n.key, { title: n.title, step: i + 1 }]),
+);
 
 /**
  * The factory's wire format, said in English.
@@ -248,10 +267,14 @@ const TITLE_OF = new Map(CHAIN.map((n, i) => [n.key, { title: n.title, step: i +
  */
 function prettifyLogLine(text: string): string {
   // A step starting.
-  let m = text.match(/^\s*\[node\]\s+(autofactory-[a-z0-9-]+)\s+([a-z]+)\s+model\s*→\s*'([^']+)'/i);
+  let m = text.match(
+    /^\s*\[node\]\s+(autofactory-[a-z0-9-]+)\s+([a-z]+)\s+model\s*→\s*'([^']+)'/i,
+  );
   if (m) {
     const node = TITLE_OF.get(m[1]);
-    const label = node ? `step ${node.step}/${CHAIN.length} ${node.title}` : m[1];
+    const label = node
+      ? `step ${node.step}/${CHAIN.length} ${node.title}`
+      : m[1];
     return `▸ ${label} — started on ${m[2]} ${shortModel(m[3])}`;
   }
 
@@ -276,7 +299,9 @@ function prettifyLogLine(text: string): string {
     let claims = '';
     let mark = ok ? '✓' : '✗';
     try {
-      const tags = tagsJson ? (JSON.parse(tagsJson) as Record<string, unknown>) : {};
+      const tags = tagsJson
+        ? (JSON.parse(tagsJson) as Record<string, unknown>)
+        : {};
       // The reviewer's step succeeds even when its verdict is a rejection, so
       // "finished" alone would report a blocked PR as a clean pass.
       if ('review_approved' in tags) {
@@ -317,7 +342,9 @@ function prettifyLogLine(text: string): string {
 
   // The reviewer's verdict arrives as a bare JSON object when the log did not
   // carry a readable one. Unreadable as-is, and it is the run's conclusion.
-  m = text.match(/^\s*\{"review_approved":\s*(true|false)(?:,\s*"risk_level":\s*"([a-z]+)")?\s*\}\s*$/i);
+  m = text.match(
+    /^\s*\{"review_approved":\s*(true|false)(?:,\s*"risk_level":\s*"([a-z]+)")?\s*\}\s*$/i,
+  );
   if (m) {
     const approved = m[1] === 'true';
     return `${approved ? '✓' : '✗'} Review — ${approved ? 'approved the diff' : 'rejected the diff'}${
@@ -328,7 +355,9 @@ function prettifyLogLine(text: string): string {
   // A deterministic gate and a judge score. Both are pills on the step now, but
   // the console is the run's transcript, so they read as sentences here rather
   // than as the wire format. A failed check leads with ✗ so it colours red.
-  m = text.match(/^\s*\[verify\]\s+(autofactory-[a-z0-9-]+)\s+([✓✗])\s+([a-z0-9-]+):\s*(.*)$/i);
+  m = text.match(
+    /^\s*\[verify\]\s+(autofactory-[a-z0-9-]+)\s+([✓✗])\s+([a-z0-9-]+):\s*(.*)$/i,
+  );
   if (m) {
     const node = TITLE_OF.get(m[1]);
     const where = node ? ` (${node.title})` : '';
@@ -364,7 +393,8 @@ function consoleLines(lines: string[]): string[] {
 }
 
 function logLineClass(text: string): string {
-  if (/⛔|✗|::error::|^\s*(?:error|fatal|failed)\b/i.test(text)) return 'text-red-700';
+  if (/⛔|✗|::error::|^\s*(?:error|fatal|failed)\b/i.test(text))
+    return 'text-red-700';
   if (/⏸|⚠|::warning::|^\s*warning\b/i.test(text)) return 'text-amber-900';
   // Step boundaries are the spine of the run, so they read as strongly as the
   // runner's own narration; everything else stays quiet behind them.
@@ -441,7 +471,8 @@ function Console({
         ref={box}
         onScroll={(e) => {
           const el = e.currentTarget;
-          pinned.current = el.scrollHeight - el.scrollTop - el.clientHeight < 24;
+          pinned.current =
+            el.scrollHeight - el.scrollTop - el.clientHeight < 24;
         }}
         className={`px-4 py-3 overflow-y-auto font-mono leading-relaxed ${
           tall ? 'h-72 text-[12.5px]' : 'h-40 text-[11.5px]'
@@ -470,8 +501,14 @@ function Console({
   );
 }
 
-type ControlAction = 'configure' | 'reset' | 'run' | 'replay' | 'clear-history';
-type RunMode = 'hosted' | 'local' | 'recorded' | 'rehearsal';
+type ControlAction =
+  | 'configure'
+  | 'reset'
+  | 'run'
+  | 'replay'
+  | 'clear-history'
+  | 'observe-release';
+type RunMode = 'factory' | 'hosted' | 'local' | 'recorded' | 'rehearsal';
 type ScenarioStory = { problem: string; goal: string; payoff: string };
 type ScenarioInfo = {
   key: string;
@@ -492,30 +529,41 @@ type ControlInfo = {
   };
   packs?: { id: string; name: string; visibility: string }[];
 };
-type Job = { id: string; action: ControlAction; state: string; message: string; detail?: string };
+type Job = {
+  id: string;
+  action: ControlAction;
+  state: string;
+  message: string;
+  detail?: string;
+};
 
 const PRESENTER_CUES: Record<string, { say: string; point: string }> = {
   // The three stages that are not agents, which is where the answer to "what is
   // LaunchDarkly adding" actually lives.
   [CONTROL_PLANE]: {
     say: 'Every agent on this rail is defined in LaunchDarkly: its instructions, its model, the tools it may use, and the order they run in.',
-    point: 'Point to the control plane: changing how the factory behaves is a config change, not a redeploy of the pipeline.',
+    point:
+      'Point to the control plane: changing how the factory behaves is a config change, not a redeploy of the pipeline.',
   },
   [EVIDENCE_GATES]: {
     say: 'Each claim an agent makes is re-derived from LaunchDarkly and from the code before the chain is allowed to continue.',
-    point: 'Point to the gates: these are deterministic, so a confidently wrong agent still fails them.',
+    point:
+      'Point to the gates: these are deterministic, so a confidently wrong agent still fails them.',
   },
   [GUARDED_RELEASE]: {
     say: 'After merge, LaunchDarkly runs the release itself: it ramps traffic, compares treatment against control, and rolls back on a regression.',
-    point: 'Point along the dashed tail: the flag and metrics this run created are exactly what the release is judged on.',
+    point:
+      'Point along the dashed tail: the flag and metrics this run created are exactly what the release is judged on.',
   },
   'autofactory-research-planner': {
     say: 'The factory starts by deciding whether this change needs progressive delivery at all.',
-    point: 'Point to Plan: the release mechanism is chosen from the code and request, not assumed.',
+    point:
+      'Point to Plan: the release mechanism is chosen from the code and request, not assumed.',
   },
   'autofactory-flag-implementer': {
     say: 'Now it creates the control point and wires the behavior behind it.',
-    point: 'Point to the flag link: this is a real LaunchDarkly resource, created targeting-off.',
+    point:
+      'Point to the flag link: this is a real LaunchDarkly resource, created targeting-off.',
   },
   'autofactory-metrics-author': {
     say: 'Shipping safely needs evidence, so the factory defines success and guardrail metrics.',
@@ -531,7 +579,8 @@ const PRESENTER_CUES: Record<string, { say: string; point: string }> = {
   },
   'autofactory-code-reviewer': {
     say: 'A separate reviewer judges the resulting diff and can stop the release.',
-    point: 'Point to the red or green verdict—not merely whether the workflow completed.',
+    point:
+      'Point to the red or green verdict—not merely whether the workflow completed.',
   },
 };
 
@@ -571,14 +620,25 @@ function PresenterExperience({
         : null;
   const reviewerStarted =
     !!freshRun &&
-    ['running', 'done', 'failed'].includes(freshRun.statuses[REVIEWER] ?? 'pending');
+    ['running', 'done', 'failed'].includes(
+      freshRun.statuses[REVIEWER] ?? 'pending',
+    );
   const verdictMoment =
-    !!freshRun?.finished &&
-    !!freshRun.endedAt &&
-    now - freshRun.endedAt < 8000;
-  const act = !freshRun ? 0 : !reviewerStarted ? 1 : !freshRun.finished || verdictMoment ? 2 : 3;
+    !!freshRun?.finished && !!freshRun.endedAt && now - freshRun.endedAt < 8000;
+  const act = !freshRun
+    ? 0
+    : !reviewerStarted
+      ? 1
+      : !freshRun.finished || verdictMoment
+        ? 2
+        : 3;
 
-  const acts = ['Customer problem', 'Factory at work', 'Independent verdict', 'Proof of value'];
+  const acts = [
+    'Customer problem',
+    'Factory at work',
+    'Independent verdict',
+    'Proof of value',
+  ];
   const cue =
     act === 0
       ? {
@@ -590,7 +650,8 @@ function PresenterExperience({
           ? PRESENTER_CUES[activeNode.key]
           : (stageCue ?? {
               say: session.scenario.story.goal,
-              point: 'Watch the next step turn the customer request into a concrete release artifact.',
+              point:
+                'Watch the next step turn the customer request into a concrete release artifact.',
             })
         : act === 2
           ? {
@@ -599,7 +660,8 @@ function PresenterExperience({
                 : freshRun?.verdict
                   ? 'The reviewer rejected the change. That stop is the product working, not a failed demo.'
                   : 'The final agent is reviewing the complete diff and the evidence produced by every step.',
-              point: 'Keep attention on Review: approval is a decision, not a green workflow icon.',
+              point:
+                'Keep attention on Review: approval is a decision, not a green workflow icon.',
             }
           : {
               say:
@@ -615,7 +677,13 @@ function PresenterExperience({
             };
 
   const flagKeys = freshRun
-    ? Array.from(new Set(Object.values(freshRun.tags).map((tags) => tags.flag_key).filter(Boolean)))
+    ? Array.from(
+        new Set(
+          Object.values(freshRun.tags)
+            .map((tags) => tags.flag_key)
+            .filter(Boolean),
+        ),
+      )
     : [];
   const metricKeys = freshRun
     ? Array.from(
@@ -627,8 +695,12 @@ function PresenterExperience({
         ),
       )
     : [];
-  const hasTests = !!freshRun && Object.values(freshRun.tags).some((tags) => tags.tests_last_run);
-  const hasRelease = !!freshRun && Object.values(freshRun.tags).some((tags) => tags.manifest_path);
+  const hasTests =
+    !!freshRun &&
+    Object.values(freshRun.tags).some((tags) => tags.tests_last_run);
+  const hasRelease =
+    !!freshRun &&
+    Object.values(freshRun.tags).some((tags) => tags.manifest_path);
 
   return (
     <section className="mb-5 rounded-2xl border border-hair bg-shell/60 overflow-hidden">
@@ -646,10 +718,14 @@ function PresenterExperience({
             >
               {index < act ? '✓' : index + 1}
             </span>
-            <span className={`text-[11px] truncate ${index === act ? 'text-ink font-medium' : 'text-muted'}`}>
+            <span
+              className={`text-[11px] truncate ${index === act ? 'text-ink font-medium' : 'text-muted'}`}
+            >
               {label}
             </span>
-            {index < acts.length - 1 && <span className="text-hair mx-1">—</span>}
+            {index < acts.length - 1 && (
+              <span className="text-hair mx-1">—</span>
+            )}
           </div>
         ))}
         <button
@@ -662,12 +738,18 @@ function PresenterExperience({
 
       <div className="grid md:grid-cols-[1fr_1fr] gap-4 px-4 py-4">
         <div>
-          <div className="text-[10px] uppercase tracking-[0.16em] text-muted">say this</div>
+          <div className="text-[10px] uppercase tracking-[0.16em] text-muted">
+            say this
+          </div>
           <p className="mt-1 text-[16px] leading-snug text-ink">{cue.say}</p>
         </div>
         <div>
-          <div className="text-[10px] uppercase tracking-[0.16em] text-muted">point out</div>
-          <p className="mt-1 text-[13px] leading-snug text-muted">{cue.point}</p>
+          <div className="text-[10px] uppercase tracking-[0.16em] text-muted">
+            point out
+          </div>
+          <p className="mt-1 text-[13px] leading-snug text-muted">
+            {cue.point}
+          </p>
         </div>
       </div>
 
@@ -729,14 +811,25 @@ function DemoControls({
   onRunStarted,
   onGuidedRunStarted,
   currentScenario,
+  currentRun,
 }: {
   onCleared: () => void;
   onRunStarted: () => void;
   onGuidedRunStarted: (scenario: ScenarioInfo) => void;
   /** The run on screen, so re-running it does not mean re-picking it. */
   currentScenario?: string;
+  currentRun?: {
+    id: string;
+    repo: string | null;
+    pr: number | null;
+    mode: string | null;
+  };
 }) {
-  const [info, setInfo] = useState<ControlInfo>({ available: false, busy: false, scenarios: [] });
+  const [info, setInfo] = useState<ControlInfo>({
+    available: false,
+    busy: false,
+    scenarios: [],
+  });
   const [scenario, setScenario] = useState('');
   const [mode, setMode] = useState<RunMode>('hosted');
   const [strategy, setStrategy] = useState<'new' | 'attach'>('new');
@@ -759,23 +852,18 @@ function DemoControls({
     };
   }, []);
 
-  // Follow the run being watched: after a rejection the next thing anyone wants
-  // is that same scenario again, and hunting for it in the dropdown mid-demo is
-  // the fumble this is meant to remove.
+  // Follow a newly selected run once; metadata polling must not overwrite a
+  // scenario the presenter deliberately chooses for the next run.
+  const followedScenario = useRef<string | undefined>();
   useEffect(() => {
-    if (currentScenario && info.scenarios.some((s) => s.key === currentScenario)) {
+    if (currentScenario && followedScenario.current !== currentScenario &&
+        info.scenarios.some(item => item.key === currentScenario)) {
+      followedScenario.current = currentScenario;
       setScenario(currentScenario);
-    }
-  }, [currentScenario, info.scenarios]);
-
-  useEffect(() => {
-    if (
-      info.scenarios.length > 0 &&
-      (!scenario || !info.scenarios.some((item) => item.key === scenario))
-    ) {
+    } else if (info.scenarios.length && !info.scenarios.some(item => item.key === scenario)) {
       setScenario(info.scenarios[0].key);
     }
-  }, [info.scenarios, scenario]);
+  }, [currentScenario, info.scenarios, scenario]);
 
   useEffect(() => {
     if (!info.runtime) return;
@@ -794,7 +882,9 @@ function DemoControls({
       void fetch(`/api/factory-control?id=${job.id}`, { cache: 'no-store' })
         .then((r) => r.json())
         .then((s: Partial<Job>) => {
-          setJob((prev) => (prev && prev.id === job.id ? { ...prev, ...s, id: prev.id } : prev));
+          setJob((prev) =>
+            prev && prev.id === job.id ? { ...prev, ...s, id: prev.id } : prev,
+          );
           // A reset wipes the stream on the host; the pane is holding runs that
           // no longer exist anywhere, so drop them rather than show ghosts.
           if (
@@ -823,14 +913,29 @@ function DemoControls({
     void fetch('/api/factory-control', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action, scenario, mode, strategy, pack }),
+      body: JSON.stringify({
+        action,
+        scenario,
+        mode,
+        strategy,
+        pack,
+        ...(action === 'observe-release'
+          ? {
+              runId: currentRun?.id,
+              repo: currentRun?.repo,
+              pr: currentRun?.pr,
+            }
+          : {}),
+      }),
     })
       .then(async (r) => {
         const j = await r.json();
         if (!r.ok) throw new Error(j.error ?? 'The request was refused');
         setJob({ id: j.id, action, state: 'queued', message: 'Queued…' });
       })
-      .catch((e: Error) => setJob({ id: '', action, state: 'error', message: e.message }));
+      .catch((e: Error) =>
+        setJob({ id: '', action, state: 'error', message: e.message }),
+      );
   };
 
   const configure = (
@@ -840,7 +945,12 @@ function DemoControls({
     setMode(settings.mode);
     setStrategy(settings.strategy);
     setPack(settings.pack);
-    setJob({ id: '', action: 'configure', state: 'queued', message: 'Updating settings…' });
+    setJob({
+      id: '',
+      action: 'configure',
+      state: 'queued',
+      message: 'Updating settings…',
+    });
     void fetch('/api/factory-control', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -848,7 +958,8 @@ function DemoControls({
     })
       .then(async (response) => {
         const result = await response.json();
-        if (!response.ok) throw new Error(result.error ?? 'Settings were refused');
+        if (!response.ok)
+          throw new Error(result.error ?? 'Settings were refused');
         setJob({
           id: result.id,
           action: 'configure',
@@ -857,7 +968,12 @@ function DemoControls({
         });
       })
       .catch((error: Error) =>
-        setJob({ id: '', action: 'configure', state: 'error', message: error.message }),
+        setJob({
+          id: '',
+          action: 'configure',
+          state: 'error',
+          message: error.message,
+        }),
       );
   };
 
@@ -865,177 +981,159 @@ function DemoControls({
   const disabled = !info.available || working;
   const selectedScenario = info.scenarios.find((item) => item.key === scenario);
   const runUnavailable = mode === 'recorded' && !selectedScenario?.recorded;
-  const btn =
-    'text-[12px] rounded-pill px-3 py-1.5 transition-colors disabled:opacity-40 disabled:cursor-not-allowed';
-
+  const modeLabel =
+    mode === 'factory'
+      ? 'Factory App'
+      : mode === 'hosted'
+        ? 'AutoFactory'
+        : mode === 'local'
+          ? 'Local agents'
+          : mode === 'recorded'
+            ? 'Recorded playback'
+            : 'Rehearsal · simulated';
   return (
-    <div className="border-t border-hair px-5 py-3 flex flex-wrap items-center gap-x-3 gap-y-2">
-      <span className="text-[11px] uppercase tracking-[0.16em] text-muted shrink-0">demo</span>
-
-      <select
-        value={pack}
-        onChange={(event) => configure({ pack: event.target.value })}
-        disabled={disabled}
-        className="bg-shell text-ink text-[12px] rounded-pill px-3 py-1.5 max-w-[180px] focus:outline-none focus:ring-1 focus:ring-rose disabled:opacity-40"
-        aria-label="Demo pack"
-        title="Customer packs are local or belong to a private fork"
-      >
-        {(info.packs ?? []).map((item) => (
-          <option key={item.id} value={item.id}>
-            {item.name} · {item.visibility}
-          </option>
-        ))}
-      </select>
-
-      <select
-        value={mode}
-        onChange={(event) => configure({ mode: event.target.value as RunMode })}
-        disabled={disabled}
-        className="bg-shell text-ink text-[12px] rounded-pill px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-rose disabled:opacity-40"
-        aria-label="Execution mode"
-      >
-        <option value="hosted">Live PR · 5–10 min</option>
-        <option value="local">Local agents · 3–8 min</option>
-        <option value="recorded" disabled={!info.scenarios.some((item) => item.recorded)}>
-          Recorded run · 30–90 sec
-        </option>
-        <option value="rehearsal">Rehearsal · ~12 sec</option>
-      </select>
-
-      {mode === 'hosted' && (
-        <select
-          value={strategy}
-          onChange={(event) =>
-            configure({ strategy: event.target.value as 'new' | 'attach' })
-          }
-          disabled={disabled}
-          className="bg-shell text-ink text-[12px] rounded-pill px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-rose disabled:opacity-40"
-          aria-label="Live PR behavior"
-        >
-          <option value="new">Start new run</option>
-          <option value="attach">Attach to active run</option>
-        </select>
-      )}
-
+    <div className="factory-toolbar">
       <select
         value={scenario}
-        onChange={(e) => setScenario(e.target.value)}
-        disabled={disabled || info.scenarios.length === 0}
-        className="bg-shell text-ink text-[12px] rounded-pill px-3 py-1.5 max-w-[260px] truncate focus:outline-none focus:ring-1 focus:ring-rose disabled:opacity-40"
+        onChange={(event) => setScenario(event.target.value)}
+        disabled={disabled || !info.scenarios.length}
         aria-label="Scenario to run"
       >
-        {info.scenarios.length === 0 && <option value="">no scenarios</option>}
-        {info.scenarios.map((s) => (
-          <option key={s.key} value={s.key} title={s.title}>
-            {s.key}
+        {!info.scenarios.length && (
+          <option value="">No scenarios available</option>
+        )}
+        {info.scenarios.map((item) => (
+          <option key={item.key} value={item.key}>
+            {item.key.replaceAll('-', ' ')}
           </option>
         ))}
       </select>
-
       <button
-        onClick={() => send('run', true)}
-        disabled={disabled || !scenario || runUnavailable}
-        className={`${btn} bg-ink text-cream hover:bg-rose hover:text-ink`}
-        title="Start this scenario with automatic presenter cues and a proof-of-value finale"
-      >
-        Guided run
-      </button>
-
-      <button
+        className="factory-primary"
         onClick={() => send('run')}
         disabled={disabled || !scenario || runUnavailable}
-        className={`${btn} bg-shell text-ink hover:text-rose`}
-        title={
-          mode === 'hosted'
-            ? 'Run with a real PR and GitHub Actions'
-            : mode === 'local'
-              ? 'Run the real agents directly against a disposable local clone'
-              : mode === 'recorded'
-                ? selectedScenario?.recorded
-                  ? 'Replay a previously completed real run'
-                  : 'No recording has been captured for this scenario'
-                : 'Synthetic run with no agents'
-        }
       >
-        {mode === 'hosted'
-          ? strategy === 'attach'
-            ? 'Attach'
-            : 'Run live'
-          : mode === 'local'
-            ? 'Run local'
+        {working
+          ? 'Working…'
+          : mode === 'rehearsal'
+            ? 'Rehearse'
             : mode === 'recorded'
-              ? 'Play recording'
-              : 'Rehearse'}
+              ? 'Play Recording'
+              : mode === 'hosted' && strategy === 'attach'
+                ? 'Attach to Run'
+                : 'Run Scenario'}
       </button>
-
-      {/* The one path that always ends approved. Labelled synthetic so the
-          presenter knows what they are showing; the audience sees the same six
-          steps either way. */}
-      <button
-        onClick={() => send('replay')}
-        disabled={disabled || !scenario}
-        className={`${btn} bg-shell text-ink hover:text-rose`}
-        title="Synthetic run: the same six steps, always approved, about 12 seconds. Creates nothing."
-      >
-        Rehearse
-      </button>
-
-      {confirming ? (
-        <span className="flex items-center gap-2">
-          <span className="text-[12px] text-red-800">
-            Close PRs, delete flags, rewind branches?
-          </span>
+      <span className="factory-mode">{modeLabel}</span>
+      <details className="factory-settings">
+        <summary>Settings</summary>
+        <div className="factory-settings-grid">
+          <label>
+            Execution mode
+            <select
+              value={mode}
+              onChange={(event) =>
+                configure({ mode: event.target.value as RunMode })
+              }
+              disabled={disabled}
+              aria-label="Execution mode"
+            >
+              <option value="factory">Factory App</option>
+              <option value="hosted">AutoFactory · GitHub Actions</option>
+              <option value="local">Local agents</option>
+              <option
+                value="recorded"
+                disabled={!info.scenarios.some((item) => item.recorded)}
+              >
+                Recorded run
+              </option>
+              <option value="rehearsal">Rehearsal · simulated</option>
+            </select>
+          </label>
+          <label>
+            Demo pack
+            <select
+              value={pack}
+              onChange={(event) => configure({ pack: event.target.value })}
+              disabled={disabled}
+              aria-label="Demo pack"
+            >
+              {(info.packs ?? []).map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          {mode === 'hosted' && (
+            <label>
+              PR behavior
+              <select
+                value={strategy}
+                onChange={(event) =>
+                  configure({
+                    strategy: event.target.value as 'new' | 'attach',
+                  })
+                }
+                disabled={disabled}
+                aria-label="Live PR behavior"
+              >
+                <option value="new">New run</option>
+                <option value="attach">Attach to active run</option>
+              </select>
+            </label>
+          )}
           <button
-            onClick={() => send('reset')}
-            className={`${btn} bg-red-700 text-white hover:bg-red-800`}
+            onClick={() => send('run', true)}
+            disabled={disabled || !scenario || runUnavailable}
           >
-            Yes, reset
+            Guided run
           </button>
           <button
-            onClick={() => setConfirming(false)}
-            className={`${btn} text-muted hover:text-ink`}
+            onClick={() => send('replay')}
+            disabled={disabled || !scenario}
           >
-            Cancel
+            Rehearse
           </button>
-        </span>
-      ) : (
-        <button
-          onClick={() => setConfirming(true)}
-          disabled={disabled}
-          className={`${btn} border border-red-200 text-red-800 hover:bg-red-50`}
-          title="Full reset: closes PRs, deletes AutoFactory flags and metrics, rewinds branches"
-        >
-          Reset demo
-        </button>
-      )}
-
-      <button
-        onClick={() => send('clear-history')}
-        disabled={disabled}
-        className={`${btn} bg-shell text-ink hover:text-rose`}
-        title="Empty this pane's run list; leaves PRs and LaunchDarkly alone"
-      >
-        Clear history
-      </button>
-
-      <span className="ml-auto text-[12px] text-muted text-right">
+          {currentRun?.repo &&
+            currentRun.pr &&
+            !['rehearsal', 'recorded', 'simulation'].includes(
+              currentRun.mode ?? '',
+            ) && (
+              <button
+                onClick={() => send('observe-release')}
+                disabled={disabled}
+              >
+                Observe release
+              </button>
+            )}
+          <button onClick={() => send('clear-history')} disabled={disabled}>
+            Clear history
+          </button>
+          <button
+            onClick={() => setConfirming(!confirming)}
+            disabled={disabled}
+          >
+            Reset demo
+          </button>
+        </div>
+        {confirming && (
+          <div className="text-[12px] text-red-800">
+            Close PRs, delete demo flags, and rewind scenario branches?{' '}
+            <button onClick={() => send('reset')}>Yes, reset</button>
+            <button onClick={() => setConfirming(false)}>Cancel</button>
+          </div>
+        )}
+      </details>
+      <span className="factory-job" role="status">
         {!info.available
-          ? 'controls need the demo menu running (make menu)'
+          ? 'Start the demo controller to run scenarios.'
           : job
             ? job.message
-            : working
-              ? 'busy'
-              : ''}
+            : ''}
       </span>
-
       {job?.state === 'error' && job.detail && (
-        <pre className="w-full bg-shell rounded-2xl px-4 py-3 text-[11.5px] font-mono whitespace-pre-wrap max-h-40 overflow-y-auto">
-          {/* The tail of a failed reset or run — the PR and Actions URLs in it
-              are the first place anybody goes next. */}
-          <Linkify
-            text={job.detail}
-            className="underline decoration-rose decoration-1 underline-offset-2"
-          />
+        <pre className="w-full bg-shell rounded-lg p-4 text-[11px] whitespace-pre-wrap max-h-40 overflow-y-auto">
+          <Linkify text={job.detail} />
         </pre>
       )}
     </div>
@@ -1044,14 +1142,27 @@ function DemoControls({
 
 export function FactoryPane() {
   const pack = useDemoPack();
-  const [view, setView] = useState<View>('collapsed');
+  const [view, setView] = useState<View>('expanded');
   const [size, setSize] = useState<Size>('normal');
   const [runs, setRuns] = useState<Record<string, Run>>({});
   const [selected, setSelected] = useState<string | null>(null);
   const [live, setLive] = useState(false);
-  const [showPanel, setShowPanel] = useState(true);
+  const [showPanel, setShowPanel] = useState(false);
   const [panel, setPanel] = useState<'console' | 'terminal'>('console');
   const [guided, setGuided] = useState<GuidedSession | null>(null);
+  // Reserve exactly the dock's height, so it cannot cover checkout actions.
+  useEffect(() => {
+    const panel = document.querySelector<HTMLElement>('.factory-panel');
+    const update = () =>
+      document.documentElement.style.setProperty(
+        '--factory-pane-height',
+        `${panel?.getBoundingClientRect().height ?? 64}px`,
+      );
+    update();
+    const observer = new ResizeObserver(update);
+    if (panel) observer.observe(panel);
+    return () => observer.disconnect();
+  }, [view, size]);
   const userPickedPanel = useRef(false);
   const terminalUp = useTerminalUp();
 
@@ -1067,6 +1178,7 @@ export function FactoryPane() {
   const userPicked = useRef(false);
 
   useEffect(() => {
+    const seen = new Set<string>();
     const es = new EventSource('/api/factory-progress');
     es.onopen = () => setLive(true);
     es.onerror = () => setLive(false);
@@ -1079,6 +1191,9 @@ export function FactoryPane() {
         return;
       }
       if (m.t === 'ping') return;
+      if (seen.has(e.data)) return;
+      seen.add(e.data);
+      if (seen.size > 10000) seen.delete(seen.values().next().value!);
 
       const id = typeof m.run === 'string' ? m.run : null;
       if (!id) return;
@@ -1090,9 +1205,27 @@ export function FactoryPane() {
         run.lastEventAt = at;
 
         switch (m.t) {
+          case 'run-resume':
+            run.finished = false;
+            run.endedAt = null;
+            break;
           case 'run-start':
             // Replay after a log rotation re-sends run-start; keep accumulated
             // state rather than blanking a finished run.
+            break;
+          case 'head':
+            run.checks = {};
+            run.verdict = null;
+            run.statuses = {
+              ...run.statuses,
+              [REVIEWER]: 'pending',
+              'factory-validation': 'pending',
+            };
+            run.resources = run.resources.filter(
+              (resource) =>
+                resource.station !== 'factory-validation' &&
+                resource.kind !== 'verdict',
+            );
             break;
           case 'pr':
             run.pr = typeof m.number === 'number' ? m.number : run.pr;
@@ -1113,7 +1246,10 @@ export function FactoryPane() {
             if (m.tags && typeof m.tags === 'object') {
               run.tags = {
                 ...run.tags,
-                [String(m.key)]: { ...(run.tags[String(m.key)] ?? {}), ...(m.tags as Record<string, string>) },
+                [String(m.key)]: {
+                  ...(run.tags[String(m.key)] ?? {}),
+                  ...(m.tags as Record<string, string>),
+                },
               };
             }
             break;
@@ -1121,7 +1257,10 @@ export function FactoryPane() {
           case 'agent':
             run.agents = {
               ...run.agents,
-              [String(m.key)]: { provider: String(m.provider), model: String(m.model) },
+              [String(m.key)]: {
+                provider: String(m.provider),
+                model: String(m.model),
+              },
             };
             break;
           // The platform's own opinion of an agent's work. Sampled, so most
@@ -1131,13 +1270,17 @@ export function FactoryPane() {
             const judge: Judge = {
               judge: typeof m.judge === 'string' ? m.judge : null,
               score: typeof m.score === 'number' ? m.score : null,
-              ...(typeof m.reasoning === 'string' ? { reasoning: m.reasoning } : {}),
+              ...(typeof m.reasoning === 'string'
+                ? { reasoning: m.reasoning }
+                : {}),
             };
             const seen = run.judges[key] ?? [];
             // The end-of-run summary repeats a score the live line already
             // reported; keeping both would double every pill.
             const already = seen.some(
-              (item) => item.score === judge.score && (!judge.judge || item.judge === judge.judge),
+              (item) =>
+                item.score === judge.score &&
+                (!judge.judge || item.judge === judge.judge),
             );
             run.judges = already
               ? run.judges
@@ -1153,7 +1296,9 @@ export function FactoryPane() {
             const check: Check = {
               name,
               ok: m.ok === true,
-              ...(typeof m.detail === 'string' && m.detail ? { detail: m.detail } : {}),
+              ...(typeof m.detail === 'string' && m.detail
+                ? { detail: m.detail }
+                : {}),
             };
             run.checks = {
               ...run.checks,
@@ -1161,6 +1306,9 @@ export function FactoryPane() {
             };
             break;
           }
+          case 'mode':
+            run.mode = String(m.mode);
+            break;
           case 'provider':
             run.provider = String(m.provider);
             break;
@@ -1179,7 +1327,9 @@ export function FactoryPane() {
                   kind: String(m.kind) as ResourceKind,
                   key: String(m.key),
                   url: String(m.url),
-                  ...(typeof m.station === 'string' ? { station: m.station } : {}),
+                  ...(typeof m.station === 'string'
+                    ? { station: m.station }
+                    : {}),
                   ...(typeof m.label === 'string' ? { label: m.label } : {}),
                 },
               ];
@@ -1189,7 +1339,8 @@ export function FactoryPane() {
             const text = typeof m.text === 'string' ? m.text : '';
             if (!text) break;
             const next = [...run.log, text];
-            run.log = next.length > MAX_LOG_LINES ? next.slice(-MAX_LOG_LINES) : next;
+            run.log =
+              next.length > MAX_LOG_LINES ? next.slice(-MAX_LOG_LINES) : next;
             break;
           }
           case 'note':
@@ -1197,11 +1348,17 @@ export function FactoryPane() {
             break;
           case 'verdict': {
             const approved = m.approved === true;
-            run.verdict = { approved, risk: typeof m.risk === 'string' ? m.risk : null };
+            run.verdict = {
+              approved,
+              risk: typeof m.risk === 'string' ? m.risk : null,
+            };
             // A rejection is the reviewer doing its job, but it is still a red
             // outcome: the node reported "done" on its way to saying no, and a
             // green Review box next to "not approved" reads as a contradiction.
-            run.statuses = { ...run.statuses, [REVIEWER]: approved ? 'done' : 'failed' };
+            run.statuses = {
+              ...run.statuses,
+              [REVIEWER]: approved ? 'done' : 'failed',
+            };
             const t = run.timings[REVIEWER];
             run.timings = {
               ...run.timings,
@@ -1251,7 +1408,7 @@ export function FactoryPane() {
   const showConsole = useCallback(() => {
     userPickedPanel.current = true;
     setPanel('console');
-    setShowPanel(true);
+    setShowPanel(false);
   }, []);
 
   const startGuided = useCallback((scenario: ScenarioInfo) => {
@@ -1283,35 +1440,44 @@ export function FactoryPane() {
   // Newest first, so the dropdown reads like a PR list. The customer profile is
   // Pack scenarios are a hard boundary: a private customer demo must never
   // offer an unrelated public PR just because both share the progress stream.
-  const ordered = useMemo(
-    () => {
-      const allowed = new Set(pack.scenarios);
-      return Object.values(runs)
-        .filter((run) => allowed.size === 0 || allowed.has(run.scenario))
-        .sort((a, b) => b.startedAt - a.startedAt);
-    },
-    [pack.scenarios, runs],
-  );
+  const ordered = useMemo(() => {
+    const allowed = new Set(pack.scenarios);
+    return Object.values(runs)
+      .filter((run) => allowed.size === 0 || allowed.has(run.scenario))
+      .sort((a, b) => b.startedAt - a.startedAt);
+  }, [pack.scenarios, runs]);
 
-  const selectedRun = selected ? ordered.find((run) => run.id === selected) : null;
+  const selectedRun = selected
+    ? ordered.find((run) => run.id === selected)
+    : null;
   const current = selectedRun || ordered[0] || null;
   const currentResources = useMemo(
     () => (current ? displayResources(current) : []),
     [current],
   );
 
-  const statusOf = (run: Run, key: string): Status => run.statuses[key] ?? 'pending';
+  const statusOf = (run: Run, key: string): Status =>
+    run.statuses[key] ?? 'pending';
   const doneCount = current
     ? CHAIN.filter((n) =>
         ['done', 'failed', 'skipped'].includes(statusOf(current, n.key)),
       ).length
     : 0;
-  const running = current ? CHAIN.find((n) => statusOf(current, n.key) === 'running') : undefined;
+  const progressLabel = current?.mode === 'factory'
+    ? current.statuses['factory-validation'] === 'done' ? 'Checks passed'
+      : current.statuses['factory-validation'] === 'failed' ? 'Checks failed'
+        : 'Observing checks'
+    : `${doneCount}/${CHAIN.length}`;
+  const running = current
+    ? CHAIN.find((n) => statusOf(current, n.key) === 'running')
+    : undefined;
   // "Running" means a run is unfinished AND has reported recently. Anything
   // else is idle or stalled; connectivity alone never counts as activity.
   const isRunning = (r: Run) => !r.finished && now - r.lastEventAt < STALE_MS;
   const activeCount = ordered.filter(isRunning).length;
-  const stalledCount = ordered.filter((r) => !r.finished && !isRunning(r)).length;
+  const stalledCount = ordered.filter(
+    (r) => !r.finished && !isRunning(r),
+  ).length;
 
   const health: Health = !live
     ? 'offline'
@@ -1327,10 +1493,14 @@ export function FactoryPane() {
   // fallback, since a link to roughly the right place beats none.
   const verdictLink =
     currentResources.find((r) => r.kind === 'verdict')?.url ??
-    (current?.pr && current.repo ? `https://github.com/${current.repo}/pull/${current.pr}` : null);
+    (current?.pr && current.repo
+      ? `https://github.com/${current.repo}/pull/${current.pr}`
+      : null);
 
   // Wall clock for the whole run, still ticking while it works.
-  const totalElapsed = current ? (current.endedAt ?? now) - current.startedAt : 0;
+  const totalElapsed = current
+    ? (current.endedAt ?? now) - current.startedAt
+    : 0;
 
   /** How long a step took, or has been taking. */
   const stepElapsed = (run: Run, key: string): string | null => {
@@ -1366,15 +1536,17 @@ export function FactoryPane() {
         }}
         className="fixed bottom-5 right-5 z-40 bg-ink text-cream text-[12px] font-medium px-4 py-2.5 rounded-pill shadow-lift hover:bg-rose hover:text-ink transition-colors"
       >
-        Factory {current ? `${doneCount}/${CHAIN.length}` : ''}
+        Factory {current ? progressLabel : ''}
       </button>
     );
   }
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-40">
-      <div className={`mx-auto px-4 pb-4 ${size === 'large' ? 'max-w-[96rem]' : 'max-w-6xl'}`}>
-        <div className="bg-white rounded-3xl shadow-lift overflow-hidden">
+    <div className="factory-panel fixed bottom-0 left-0 right-0 z-40">
+      <div
+        className={`mx-auto px-4 pb-4 ${size === 'large' ? 'max-w-[96rem]' : 'max-w-[1440px]'}`}
+      >
+        <div className="bg-white rounded-2xl shadow-lift overflow-hidden border border-hair">
           <div className="flex items-center gap-3 px-5 py-3">
             <span
               className={[
@@ -1389,10 +1561,15 @@ export function FactoryPane() {
               ].join(' ')}
               aria-hidden
             />
-            <span className="text-[12px] uppercase tracking-[0.16em] shrink-0">AutoFactory</span>
+            <span className="text-[12px] uppercase tracking-[0.16em] shrink-0">
+              Factory
+            </span>
             {/* Say the state in words; a colour alone cannot distinguish
                 "connected" from "working". */}
-            <span className="text-[12px] text-muted shrink-0" title={HEALTH_TITLE[health]}>
+            <span
+              className="text-[12px] text-muted shrink-0"
+              title={HEALTH_TITLE[health]}
+            >
               {health}
             </span>
 
@@ -1411,7 +1588,11 @@ export function FactoryPane() {
                 {ordered.map((r) => (
                   <option key={r.id} value={r.id}>
                     {label(r)}
-                    {r.finished ? '' : isRunning(r) ? ' (running)' : ' (stalled)'}
+                    {r.finished
+                      ? ''
+                      : isRunning(r)
+                        ? ' (running)'
+                        : ' (stalled)'}
                   </option>
                 ))}
               </select>
@@ -1419,27 +1600,43 @@ export function FactoryPane() {
               <span className="text-[13px] text-muted">waiting for a run</span>
             )}
 
-            {current?.provider && (
-              <span className="text-[12px] text-muted shrink-0">via {current.provider}</span>
+            {current && (
+              <span className="factory-mode">
+                {current.mode === 'rehearsal'
+                  ? 'Rehearsal · simulated'
+                  : current.mode === 'recorded'
+                    ? 'Recorded playback'
+                    : current.mode === 'factory'
+                      ? 'Factory App'
+                      : current.mode === 'simulation'
+                        ? 'Offline simulation'
+                        : 'Live evidence'}
+              </span>
             )}
 
             {activeCount > 1 && (
-              <span className="text-[12px] text-muted shrink-0">{activeCount} in flight</span>
+              <span className="text-[12px] text-muted shrink-0">
+                {activeCount} in flight
+              </span>
             )}
 
             <button
-              onClick={() => setView(view === 'expanded' ? 'collapsed' : 'expanded')}
+              onClick={() =>
+                setView(view === 'expanded' ? 'collapsed' : 'expanded')
+              }
               className="ml-auto flex items-center gap-2 text-[12px] text-muted hover:text-ink transition-colors shrink-0"
               aria-expanded={view === 'expanded'}
             >
               {current && (
                 <span>
                   {running ? `${running.title} · ` : ''}
-                  {doneCount}/{CHAIN.length}
+                  {progressLabel}
                   {' · '}
                   <span
                     className="tabular-nums"
-                    title={current.endedAt ? 'Total run time' : 'Elapsed so far'}
+                    title={
+                      current.endedAt ? 'Total run time' : 'Elapsed so far'
+                    }
                   >
                     {duration(totalElapsed)}
                   </span>
@@ -1451,7 +1648,9 @@ export function FactoryPane() {
             <button
               onClick={() => setSize(size === 'large' ? 'normal' : 'large')}
               className="text-muted hover:text-ink text-[13px] shrink-0 transition-colors px-1"
-              aria-label={size === 'large' ? 'Shrink the panel' : 'Enlarge the panel'}
+              aria-label={
+                size === 'large' ? 'Shrink the panel' : 'Enlarge the panel'
+              }
               title={size === 'large' ? 'Shrink' : 'Enlarge for a demo'}
             >
               {size === 'large' ? '⤡' : '⤢'}
@@ -1480,6 +1679,21 @@ export function FactoryPane() {
             </div>
           )}
 
+          {view === 'expanded' && !current && (
+            <div className="border-t border-hair px-6 py-5 max-h-[65vh] overflow-y-auto">
+              <PipelineRail
+                run={emptyRun('preview', '', 0)}
+                size={size}
+                live={false}
+                details={() => []}
+                elapsed={() => null}
+              />
+              <p className="text-[11px] text-muted mt-4">
+                Choose a scenario to begin. Select any step to inspect its
+                evidence.
+              </p>
+            </div>
+          )}
           {view === 'expanded' && current && (
             <div
               className={`${
@@ -1504,7 +1718,10 @@ export function FactoryPane() {
                 >
                   {/* Notes are error text from the runner, which regularly
                       carries the run or PR URL. */}
-                  <Linkify text={current.note.text} className="underline underline-offset-2" />
+                  <Linkify
+                    text={current.note.text}
+                    className="underline underline-offset-2"
+                  />
                 </p>
               )}
 
@@ -1515,10 +1732,16 @@ export function FactoryPane() {
                   }`}
                 >
                   review:{' '}
-                  <span className={current.verdict.approved ? 'text-ink' : 'font-medium'}>
+                  <span
+                    className={
+                      current.verdict.approved ? 'text-ink' : 'font-medium'
+                    }
+                  >
                     {current.verdict.approved ? 'approved' : 'rejected'}
                   </span>
-                  {current.verdict.risk ? ` · risk ${current.verdict.risk}` : ''}
+                  {current.verdict.risk
+                    ? ` · risk ${current.verdict.risk}`
+                    : ''}
                   {/* A rejection is a talking point, so the reasoning has to be
                       one click away rather than somewhere in the PR. */}
                   {!current.verdict.approved && verdictLink && (
@@ -1549,7 +1772,9 @@ export function FactoryPane() {
                             setShowPanel(true);
                           }}
                           className={`text-[11px] uppercase tracking-[0.16em] transition-colors ${
-                            panel === p && showPanel ? 'text-ink' : 'text-muted hover:text-ink'
+                            panel === p && showPanel
+                              ? 'text-ink'
+                              : 'text-muted hover:text-ink'
                           }`}
                         >
                           {p}
@@ -1598,6 +1823,7 @@ export function FactoryPane() {
               onRunStarted={showConsole}
               onGuidedRunStarted={startGuided}
               currentScenario={current?.scenario}
+              currentRun={current ?? undefined}
             />
           )}
         </div>

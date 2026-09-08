@@ -21,7 +21,7 @@ const STATUS_DIR = join(CONTROL_DIR, 'status');
 // second; this tolerates a slow poll without flickering.
 const HEARTBEAT_MAX_AGE_MS = 15_000;
 
-const ACTIONS = ['configure', 'reset', 'run', 'replay', 'clear-history'] as const;
+const ACTIONS = ['configure', 'reset', 'run', 'replay', 'clear-history', 'observe-release'] as const;
 type Action = (typeof ACTIONS)[number];
 
 const isAction = (v: unknown): v is Action => ACTIONS.includes(v as Action);
@@ -91,6 +91,9 @@ export async function POST(request: Request) {
     mode?: unknown;
     strategy?: unknown;
     pack?: unknown;
+    runId?: unknown;
+    repo?: unknown;
+    pr?: unknown;
   };
   try {
     body = await request.json();
@@ -98,7 +101,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'bad request' }, { status: 400 });
   }
 
-  if (!isAction(body.action)) {
+  if (!body || typeof body !== 'object' || !isAction(body.action)) {
     return NextResponse.json({ error: 'unsupported action' }, { status: 400 });
   }
 
@@ -110,10 +113,10 @@ export async function POST(request: Request) {
   if (needsScenario && !scenarioBelongsToPack(scenario, await demoPack())) {
     return NextResponse.json({ error: 'scenario is not available for this demo pack' }, { status: 400 });
   }
-  if (body.action === 'configure') {
+  if (body.action === 'configure' || body.action === 'run') {
     if (
       typeof body.mode !== 'string' ||
-      !['hosted', 'local', 'recorded', 'rehearsal'].includes(body.mode) ||
+      !['factory', 'hosted', 'local', 'recorded', 'rehearsal'].includes(body.mode) ||
       typeof body.strategy !== 'string' ||
       !['new', 'attach'].includes(body.strategy) ||
       typeof body.pack !== 'string' ||
@@ -133,6 +136,12 @@ export async function POST(request: Request) {
     );
   }
 
+  if (body.action === 'observe-release' && (
+    typeof body.runId !== 'string' || !/^[A-Za-z0-9_-]{1,128}$/.test(body.runId) ||
+    typeof body.repo !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9-]*\/[A-Za-z0-9][A-Za-z0-9_.-]*$/.test(body.repo) ||
+    typeof body.pr !== 'number' || !Number.isSafeInteger(body.pr) || body.pr < 1 ||
+    !/^[a-z0-9-]{1,64}$/.test(scenario)
+  )) return NextResponse.json({ error: 'bad release observation' }, { status: 400 });
   const id = randomUUID();
   try {
     await mkdir(REQ_DIR, { recursive: true });
@@ -145,6 +154,9 @@ export async function POST(request: Request) {
       mode: body.mode,
       strategy: body.strategy,
       pack: body.pack,
+      runId: body.runId,
+      repo: body.repo,
+      pr: body.pr,
       at: Date.now(),
     });
     await writeFile(tmp, `${payload}\n`, 'utf8');

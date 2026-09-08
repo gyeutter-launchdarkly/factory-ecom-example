@@ -50,7 +50,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <CartProvider>
             <Header />
             {/* Bottom padding leaves room for the collapsed factory pane. */}
-            <main className="max-w-6xl mx-auto px-6 py-14 pb-28">{children}</main>
+            <main className="max-w-6xl mx-auto px-6 py-14" style={{ paddingBottom: 'calc(var(--factory-pane-height, 112px) + 32px)' }}>{children}</main>
             <FactoryPane />
           </CartProvider>
         </DemoPackProvider>

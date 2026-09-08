@@ -48,8 +48,10 @@
   --c-own-af-text: #7c3ba8;
   --c-own-ext: #b0a79f;
 
-  --shadow-soft: 0 1px 2px rgba(26, 24, 23, 0.04), 0 8px 24px -12px rgba(26, 24, 23, 0.1);
-  --shadow-lift: 0 2px 4px rgba(26, 24, 23, 0.05), 0 16px 40px -16px rgba(26, 24, 23, 0.16);
+  --shadow-soft:
+    0 1px 2px rgba(26, 24, 23, 0.04), 0 8px 24px -12px rgba(26, 24, 23, 0.1);
+  --shadow-lift:
+    0 2px 4px rgba(26, 24, 23, 0.05), 0 16px 40px -16px rgba(26, 24, 23, 0.16);
 }
 
 [data-theme='dark'] {
@@ -87,9 +89,11 @@
   --c-own-ext: #6b625d;
 
   /* On a dark ground, elevation reads through a hairline rim plus depth. */
-  --shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.5), 0 10px 28px -14px rgba(0, 0, 0, 0.7),
+  --shadow-soft:
+    0 1px 2px rgba(0, 0, 0, 0.5), 0 10px 28px -14px rgba(0, 0, 0, 0.7),
     inset 0 0 0 1px rgba(243, 238, 234, 0.045);
-  --shadow-lift: 0 2px 6px rgba(0, 0, 0, 0.55), 0 22px 48px -20px rgba(0, 0, 0, 0.8),
+  --shadow-lift:
+    0 2px 6px rgba(0, 0, 0, 0.55), 0 22px 48px -20px rgba(0, 0, 0, 0.8),
     inset 0 0 0 1px rgba(243, 238, 234, 0.07);
 }
 
@@ -105,7 +109,13 @@ html {
 body {
   background: rgb(var(--c-ground));
   color: rgb(var(--c-ink));
-  font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-family:
+    'Inter',
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    sans-serif;
 }
 
 /* Demo-pack storefronts. The variables are written at runtime from the pack's
@@ -182,408 +192,331 @@ body {
   color: rgb(var(--c-muted) / 0.55);
 }
 
-/* The factory as a metro map: ownership is the route colour, status is the
-   station fill. Cards made each agent look like an isolated task; a route makes
-   the handoffs and the customer's existing systems part of one operating model. */
-.own-ld {
-  --own: var(--c-own-ld);
+/* The factory journey uses phase color; execution remains explicit in text. */
+.factory-panel {
+  --c-ground: 248 248 248;
+  --c-surface: 255 255 255;
+  --c-shell: 248 248 248;
+  --c-ink: 25 25 25;
+  --c-muted: 105 105 112;
+  --c-hair: 229 229 234;
+  --rose-text: #405bff;
 }
-.own-af {
-  --own: var(--c-own-af);
+[data-theme='dark'] .factory-panel {
+  --c-ground: 25 25 25;
+  --c-surface: 25 25 25;
+  --c-shell: 34 34 38;
+  --c-ink: 248 248 248;
+  --c-muted: 175 175 184;
+  --c-hair: 62 62 69;
+  --rose-text: #aab7ff;
 }
-.own-ext {
-  --own: var(--c-own-ext);
+.journey {
+  padding: 14px 4px 8px;
 }
-
-.metro-scroll {
-  overflow-x: auto;
-  overflow-y: hidden;
-  padding: 4px 0 2px;
-  scrollbar-width: thin;
-  scrollbar-color: rgb(var(--c-hair)) transparent;
+.journey-phases {
+  display: grid;
+  grid-template-columns: 5fr 5fr 1.4fr;
+  gap: 32px;
 }
-.metro-route {
-  position: relative;
+.journey-phase {
+  min-width: 0;
+  --phase: #405bff;
+}
+.journey-release {
+  --phase: #a34fde;
+}
+.journey-run {
+  --phase: rgb(var(--c-ink));
+}
+.journey-phase h2 {
   display: flex;
-  min-width: max-content;
-  height: 210px;
-  padding-top: 4px;
-}
-.metro-stop {
-  position: relative;
-  flex: 0 0 auto;
-  height: 148px;
-}
-.metro-track {
-  position: absolute;
-  z-index: 0;
-  left: 50%;
-  top: 70px;
-  width: 100%;
-  height: 5px;
-  background: var(--own);
-}
-.metro-track-beyond {
-  height: 3px;
-  top: 71px;
-  background: repeating-linear-gradient(
-    90deg,
-    var(--own) 0 7px,
-    transparent 7px 12px
-  );
-}
-.metro-station {
-  position: absolute;
-  z-index: 3;
-  top: 57px;
-  left: 50%;
-  width: 31px;
-  height: 31px;
-  transform: translateX(-50%);
-  border: 5px solid var(--own);
-  border-radius: 9999px;
-  background: rgb(var(--c-surface));
+  align-items: baseline;
+  gap: 10px;
+  margin: 0 0 32px;
   color: rgb(var(--c-ink));
+  font-size: clamp(20px, 2.2vw, 30px);
+  font-weight: 650;
+  letter-spacing: -0.045em;
+}
+.journey-phase h2 > span {
+  font-size: 11px;
+  letter-spacing: 0.07em;
+  font-weight: 500;
+  color: var(--phase);
+}
+.journey-steps {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.journey-run .journey-steps {
+  grid-template-columns: 1fr;
+}
+.journey-steps li {
+  position: relative;
+}
+.journey-steps li:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  right: -50%;
+  top: 14px;
+  height: 2px;
+  background: var(--phase);
+  opacity: 0.25;
+}
+.journey-step {
+  position: relative;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  gap: 13px;
+  padding: 0 3px 12px;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  color: rgb(var(--c-ink));
+}
+.journey-dot {
+  z-index: 1;
   display: grid;
   place-items: center;
-  font-size: 14px;
-  font-weight: 700;
-  line-height: 1;
-  transition: transform 120ms ease, box-shadow 120ms ease;
-}
-.metro-station:hover,
-.metro-station-selected {
-  transform: translateX(-50%) scale(1.12);
-}
-.metro-station-selected {
-  box-shadow:
-    0 0 0 3px rgb(var(--c-surface)),
-    0 0 0 6px color-mix(in srgb, var(--own) 45%, transparent);
-}
-.metro-interchange::after {
-  content: '';
-  position: absolute;
-  inset: 4px;
-  border: 2px solid var(--own);
-  border-radius: inherit;
-}
-.metro-status-done {
-  background: var(--st-done-bg);
-  color: var(--st-done-fg);
-}
-.metro-status-running {
-  background: var(--st-run-bg);
-  color: var(--st-run-fg);
-}
-.metro-status-failed {
-  background: var(--st-fail-bg);
-  color: var(--st-fail-fg);
-}
-.metro-status-pending,
-.metro-status-skipped {
-  background: var(--st-todo-bg);
-  color: var(--st-todo-fg);
-}
-.metro-status-beyond {
+  width: 30px;
+  height: 30px;
+  border: 2px solid color-mix(in srgb, var(--phase) 45%, rgb(var(--c-surface)));
+  border-radius: 50%;
   background: rgb(var(--c-surface));
-  color: rgb(var(--c-muted));
-  border-style: dashed;
-}
-.metro-station-live::before {
-  content: '';
-  position: absolute;
-  inset: -9px;
-  border: 2px solid var(--st-run-ring);
-  border-radius: inherit;
-  animation: metro-pulse 1.4s ease-out infinite;
-}
-@keyframes metro-pulse {
-  from { opacity: 0.9; transform: scale(0.8); }
-  to { opacity: 0; transform: scale(1.35); }
-}
-.metro-stop-label {
-  position: absolute;
-  left: 50%;
-  width: calc(100% - 14px);
-  transform: translateX(-50%);
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: rgb(var(--c-ink));
-  text-align: center;
-  cursor: pointer;
-}
-.metro-stop-above .metro-stop-label {
-  top: 5px;
-}
-.metro-stop-below .metro-stop-label {
-  top: 98px;
-}
-.metro-stop-label strong,
-.metro-stop-label span {
-  display: block;
-}
-.metro-stop-label strong {
-  font-size: 12px;
-  line-height: 1.15;
-  font-weight: 600;
-}
-.metro-stop-label span {
-  min-height: 13px;
-  margin-top: 3px;
-  font-size: 9.5px;
-  color: rgb(var(--c-muted));
-  font-variant-numeric: tabular-nums;
-}
-
-/* A branch off the route is an artifact you can inspect in its owning system. */
-.metro-spur {
-  position: absolute;
-  z-index: 2;
-  left: 50%;
-  max-width: calc(100% - 10px);
-  transform: translateX(-50%);
-  color: var(--own);
-  font-size: 9px;
-  line-height: 1.1;
-  text-align: center;
-  text-decoration: underline;
-  text-decoration-style: dotted;
-  text-underline-offset: 2px;
-}
-.metro-stop-above .metro-spur {
-  top: 103px;
-}
-.metro-stop-below .metro-spur {
-  top: 5px;
-}
-.metro-spur i {
-  display: block;
-  width: 1px;
-  height: 10px;
-  margin: 0 auto 2px;
-  background: var(--own);
-}
-.metro-stop-below .metro-spur {
-  display: flex;
-  flex-direction: column-reverse;
-  align-items: center;
-}
-.metro-stop-below .metro-spur i {
-  margin: 2px auto 0;
-}
-.metro-spur span {
-  display: block;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-
-.metro-loops {
-  position: absolute;
-  top: 146px;
-  left: 0;
-  overflow: visible;
-}
-
-.metro-legend {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px 18px;
-  margin-top: 5px;
-  color: rgb(var(--c-muted));
-  font-size: 10.5px;
-}
-.metro-legend > span {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-.metro-legend-line {
-  width: 18px;
-  height: 4px;
-  border-radius: 9999px;
-  background: var(--own);
-}
-.metro-legend-beyond {
-  width: 18px;
-  border-top: 2px dashed rgb(var(--c-muted));
-}
-.metro-legend-spur {
-  width: 11px;
-  height: 11px;
-  border-left: 1px solid rgb(var(--c-muted));
-  border-bottom: 1px solid rgb(var(--c-muted));
-}
-
-.metro-drawer {
-  position: relative;
-  margin-top: 12px;
-  padding: 13px 15px 14px 18px;
-  border: 1px solid rgb(var(--c-hair));
-  border-left: 4px solid var(--own);
-  border-radius: 14px;
-  background: rgb(var(--c-shell) / 0.68);
-}
-.metro-drawer-summary {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 20px;
-}
-.metro-drawer-kicker,
-.metro-drawer-section h4,
-.metro-model span {
-  color: rgb(var(--c-muted));
-  font-size: 9px;
-  font-weight: 600;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
-.metro-drawer h3 {
-  margin-top: 2px;
+  color: var(--phase);
   font-size: 15px;
   font-weight: 600;
+  transition: box-shadow 200ms ease;
+}
+.journey-step strong {
+  font-size: 12px;
+  font-weight: 550;
   line-height: 1.2;
+  text-align: center;
+  min-height: 29px;
 }
-.metro-drawer-summary p {
-  margin-top: 2px;
+.journey-step small {
+  font-size: 10px;
   color: rgb(var(--c-muted));
-  font-size: 11px;
+  margin-top: -9px;
 }
-.metro-model {
-  flex: 0 0 auto;
-  text-align: right;
+.journey-step:hover .journey-dot,
+.journey-step[aria-expanded='true'] .journey-dot {
+  box-shadow: 0 0 0 5px color-mix(in srgb, var(--phase) 12%, transparent);
+  border-color: var(--phase);
 }
-.metro-model span,
-.metro-model strong {
-  display: block;
+.journey-done .journey-dot {
+  background: var(--phase);
+  border-color: var(--phase);
+  color: rgb(var(--c-surface));
 }
-.metro-model strong {
-  margin-top: 2px;
-  font-size: 11px;
-  font-weight: 500;
+.journey-running .journey-dot {
+  border-color: var(--phase);
+  box-shadow: 0 0 0 5px color-mix(in srgb, var(--phase) 12%, transparent);
 }
-.metro-drawer-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
-  gap: 14px;
-  margin-top: 11px;
-  padding-top: 10px;
-  border-top: 1px solid rgb(var(--c-hair));
+.journey-running small {
+  color: var(--phase);
 }
-.metro-drawer-section {
-  min-width: 0;
+.journey-failed .journey-dot {
+  border-color: var(--st-fail-fg);
+  color: var(--st-fail-fg);
+  background: var(--st-fail-bg);
 }
-.metro-drawer-section p,
-.metro-drawer-section a {
-  display: block;
-  margin-top: 4px;
-  overflow: hidden;
-  color: rgb(var(--c-ink));
-  font-size: 10.5px;
-  line-height: 1.25;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.metro-drawer-section a {
-  text-decoration: underline;
-  text-decoration-color: var(--own);
-  text-decoration-thickness: 1px;
-  text-underline-offset: 3px;
-}
-.metro-drawer-links a {
-  width: fit-content;
-  max-width: 100%;
-}
-.metro-check-ok {
-  color: var(--st-done-fg);
-}
-.metro-check-fail {
+.journey-failed small,
+.journey-check-fail {
   color: var(--st-fail-fg);
 }
-
-/* Evidence pills: who vouched for a step, as opposed to what it claimed. */
+.journey-check-pass {
+  color: var(--st-done-fg);
+}
+.journey-evidence {
+  border: 1px solid rgb(var(--c-hair));
+  border-radius: 10px;
+  padding: 20px;
+  margin-top: 22px;
+  background: rgb(var(--c-shell));
+}
+.journey-evidence-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 24px;
+}
+.journey-evidence-heading h3 {
+  font-size: 16px;
+  font-weight: 600;
+}
+.journey-evidence-heading h3 span {
+  font-weight: 400;
+  color: rgb(var(--c-muted));
+  font-size: 12px;
+  margin-left: 12px;
+}
+.journey-evidence p,
+.journey-evidence a {
+  font-size: 12px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.journey-evidence-heading p {
+  margin-top: 5px;
+  color: rgb(var(--c-muted));
+  max-width: 720px;
+}
+.journey-evidence-heading > button {
+  font-size: 22px;
+  line-height: 1;
+  padding: 4px;
+}
+.journey-evidence-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 28px;
+  border-top: 1px solid rgb(var(--c-hair));
+  padding-top: 16px;
+  margin-top: 16px;
+}
+.journey-evidence h4 {
+  color: rgb(var(--c-muted));
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 8px;
+}
+.journey-evidence a {
+  display: block;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.factory-toolbar {
+  border-top: 1px solid rgb(var(--c-hair));
+  padding: 14px 24px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.factory-toolbar select {
+  border: 1px solid rgb(var(--c-hair));
+  background: rgb(var(--c-surface));
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 12px;
+  max-width: 230px;
+}
+.factory-toolbar button {
+  border-radius: 6px;
+  font-size: 12px;
+  padding: 8px 12px;
+}
+.factory-primary {
+  background: #405bff;
+  color: white;
+}
+.factory-toolbar button:disabled,
+.factory-toolbar select:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.factory-settings {
+  position: relative;
+}
+.factory-settings summary {
+  font-size: 12px;
+  cursor: pointer;
+  padding: 8px;
+}
+.factory-settings[open] {
+  flex-basis: 100%;
+}
+.factory-settings-grid {
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 12px 0;
+}
+.factory-settings label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 11px;
+  color: rgb(var(--c-muted));
+}
+.factory-job {
+  color: rgb(var(--c-muted));
+  font-size: 11px;
+  margin-left: auto;
+}
+.factory-mode {
+  border: 1px solid rgb(var(--c-hair));
+  border-radius: 6px;
+  padding: 5px 9px;
+  font-size: 11px;
+  color: rgb(var(--c-muted));
+}
 .pill-ld,
 .pill-fail {
   font-size: 10px;
-  line-height: 1.5;
-  padding: 1px 6px;
-  border-radius: 9999px;
-  white-space: nowrap;
-}
-.pill-ld {
-  background-color: color-mix(in srgb, var(--c-own-ld) 18%, transparent);
-  color: var(--c-own-ld-text);
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgb(var(--c-shell));
 }
 .pill-fail {
-  background-color: var(--st-fail-bg);
   color: var(--st-fail-fg);
-  box-shadow: inset 0 0 0 1px var(--st-fail-ring);
 }
-
-/* Return paths under the rail. Quiet until the run actually takes one. */
-.loop-arc {
-  fill: none;
-  stroke: rgb(var(--c-hair));
-  stroke-width: 1.25;
-  stroke-dasharray: 3 3;
-}
-.loop-head {
-  fill: rgb(var(--c-hair));
-}
-/* Exercised, and working as designed — the judge loop scoring a run. */
-.loop-arc-taken {
-  stroke: var(--c-own-ld);
-  stroke-width: 1.6;
-  stroke-dasharray: none;
-}
-.loop-head-taken {
-  fill: var(--c-own-ld);
-}
-/* Exercised as a stop: a failed gate, or a rejected review. */
-.loop-arc-stopped {
-  stroke: var(--st-fail-ring);
-  stroke-width: 1.75;
-  stroke-dasharray: none;
-}
-.loop-head-stopped {
-  fill: var(--st-fail-ring);
-}
-.loop-label {
-  font-size: 9.5px;
-  fill: rgb(var(--c-muted));
-  /* A halo in the page colour, so a label crossing its own arc stays legible. */
-  paint-order: stroke;
-  stroke: rgb(var(--c-surface));
-  stroke-width: 3px;
-  stroke-linejoin: round;
-}
-.loop-label-taken {
-  fill: var(--c-own-ld-text);
-}
-.loop-label-stopped {
-  fill: var(--st-fail-fg);
-}
-
-@media (max-width: 720px) {
-  .metro-drawer-grid {
+@media (max-width: 1000px) {
+  .journey-phases {
     grid-template-columns: 1fr;
-    gap: 9px;
+    gap: 26px;
   }
-  .metro-model {
-    display: none;
+  .journey-phase h2 {
+    margin-bottom: 18px;
+  }
+  .journey-run .journey-steps {
+    max-width: 100px;
+  }
+  .journey-step strong {
+    min-height: 15px;
+  }
+  .journey-step small {
+    margin-top: -5px;
+  }
+}
+@media (max-width: 600px) {
+  .journey-evidence-grid {
+    grid-template-columns: 1fr;
+  }
+  .factory-toolbar {
+    padding: 12px;
+    gap: 8px;
+  }
+  .factory-job {
+    margin-left: 0;
+    width: 100%;
+  }
+  .journey-phase h2 {
+    font-size: 24px;
+  }
+  .journey-step strong {
+    font-size: 11px;
+  }
+  .journey-step small {
+    font-size: 9px;
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .metro-station-live::before {
-    animation: none;
-  }
-  .metro-station,
-  .metro-scroll {
-    scroll-behavior: auto;
-    transition: none;
-  }
+html {
+  scroll-padding-bottom: calc(var(--factory-pane-height, 112px) + 24px);
+}
+.factory-panel > div > div {
+  max-height: 90dvh;
+  overflow-y: auto;
 }

@@ -35,6 +35,8 @@ LD_ENV="${LD_ENVIRONMENT_KEY:-production}"
 # A rehearsal creates no PR. Do not attach the real repository to its synthetic
 # PR number: that used to produce a convincing link to an unrelated real PR.
 unset FACTORY_REPO
+export FACTORY_EXECUTION_MODE="rehearsal"
+[[ -n "$SIMULATION_REASON" ]] && export FACTORY_EXECUTION_MODE="simulation"
 
 # key : title : model : tags-json
 # Mirrors the real output shape: a "[node] ... model -> '...'" line per node,

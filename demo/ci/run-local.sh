@@ -65,6 +65,7 @@ if [[ "${FACTORY_LOCAL_PREP_ONLY:-0}" == "1" ]]; then
 fi
 
 export FACTORY_RUN_ID="$RUN_ID"
+export FACTORY_EXECUTION_MODE="local"
 export FACTORY_REPO="local"
 
 # The pane clips long lines and the terminal shows a summary, so the unedited

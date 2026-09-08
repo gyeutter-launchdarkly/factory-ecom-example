@@ -61,3 +61,10 @@ tsconfig.tsbuildinfo
 
 # Managed clones of target repos (Factory GitHub App demos)
 .autofactory/targets/
+
+# Browser verification
+/test-results/
+/playwright-report/
+.autofactory/e2e.ndjson
+
+.autofactory/e2e-control/

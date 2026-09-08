@@ -22,20 +22,20 @@ describe('GET /api/products', () => {
 
   it('hides reviews when the flag is off (control path)', async () => {
     boolVariation.mockResolvedValue(false);
-    const body = await (await GET()).json();
+    const body = await (await GET(new Request('http://localhost/api/products'))).json();
     expect(body.flags.showProductReviews).toBe(false);
     expect(body.products.length).toBeGreaterThan(0);
   });
 
   it('shows reviews when the flag is on', async () => {
     boolVariation.mockResolvedValue(true);
-    const body = await (await GET()).json();
+    const body = await (await GET(new Request('http://localhost/api/products'))).json();
     expect(body.flags.showProductReviews).toBe(true);
   });
 
   it('still returns a priced catalogue either way', async () => {
     boolVariation.mockResolvedValue(false);
-    const body = await (await GET()).json();
+    const body = await (await GET(new Request('http://localhost/api/products'))).json();
     for (const p of body.products) expect(p.displayPrice).toMatch(/^\$\d/);
   });
 
@@ -43,7 +43,7 @@ describe('GET /api/products', () => {
   // only "not control" would pass even if the code took a third, wrong branch.
   it('keeps the curated order on the control variation', async () => {
     stringVariation.mockResolvedValue('control');
-    const body = await (await GET()).json();
+    const body = await (await GET(new Request('http://localhost/api/products'))).json();
     const prices = body.products.map((p: { basePrice: number }) => p.basePrice);
     expect(prices).not.toEqual([...prices].sort((a, b) => a - b));
     expect(body.flags.catalogSortOrder).toBe('control');
@@ -51,7 +51,7 @@ describe('GET /api/products', () => {
 
   it('sorts cheapest first on the v1 variation', async () => {
     stringVariation.mockResolvedValue('v1');
-    const body = await (await GET()).json();
+    const body = await (await GET(new Request('http://localhost/api/products'))).json();
     const prices = body.products.map((p: { basePrice: number }) => p.basePrice);
     expect(prices).toEqual([...prices].sort((a, b) => a - b));
     expect(body.flags.catalogSortOrder).toBe('v1');

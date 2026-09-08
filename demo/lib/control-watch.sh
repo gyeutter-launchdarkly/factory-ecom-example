@@ -125,7 +125,7 @@ set_setting() {
 
 configure_runtime() {
   local mode="$1" strategy="$2" pack="$3"
-  [[ "$mode" =~ ^(hosted|local|recorded|rehearsal)$ ]] || return 1
+  [[ "$mode" =~ ^(factory|hosted|local|recorded|rehearsal)$ ]] || return 1
   [[ "$strategy" =~ ^(new|attach)$ ]] || return 1
   local previous="$DEMO_PACK"
   DEMO_PACK="$pack"
@@ -159,12 +159,19 @@ run_action() {
       make reset >>"$LOG" 2>&1 </dev/null || rc=$?
       ;;
     run)
+      if ! configure_runtime "$mode" "$strategy" "$pack"; then
+        write_status "$id" error "Invalid demo settings"
+        return
+      fi
       if ! valid_scenario "$scenario"; then
         write_status "$id" error "Unknown scenario"
         return
       fi
       write_status "$id" running "Starting ${RUNNER} mode for ${scenario}…"
       case "$RUNNER" in
+        factory)
+          FACTORY_PROGRESS_ONLY=1 make factory SCENARIO="$scenario" >>"$LOG" 2>&1 </dev/null || rc=$?
+          ;;
         hosted)
           FACTORY_ATTACH="$([[ "$PR_STRATEGY" == "attach" ]] && echo 1 || echo 0)" \
             FACTORY_PROGRESS_ONLY=1 make hosted SCENARIO="$scenario" \
@@ -196,6 +203,18 @@ run_action() {
       FACTORY_PROGRESS_ONLY=1 ./demo/replay-progress.sh \
         "$scenario" "${FACTORY_REPLAY_SECS:-2}" "${FACTORY_REPLAY_PR:-7}" \
         >>"$LOG" 2>&1 </dev/null || rc=$?
+      ;;
+    observe-release)
+      if [[ ! "$run_id" =~ ^[A-Za-z0-9_-]{1,128}$ || ! "$repo" =~ ^[A-Za-z0-9][A-Za-z0-9-]*/[A-Za-z0-9][A-Za-z0-9_.-]*$ || ! "$pr" =~ ^[0-9]+$ ]] || ! valid_scenario "$scenario"; then
+        write_status "$id" error "Invalid release observation"
+        return
+      fi
+      write_status "$id" running "Observing merge, deployment, and guarded release…"
+      if [[ ! -f .env.local ]]; then
+        write_status "$id" error "Configure the release environment in .env.local first"
+        return
+      fi
+      node --env-file=.env.local demo/observe-release.mjs "$scenario" "$repo" "$pr" "$run_id" >>"$LOG" 2>&1 </dev/null || rc=$?
       ;;
     clear-history)
       write_status "$id" running "Clearing the run history…"
@@ -247,6 +266,9 @@ while :; do
     mode=$(jq -r '.mode // ""' "$req" 2>/dev/null)
     strategy=$(jq -r '.strategy // ""' "$req" 2>/dev/null)
     pack=$(jq -r '.pack // ""' "$req" 2>/dev/null)
+    run_id=$(jq -r '.runId // ""' "$req" 2>/dev/null)
+    repo=$(jq -r '.repo // ""' "$req" 2>/dev/null)
+    pr=$(jq -r '.pr // ""' "$req" 2>/dev/null)
     asked_at=$(jq -r '(.at // 0) / 1000 | floor' "$req" 2>/dev/null)
     # Claim the request by deleting it: a crash mid-action must not leave
     # something that replays a reset on the next poll.

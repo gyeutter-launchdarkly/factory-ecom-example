@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useCart } from '@/components/CartProvider';
 import { formatPrice } from '@/lib/pricing';
@@ -11,7 +11,7 @@ interface OrderResult {
 }
 
 export default function CheckoutPage() {
-  const { items, total, clear } = useCart();
+  const { items, total, clear, ready } = useCart();
   const router = useRouter();
   const [form, setForm] = useState({
     name: '',
@@ -27,10 +27,9 @@ export default function CheckoutPage() {
   const [error, setError] = useState('');
   const [order, setOrder] = useState<OrderResult | null>(null);
 
-  if (items.length === 0 && !order) {
-    router.replace('/cart');
-    return null;
-  }
+  useEffect(() => {
+    if (ready && items.length === 0 && !order) router.replace('/cart');
+  }, [ready, items.length, order, router]);
 
   const set = (key: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((f) => ({ ...f, [key]: e.target.value }));
@@ -104,7 +103,7 @@ export default function CheckoutPage() {
     );
   }
 
-  const Field = ({
+  const fieldInput = ({
     label,
     field,
     type = 'text',
@@ -118,8 +117,9 @@ export default function CheckoutPage() {
     span2?: boolean;
   }) => (
     <div className={span2 ? 'col-span-2' : ''}>
-      <label className="block text-[12px] text-muted mb-1.5">{label}</label>
+      <label htmlFor={`checkout-${field}`} className="block text-[12px] text-muted mb-1.5">{label}</label>
       <input
+        id={`checkout-${field}`}
         type={type}
         value={form[field]}
         onChange={set(field)}
@@ -148,26 +148,26 @@ export default function CheckoutPage() {
           <section>
             <p className="text-[11px] uppercase tracking-[0.16em] text-muted mb-4">Contact</p>
             <div className="grid grid-cols-2 gap-3">
-              <Field label="Full name" field="name" placeholder="Jane Smith" span2 />
-              <Field label="Email" field="email" type="email" placeholder="jane@example.com" span2 />
+              {fieldInput({ label: 'Full name', field: 'name', placeholder: 'Jane Smith', span2: true })}
+              {fieldInput({ label: 'Email', field: 'email', type: 'email', placeholder: 'jane@example.com', span2: true })}
             </div>
           </section>
 
           <section>
             <p className="text-[11px] uppercase tracking-[0.16em] text-muted mb-4">Shipping</p>
             <div className="grid grid-cols-2 gap-3">
-              <Field label="Address" field="address" placeholder="123 Main St" span2 />
-              <Field label="City" field="city" placeholder="San Francisco" />
-              <Field label="ZIP" field="zip" placeholder="94105" />
+              {fieldInput({ label: 'Address', field: 'address', placeholder: '123 Main St', span2: true })}
+              {fieldInput({ label: 'City', field: 'city', placeholder: 'San Francisco' })}
+              {fieldInput({ label: 'ZIP', field: 'zip', placeholder: '94105' })}
             </div>
           </section>
 
           <section>
             <p className="text-[11px] uppercase tracking-[0.16em] text-muted mb-4">Payment</p>
             <div className="grid grid-cols-2 gap-3">
-              <Field label="Card number" field="cardNumber" placeholder="1234 5678 9012 3456" span2 />
-              <Field label="Expiry" field="expiry" placeholder="MM / YY" />
-              <Field label="CVC" field="cvc" placeholder="123" />
+              {fieldInput({ label: 'Card number', field: 'cardNumber', placeholder: '1234 5678 9012 3456', span2: true })}
+              {fieldInput({ label: 'Expiry', field: 'expiry', placeholder: 'MM / YY' })}
+              {fieldInput({ label: 'CVC', field: 'cvc', placeholder: '123' })}
             </div>
           </section>
 

@@ -14,6 +14,7 @@ export interface CartLineItem {
 
 interface CartContextValue {
   items: CartLineItem[];
+  ready: boolean;
   add: (item: Omit<CartLineItem, 'quantity'>) => void;
   remove: (productId: string) => void;
   update: (productId: string, quantity: number) => void;
@@ -33,9 +34,10 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     try {
       const stored = localStorage.getItem(storageKey);
-      setItems(stored ? JSON.parse(stored) : []);
-      setLoadedKey(storageKey);
-    } catch {}
+      const parsed = stored ? JSON.parse(stored) : [];
+      setItems(Array.isArray(parsed) ? parsed.filter(item => item && typeof item.productId === 'string' && Number.isFinite(item.price) && Number.isSafeInteger(item.quantity) && item.quantity > 0) : []);
+    } catch { setItems([]); }
+    finally { setLoadedKey(storageKey); }
   }, [storageKey]);
 
   useEffect(() => {
@@ -72,7 +74,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const total = items.reduce((sum, i) => sum + i.price * i.quantity, 0);
 
   return (
-    <CartContext.Provider value={{ items, add, remove, update, clear, count, total }}>
+    <CartContext.Provider value={{ items, ready: loadedKey === storageKey, add, remove, update, clear, count, total }}>
       {children}
     </CartContext.Provider>
   );

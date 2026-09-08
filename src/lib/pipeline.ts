@@ -381,7 +381,10 @@ export function checksFailed(run: RunView): boolean {
  * rather than needing new instrumentation for the parts around the agents.
  */
 export function stageStatus(stage: Stage, run: RunView): Status {
-  if (BEYOND.has(stage.key)) return 'beyond';
+  if (BEYOND.has(stage.key)) {
+    const status = run.statuses[stage.key];
+    return ['running', 'done', 'failed', 'skipped'].includes(status) ? status as Status : 'beyond';
+  }
   if (stage.kind === 'agent') return (run.statuses[stage.key] as Status) ?? 'pending';
 
   switch (stage.key) {

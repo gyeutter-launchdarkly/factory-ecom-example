@@ -15,7 +15,7 @@
 #
 # The scenario's change is taken from this repo's feature branch and applied to
 # the target, so both products demo the same six scenarios.
-set -uo pipefail
+set -euo pipefail
 
 cd "$(dirname "$0")/../.."
 
@@ -45,6 +45,9 @@ fi
 
 SLUG=$(target_slug)
 DIR=$(target_dir)
+if [[ "$(pack_visibility)" == "private" ]]; then
+  [[ "$(G repo view "$SLUG" --json isPrivate --jq .isPrivate)" == "true" ]] || { echo "Private packs require a verified private target repository." >&2; exit 1; }
+fi
 
 ui_begin 4
 
@@ -69,9 +72,13 @@ PR=$(G pr list --repo "$SLUG" --head "$BRANCH" --state open --json number --jq '
 if [[ -z "$PR" ]]; then
   TITLE=$(jq -r '.pull_request.title // empty' "$EVENT_FILE")
   BODY=$(jq -r '.pull_request.body // empty' "$EVENT_FILE")
-  G pr create --repo "$SLUG" --base "$(target_base_branch)" --head "$BRANCH" \
-    --title "${TITLE:-feat: $SCENARIO}" --body "${BODY:-Scenario: $SCENARIO}" >/dev/null 2>&1 \
-    || { ui_fail "could not open the PR"; exit 1; }
+  body_file=$(mktemp)
+  printf '%s\n' "${BODY:-Scenario: $SCENARIO}" >"$body_file"
+  if ! G pr create --repo "$SLUG" --base "$(target_base_branch)" --head "$BRANCH" \
+    --title "${TITLE:-feat: $SCENARIO}" --body-file "$body_file"; then
+    rm -f "$body_file"; ui_fail "could not open the PR"; exit 1
+  fi
+  rm -f "$body_file"
   PR=$(G pr list --repo "$SLUG" --head "$BRANCH" --state open --json number --jq '.[0].number // empty')
 fi
 [[ -n "$PR" ]] || { ui_fail "no open PR for $BRANCH"; exit 1; }
@@ -85,40 +92,7 @@ echo "  Factory runs as a GitHub App: the PR is the trigger, so watch the PR"
 echo "  itself for its commits, checks and comment. ctrl-c to stop watching."
 echo ""
 
-# Watch the PR rather than a workflow run: with an App there is no run of ours to
-# poll. New commits, checks and comments on the PR are the App working.
-ui_start "factory" "waiting for Factory to act on the PR"
-DEADLINE=$(( $(date +%s) + ${FACTORY_WATCH_SECS:-900} ))
-SEEN_COMMITS=$(G pr view "$PR" --repo "$SLUG" --json commits --jq '.commits | length' 2>/dev/null || echo 0)
-SEEN_COMMENTS=$(G pr view "$PR" --repo "$SLUG" --json comments --jq '.comments | length' 2>/dev/null || echo 0)
-ACTED=0
-while (( $(date +%s) < DEADLINE )); do
-  sleep 10
-  NOW_COMMITS=$(G pr view "$PR" --repo "$SLUG" --json commits --jq '.commits | length' 2>/dev/null || echo "$SEEN_COMMITS")
-  NOW_COMMENTS=$(G pr view "$PR" --repo "$SLUG" --json comments --jq '.comments | length' 2>/dev/null || echo "$SEEN_COMMENTS")
-  CHECKS=$(G pr checks "$PR" --repo "$SLUG" 2>/dev/null | wc -l | tr -d ' ')
-
-  if (( NOW_COMMITS > SEEN_COMMITS )); then
-    echo "  + $(( NOW_COMMITS - SEEN_COMMITS )) commit(s) pushed by Factory"
-    SEEN_COMMITS=$NOW_COMMITS; ACTED=1
-  fi
-  if (( NOW_COMMENTS > SEEN_COMMENTS )); then
-    echo "  + $(( NOW_COMMENTS - SEEN_COMMENTS )) comment(s) on the PR"
-    SEEN_COMMENTS=$NOW_COMMENTS; ACTED=1
-  fi
-  if (( CHECKS > 0 )); then
-    G pr checks "$PR" --repo "$SLUG" 2>/dev/null | sed 's/^/    /'
-    ACTED=1
-    break
-  fi
-done
-
-if (( ACTED == 1 )); then
-  ui_done "factory"
-else
-  ui_fail "no Factory activity seen on the PR yet"
-  ui_note "the App may not be installed on ${SLUG}, or it may still be queued"
-fi
-
-echo ""
-echo "  ${PR_URL}"
+# Emit the same structured progress consumed by the browser, and wait for
+# terminal checks on the latest PR head. A commit/comment is activity, not success.
+export FACTORY_RUN_ID="${SCENARIO}-factory-$(date +%s)000"
+node demo/lib/watch-factory.mjs "$SCENARIO" "$SLUG" "$PR"

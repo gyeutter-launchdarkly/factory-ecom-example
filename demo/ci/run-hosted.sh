@@ -360,4 +360,5 @@ else
   # shellcheck source=../lib/explain-failure.sh
   source demo/lib/explain-failure.sh
   explain_run_failure "$SLUG" "$RUN" || true
+  exit 1
 fi
