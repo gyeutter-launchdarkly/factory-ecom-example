@@ -128,11 +128,19 @@ export function journeyStatus(step: JourneyStep, run: RunView): JourneyStatus {
       ? (value as JourneyStatus)
       : 'pending';
   };
+  // The change exists before the run does, so these read as "prepared" when a
+  // PR or its commits are on record but nothing reported executing the step.
+  const prepared = () =>
+    run.pr !== null || run.resources.some((r) => r.kind === 'commits')
+      ? ('prepared' as const)
+      : ('pending' as const);
   if (step.key === 'write-code') {
     if (state('write-code') !== 'pending') return state('write-code');
-    return run.pr !== null || run.resources.some((r) => r.kind === 'commits')
-      ? 'prepared'
-      : 'pending';
+    return prepared();
+  }
+  if (step.key === 'write-design') {
+    if (state('write-design') !== 'pending') return state('write-design');
+    return prepared();
   }
   if (step.key === 'write-validate') {
     if (
@@ -155,7 +163,13 @@ export function journeyStatus(step: JourneyStep, run: RunView): JourneyStatus {
       return 'running';
     return 'pending';
   }
-  return state(step.sources[0]);
+  // Any of the step's sources counts as evidence: the Plan step, for example,
+  // completes when the run records the originating request (ext-request), not
+  // only when a planning agent reports.
+  for (const source of step.sources) {
+    if (state(source) !== 'pending') return state(source);
+  }
+  return 'pending';
 }
 export const JOURNEY_STATUS_LABEL: Record<JourneyStatus, string> = {
   pending: 'Not observed',

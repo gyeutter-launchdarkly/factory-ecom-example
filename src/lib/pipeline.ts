@@ -262,6 +262,7 @@ export const LOOPS: readonly Loop[] = [
 export type Detail = { text: string; url?: string };
 
 export type ResourceKind =
+  | 'issue'
   | 'pr'
   | 'commits'
   | 'run'
@@ -271,6 +272,7 @@ export type ResourceKind =
   | 'metric'
   | 'event'
   | 'manifest'
+  | 'release'
   | 'verdict';
 
 /** A linkable piece of evidence produced by or governing one station. */
@@ -283,6 +285,7 @@ export type PipelineResource = {
 };
 
 const RESOURCE_STATION: Record<ResourceKind, string> = {
+  issue: 'ext-request',
   pr: PULL_REQUEST,
   commits: CODING_AGENT,
   run: CI_RUN,
@@ -292,6 +295,7 @@ const RESOURCE_STATION: Record<ResourceKind, string> = {
   metric: METRICS_AGENT,
   event: METRICS_AGENT,
   manifest: RELEASE_AGENT,
+  release: GUARDED_RELEASE,
   verdict: REVIEWER,
 };
 
@@ -306,6 +310,8 @@ export function stationForResource(resource: PipelineResource): string {
 export function resourceLabel(resource: PipelineResource): string {
   if (resource.label) return resource.label;
   switch (resource.kind) {
+    case 'issue':
+      return `issue ${resource.key}`;
     case 'pr':
       return `PR ${resource.key}`;
     case 'commits':
@@ -324,6 +330,8 @@ export function resourceLabel(resource: PipelineResource): string {
       return `event: ${resource.key}`;
     case 'manifest':
       return `manifest: ${resource.key.split('/').pop()}`;
+    case 'release':
+      return `guarded release: ${resource.key}`;
     case 'verdict':
       return 'review verdict';
   }

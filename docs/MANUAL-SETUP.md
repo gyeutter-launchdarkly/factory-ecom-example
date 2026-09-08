@@ -163,6 +163,34 @@ does the whole set on demand. The rebases run in a scratch worktree, so they wor
 dirty tree and never check anything out in yours; conflicts are left alone and reported in
 `.autofactory/sync.log`.
 
+## Observing the release
+
+A factory run ends at the review verdict; the journey's **Guard release** and
+**Production** steps only fill from what actually happens *after* the merge. The pane's
+**Observe release** button (or `node --env-file=.env.local demo/observe-release.mjs
+<scenario> <owner/repo> <pr> <run-id>`) watches that half and streams the evidence in:
+the merge commit, the deployed SHA reported by your store's `/api/status`, and the
+guarded rollout's live state from LaunchDarkly. Nothing is simulated — with the
+variables below unset, those steps honestly stay "Not observed".
+
+Add to `.env.local`:
+
+```bash
+FACTORY_STORE_URL=https://your-deployed-store.example.com   # serves /api/status with the deployed SHA
+FACTORY_RELEASE_FLAG=enable-discount-codes                  # the flag the run created
+FACTORY_RELEASE_ID=                                         # the guarded release to attach; required so an
+                                                            # older rollout is never claimed for a new PR
+# Only for --notify (asking Beacon to start the release itself):
+# BEACON_URL=...
+# BEACON_WEBHOOK_SECRET=...
+```
+
+The flow that fills every step: merge the PR (this also closes the request issue the
+runner opened), let your CD deploy it, then click **Observe release**. The observer
+verifies the deployed SHA matches the merge, confirms the guarded release started after
+the merge, and marks Merge, Deploy, Beacon, Guard release, and Production as they
+actually complete — including a rollback, which shows as a stopped release.
+
 ## The act paths
 
 `make ci` and `make pr` ran the workflow locally through act. They are disabled: the

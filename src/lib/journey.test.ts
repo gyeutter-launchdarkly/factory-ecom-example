@@ -29,6 +29,15 @@ describe('journey evidence', () => {
   it('identifies pre-existing code as prepared', () => {
     expect(status('write-code', { pr: 2 })).toBe('prepared');
   });
+  it('shows design as prepared once a prepared change is on record', () => {
+    expect(status('write-design', { pr: 2 })).toBe('prepared');
+  });
+  it('completes planning from the recorded request, not only a planning agent', () => {
+    expect(
+      status('write-plan', { statuses: { 'ext-request': 'done' } }),
+    ).toBe('done');
+    expect(status('write-plan', { pr: 2 })).toBe('pending');
+  });
   it('does not treat a release manifest as a completed guarded release', () => {
     expect(
       status('release-guard', {

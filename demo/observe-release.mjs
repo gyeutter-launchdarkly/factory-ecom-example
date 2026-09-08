@@ -219,6 +219,16 @@ try {
       station: 'ld-guarded-release',
       label: 'Guarded rollout',
     });
+    // The Production step reads ld-outcome, so give it its own link to the
+    // rollout rather than leaving the final circle with no artifact.
+    emit({
+      t: 'resource',
+      kind: 'release',
+      key: flag,
+      url,
+      station: 'ld-outcome',
+      label: `release outcome (${release.status})`,
+    });
     node('ld-outcome', state, { release_status: release.status });
     if (state === 'failed')
       throw new Error(`Release ${release.status}; production rollout stopped`);

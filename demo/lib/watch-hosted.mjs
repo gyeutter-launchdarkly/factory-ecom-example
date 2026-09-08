@@ -190,6 +190,15 @@ function reconcileFromFinalLog() {
       continue;
     }
 
+    // The runner's own deep links (flag, metrics, resources). Forwarded so the
+    // pane gets them even when live polling missed the artifact — a flag that
+    // already existed from an earlier demo never shows up as "new" in tick().
+    if (/^\s*(?:»\s*)?(?:Flag|Metric):\s*[a-z0-9-]+\s*→\s*\S+/i.test(line) ||
+        /^\s*(?:»\s*)?Resource:\s*[a-z-]+\s+\S+/i.test(line)) {
+      say(line);
+      continue;
+    }
+
     // This compact tags line is what progress-tap uses for the pane verdict.
     if (/"review_approved"\s*:\s*"?(?:true|false|null)"?/.test(line)) {
       reviewFound = true;
@@ -388,6 +397,24 @@ async function tick() {
 }
 
 await snapshot();
+
+// A repeat demo reuses the flag and metrics an earlier run created, so they sit
+// in the baseline and tick() never announces them — and the pane then has no
+// LaunchDarkly links at all. Announce the links up front (they are the same
+// resources this run evaluates against); progress is still gated on new
+// artifacts, so nothing is marked done by this.
+for (const key of baseline.flags) {
+  if (matchesScenario(key) && !announced.has('flag')) {
+    announced.add('flag');
+    say(`Flag: ${key} → ${flagUrl(key)}`);
+  }
+}
+for (const key of baseline.metrics) {
+  if (matchesScenario(key) && !announced.has(`m:${key}`)) {
+    announced.add(`m:${key}`);
+    say(`Metric: ${key} → ${metricUrl(key)}`);
+  }
+}
 
 const deadline = Date.now() + 25 * 60 * 1000;
 let conclusion = null;

@@ -200,6 +200,36 @@ ui_done "#${PR}  ${PR_URL}"
 factory_emit "\"t\":\"pr\",\"number\":${PR}"
 factory_emit "\"t\":\"log\",\"text\":\"» PR #${PR} → ${PR_URL}\""
 
+# The request the change answers, as a real GitHub issue. The journey's Plan
+# step fills from this (ext-request) and links to it; the PR gains "Closes #N"
+# so a merged demo closes its own request. Best-effort: an issue API hiccup
+# must not stop the run the audience is watching.
+REQUEST_TITLE=$(jq -r '.pull_request.title // empty' "$EVENT_FILE")
+if [[ -n "$REQUEST_TITLE" ]]; then
+  ISSUE_TITLE="Request: ${REQUEST_TITLE}"
+  ISSUE=$(G issue list --repo "$SLUG" --state open \
+    --search "in:title \"${ISSUE_TITLE}\"" \
+    --json number,title \
+    --jq ".[] | select(.title == \"${ISSUE_TITLE}\") | .number" 2>/dev/null | head -1) || ISSUE=""
+  if [[ -z "$ISSUE" ]]; then
+    ISSUE_BODY=$(jq -r '"**Problem** \(.demo.problem // "")\n\n**Goal** \(.demo.goal // "")\n\n**Payoff** \(.demo.payoff // "")"' "$EVENT_FILE")
+    ISSUE=$(G issue create --repo "$SLUG" --title "$ISSUE_TITLE" \
+      --body "$ISSUE_BODY" 2>/dev/null | grep -oE '[0-9]+$') || ISSUE=""
+  fi
+  if [[ -n "$ISSUE" ]]; then
+    ISSUE_URL="https://github.com/${SLUG}/issues/${ISSUE}"
+    # Merging the PR should close the request; add the reference once.
+    PR_BODY=$(G pr view "$PR" --repo "$SLUG" --json body --jq .body 2>/dev/null) || PR_BODY=""
+    if [[ "$PR_BODY" != *"Closes #${ISSUE}"* ]]; then
+      printf '%s\n\nCloses #%s\n' "$PR_BODY" "$ISSUE" \
+        | G pr edit "$PR" --repo "$SLUG" --body-file - &>/dev/null || true
+    fi
+    factory_emit '"t":"node","key":"ext-request","status":"done"'
+    factory_emit "\"t\":\"resource\",\"kind\":\"issue\",\"key\":\"#${ISSUE}\",\"url\":\"${ISSUE_URL}\",\"station\":\"ext-request\",\"label\":\"request issue #${ISSUE}\""
+    factory_emit "\"t\":\"log\",\"text\":\"» request issue #${ISSUE} → ${ISSUE_URL}\""
+  fi
+fi
+
 RUN=""
 if [[ "${FACTORY_ATTACH:-0}" == "1" ]]; then
   # Presenter mode: start the run before the meeting, then attach when it is

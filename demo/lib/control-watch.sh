@@ -214,6 +214,17 @@ run_action() {
         write_status "$id" error "Configure the release environment in .env.local first"
         return
       fi
+      # Name exactly what is missing: "configure the environment" sent people
+      # hunting through the observer's source for the variable list.
+      local missing=()
+      local var
+      for var in FACTORY_STORE_URL FACTORY_RELEASE_FLAG FACTORY_RELEASE_ID LD_API_KEY LD_APP_PROJECT_KEY; do
+        grep -q "^${var}=" .env.local || missing+=("$var")
+      done
+      if (( ${#missing[@]} > 0 )); then
+        write_status "$id" error "Release observation needs ${missing[*]} in .env.local — see docs/MANUAL-SETUP.md, 'Observing the release'"
+        return
+      fi
       node --env-file=.env.local demo/observe-release.mjs "$scenario" "$repo" "$pr" "$run_id" >>"$LOG" 2>&1 </dev/null || rc=$?
       ;;
     clear-history)
