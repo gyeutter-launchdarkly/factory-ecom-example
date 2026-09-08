@@ -78,19 +78,15 @@ export function PipelineRail({
   return (
     <section
       className={`journey journey-${size}`}
-      aria-label="Write it. Release it. Run it."
+      aria-label="Delivery steps"
     >
       <div className="journey-phases">
-        {JOURNEY.map((phase, index) => (
+        {JOURNEY.map((phase) => (
           <section
             className={`journey-phase journey-${phase.key}`}
             key={phase.key}
             aria-label={phase.title}
           >
-            <h2>
-              <span aria-hidden="true">0{index + 1}</span>
-              {phase.title}
-            </h2>
             <ol className="journey-steps">
               {phase.steps.map((item) => {
                 const status = journeyStatus(item, run);

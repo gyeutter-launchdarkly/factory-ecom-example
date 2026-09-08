@@ -5,14 +5,14 @@ test.beforeAll(async () => {
   await mkdir('.autofactory', { recursive: true });
   await writeFile(stream, '');
 });
-test('three clean phases, accessible evidence, and responsive layout', async ({
+test('steps-only journey, accessible evidence, and responsive layout', async ({
   page,
 }) => {
   await page.goto('/');
   for (const name of ['Write it.', 'Release it.', 'Run it.'])
     await expect(
       page.getByRole('heading', { name, exact: true }),
-    ).toBeVisible();
+    ).toHaveCount(0);
   await expect(page.getByText('Build Control', { exact: true })).toHaveCount(0);
   await page
     .getByRole('button', { name: 'Guard release: Not observed', exact: true })
@@ -26,7 +26,7 @@ test('three clean phases, accessible evidence, and responsive layout', async ({
   ).toHaveCount(0);
   await page.setViewportSize({ width: 820, height: 900 });
   await expect(
-    page.getByRole('heading', { name: 'Run it.', exact: true }),
+    page.getByRole('button', { name: 'Production: Not observed', exact: true }),
   ).toBeVisible();
   expect(
     await page.evaluate(
