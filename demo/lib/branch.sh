@@ -86,11 +86,16 @@ push_if_diverged() {
   branch=$(scenario_branch "$1")
   git rev-parse --verify -q "refs/remotes/origin/$branch" >/dev/null 2>&1 || return 0
 
+  # Fetch before comparing. The factory pushes commits to the PR branch during
+  # a run, and a tracking ref from before that push can equal the local branch
+  # while GitHub's tip is the bot's commit — and a bot-pushed head suppresses
+  # pull_request dispatch entirely, so the labeled trigger goes dead. The old
+  # order (compare first, fetch only on divergence) missed exactly that state.
+  git fetch -q origin "$branch" >/dev/null 2>&1 || true
   local_sha=$(git rev-parse "$branch" 2>/dev/null || true)
   remote_sha=$(git rev-parse "refs/remotes/origin/$branch" 2>/dev/null || true)
   [[ -n "$local_sha" && "$local_sha" != "$remote_sha" ]] || return 0
 
-  git fetch -q origin "$branch" >/dev/null 2>&1 || true
   git push -q origin "$branch" --force-with-lease >/dev/null 2>&1 \
     || echo "  note: could not push $branch; GitHub may still have the older commits."
 }

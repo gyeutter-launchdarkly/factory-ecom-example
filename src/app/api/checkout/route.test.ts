@@ -1,7 +1,24 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { NextRequest } from 'next/server';
 const { track } = vi.hoisted(() => ({ track: vi.fn() }));
-vi.mock('@/lib/ld', () => ({ track }));
+// Cover the module's whole surface, not just track: the Flag Implementer wires
+// `boolVariation`/`stringVariation` into this route during a run, and a mock
+// that omits them turns that wiring into `undefined is not a function` — the
+// suite goes red at the tests-green-at-handoff gate and the chain halts.
+// Flag-off defaults keep every assertion on the control path.
+vi.mock('@/lib/ld', () => ({
+  track,
+  boolVariation: async (
+    _flag: string,
+    _user: string,
+    defaultValue: boolean,
+  ) => defaultValue,
+  stringVariation: async (
+    _flag: string,
+    _user: string,
+    defaultValue: string,
+  ) => defaultValue,
+}));
 import { POST } from './route';
 const valid = {
   items: [{ productId: 'prod-001', quantity: 2 }],

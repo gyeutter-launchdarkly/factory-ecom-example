@@ -292,18 +292,28 @@ ui_done "'autofactory' label added"
 # A growing ### track while GitHub picks the run up.
 WAIT_START=$(date +%s)
 ui_start "run" "waiting for GitHub to start it"
-for _ in $(seq 1 40); do
-  if ! RUN=$(G run list --repo "$SLUG" --branch "$BRANCH" --workflow auto-factory.yml --limit 10 \
-    --json databaseId,conclusion \
-    --jq "[.[] | select(.databaseId > ${BEFORE} and .conclusion != \"skipped\")] | .[0].databaseId // empty"); then
-    handle_github_failure "waiting for the Actions run"
-  fi
-  [[ -n "$RUN" ]] && break
-  ui_tick "waiting for GitHub to start it  $(ui_elapsed "$WAIT_START")"
+for attempt in 1 2; do
+  for _ in $(seq 1 40); do
+    if ! RUN=$(G run list --repo "$SLUG" --branch "$BRANCH" --workflow auto-factory.yml --limit 10 \
+      --json databaseId,conclusion \
+      --jq "[.[] | select(.databaseId > ${BEFORE} and .conclusion != \"skipped\")] | .[0].databaseId // empty"); then
+      handle_github_failure "waiting for the Actions run"
+    fi
+    [[ -n "$RUN" ]] && break
+    ui_tick "waiting for GitHub to start it  $(ui_elapsed "$WAIT_START")"
+    sleep 3
+  done
+  [[ -n "$RUN" || "$attempt" == "2" ]] && break
+  # GitHub occasionally loses a labeled event outright — the same toggle fires
+  # a run instantly on one PR and never lands on another. One more toggle is
+  # cheap; failing the demo over a dropped webhook is not.
+  ui_tick "no run after two minutes; re-toggling the label"
+  G pr edit "$PR" --repo "$SLUG" --remove-label autofactory &>/dev/null || true
   sleep 3
+  G pr edit "$PR" --repo "$SLUG" --add-label autofactory &>/dev/null || true
 done
 if [[ -z "$RUN" ]]; then
-  ui_fail "no run started within two minutes"
+  ui_fail "no run started within four minutes, even after re-adding the label"
   ui_note "the 'autofactory' label is the trigger; check it is on ${PR_URL}"
   exit 1
 fi
@@ -382,6 +392,13 @@ else
 fi
 
 CONCLUSION=$(G run view "$RUN" --repo "$SLUG" --json conclusion --jq .conclusion 2>/dev/null)
+
+# The label's job is done once the run has ended. Left on, every branch
+# force-push (make sync fires after any commit to main) raises `synchronize`,
+# the gate sees the label, and a full unasked-for factory run burns tokens and
+# then gets its commits wiped by the next sync. Off, those events skip.
+G pr edit "$PR" --repo "$SLUG" --remove-label autofactory &>/dev/null || true
+
 ui_start "result" ""
 if [[ "$CONCLUSION" == "success" ]]; then
   ui_done "success  ${PR_URL}"
