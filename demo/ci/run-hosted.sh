@@ -207,10 +207,11 @@ factory_emit "\"t\":\"log\",\"text\":\"» PR #${PR} → ${PR_URL}\""
 REQUEST_TITLE=$(jq -r '.pull_request.title // empty' "$EVENT_FILE")
 if [[ -n "$REQUEST_TITLE" ]]; then
   ISSUE_TITLE="Request: ${REQUEST_TITLE}"
-  ISSUE=$(G issue list --repo "$SLUG" --state open \
-    --search "in:title \"${ISSUE_TITLE}\"" \
+  # Plain list, not --search: the search index lags fresh issues by up to a
+  # minute, and a repeat run inside that window would file a duplicate request.
+  ISSUE=$(G issue list --repo "$SLUG" --state open --limit 100 \
     --json number,title \
-    --jq ".[] | select(.title == \"${ISSUE_TITLE}\") | .number" 2>/dev/null | head -1) || ISSUE=""
+    --jq "[.[] | select(.title == \"${ISSUE_TITLE}\") | .number] | first // empty" 2>/dev/null) || ISSUE=""
   if [[ -z "$ISSUE" ]]; then
     ISSUE_BODY=$(jq -r '"**Problem** \(.demo.problem // "")\n\n**Goal** \(.demo.goal // "")\n\n**Payoff** \(.demo.payoff // "")"' "$EVENT_FILE")
     ISSUE=$(G issue create --repo "$SLUG" --title "$ISSUE_TITLE" \
