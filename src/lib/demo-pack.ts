@@ -70,6 +70,7 @@ export const DEFAULT_PACK: DemoPack = {
   name: 'DarkCommerce',
   visibility: 'public',
   scenarios: [
+    'local-catalog-sort',
     'discount-codes',
     'dynamic-pricing',
     'express-checkout',
