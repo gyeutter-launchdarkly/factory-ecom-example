@@ -96,3 +96,22 @@ it('does not ask a completed rehearsal to merge a simulated PR', () => {
     'Rehearsal: complete',
   );
 });
+
+it('does not call a partial ordered live sequence released', () => {
+  const run = {
+    pr: null,
+    statuses: {
+      'live-sequence-v1': 'done',
+      'release-cleanup': 'failed',
+      'ext-deploy': 'done',
+      'ld-outcome': 'done',
+    },
+    agents: {},
+    resources: [],
+    checks: {},
+    judges: {},
+    finished: true,
+    mode: 'hosted',
+  };
+  expect(deliverySummary(run).label).toBe('Cleanup stopped');
+});

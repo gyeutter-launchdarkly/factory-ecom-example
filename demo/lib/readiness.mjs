@@ -5,6 +5,9 @@ export function readiness(env, tools) {
   };
   const configuration = (keys) => keys.filter((key) => !present(key));
   const base = ['node', 'bash', 'jq', 'git'].filter((key) => !tools[key]);
+  const sequence = tools.liveSequence
+    ? []
+    : ['Ordered live adapters (FACTORY_LIVE_CONFIG)'];
   const github = [
     ...base,
     ...(!tools.gh
@@ -39,13 +42,15 @@ export function readiness(env, tools) {
     modes: {
       rehearsal: mode(base),
       recorded: mode(base),
-      factory: mode(github),
+      factory: mode([...github, ...sequence]),
       hosted: mode([
         ...github,
+        ...sequence,
         ...configuration(['LD_API_KEY', 'LD_APP_PROJECT_KEY']),
       ]),
       local: mode([
         ...base,
+        ...sequence,
         ...configuration([
           'LD_API_KEY',
           'LD_SDK_KEY',

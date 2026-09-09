@@ -32,3 +32,10 @@ describe('readiness', () => {
     );
   });
 });
+
+it('requires ordered adapters for every live mode', () => {
+  for (const mode of ['factory', 'hosted', 'local'])
+    expect(readiness({}, tools).modes[mode].missing).toContain(
+      'Ordered live adapters (FACTORY_LIVE_CONFIG)',
+    );
+});

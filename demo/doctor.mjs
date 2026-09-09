@@ -2,6 +2,7 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { loadLiveConfig } from './lib/live-sequence.mjs';
 import { readiness } from './lib/readiness.mjs';
 if (Number(process.versions.node.split('.')[0]) < 22)
   throw new Error('This demo needs Node.js 22 or later.');
@@ -39,6 +40,12 @@ tools.cli = [
 ]
   .filter(Boolean)
   .some((dir) => existsSync(resolve(dir, 'packages/phase1-cli/dist/cli.js')));
+try {
+  const config = await loadLiveConfig(process.env.FACTORY_LIVE_CONFIG);
+  tools.liveSequence = existsSync(resolve(config.workspace));
+} catch {
+  tools.liveSequence = false;
+}
 const report = readiness(process.env, tools);
 if (process.argv.includes('--json')) console.log(JSON.stringify(report));
 else {

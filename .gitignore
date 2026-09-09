@@ -68,3 +68,7 @@ tsconfig.tsbuildinfo
 .autofactory/e2e.ndjson
 
 .autofactory/e2e-control/
+
+.autofactory/live-runs/
+.autofactory/live-run.lock/
+.autofactory/live-config.json

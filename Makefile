@@ -18,9 +18,9 @@ SCENARIOS := $(basename $(notdir $(wildcard demo/ci/events/*.json)))
 
 help:
 	@echo "make menu                   Interactive menu: pick scenarios, run, reset (start here)"
-	@echo "make hosted SCENARIO=<name> Real PR + AutoFactory on Actions, live in the app pane"
-	@echo "make factory SCENARIO=<name> Real PR on the Factory GitHub App repo"
-	@echo "make local SCENARIO=<name>  Real factory CLI against a disposable clone; no PR"
+	@echo "make hosted SCENARIO=<name> Ordered live tasks using configured hosted adapters"
+	@echo "make factory SCENARIO=<name> Ordered live tasks using configured Factory adapters"
+	@echo "make local SCENARIO=<name>  Ordered live tasks using configured local adapters"
 	@echo "make recorded SCENARIO=<n>  Replay a captured real run at accelerated speed"
 	@echo "make pack PACK=<id>         Create an ignored private customer demo pack"
 	@echo "make setup                  First-time setup: create seed flags + LD View, tag branches"
@@ -77,7 +77,7 @@ ifeq ($(origin SCENARIO),file)
 	@echo "  make factory SCENARIO=dynamic-pricing"
 	@exit 1
 else
-	@./demo/ci/run-factory.sh $(SCENARIO)
+	@node demo/run-live.mjs "$(SCENARIO)" factory
 endif
 
 hosted:
@@ -86,12 +86,12 @@ ifeq ($(origin SCENARIO),file)
 	@echo "  make hosted SCENARIO=dynamic-pricing"
 	@exit 1
 else
-	@./demo/ci/run-hosted.sh $(SCENARIO)
+	@node demo/run-live.mjs "$(SCENARIO)" hosted
 endif
 
 ## Real agents through phase1-cli; no PR or GitHub Actions queue.
 local:
-	@./demo/ci/run-local.sh $(SCENARIO)
+	@node demo/run-live.mjs "$(SCENARIO)" local
 
 ## Accelerated replay of a real run captured into the active pack.
 recorded:

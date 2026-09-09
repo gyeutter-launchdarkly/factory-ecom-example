@@ -169,17 +169,8 @@ run_action() {
       fi
       write_status "$id" running "Starting ${RUNNER} mode for ${scenario}…"
       case "$RUNNER" in
-        factory)
-          FACTORY_PROGRESS_ONLY=1 make factory SCENARIO="$scenario" >>"$LOG" 2>&1 </dev/null || rc=$?
-          ;;
-        hosted)
-          FACTORY_ATTACH="$([[ "$PR_STRATEGY" == "attach" ]] && echo 1 || echo 0)" \
-            FACTORY_PROGRESS_ONLY=1 make hosted SCENARIO="$scenario" \
-            >>"$LOG" 2>&1 </dev/null || rc=$?
-          ;;
-        local)
-          FACTORY_PROGRESS_ONLY=1 ./demo/ci/run-local.sh "$scenario" \
-            >>"$LOG" 2>&1 </dev/null || rc=$?
+        factory|hosted|local)
+          node demo/run-live.mjs "$scenario" "$RUNNER" >>"$LOG" 2>&1 </dev/null || rc=$?
           ;;
         recorded)
           ./demo/replay-recording.sh "$scenario" >>"$LOG" 2>&1 </dev/null || rc=$?
@@ -197,8 +188,8 @@ run_action() {
         return
       fi
       write_status "$id" running "Rehearsing ${scenario}…"
-      # Synthetic and deterministic: the same six steps, always approved, in
-      # about twelve seconds. Nothing is created, so this is the one path that
+      # Synthetic and deterministic: all eleven steps, always approved, in
+      # about twenty-two seconds. Nothing is created, so this is the one path that
       # cannot fail in front of an audience — and the one that proves nothing.
       FACTORY_PROGRESS_ONLY=1 ./demo/replay-progress.sh \
         "$scenario" "${FACTORY_REPLAY_SECS:-2}" "${FACTORY_REPLAY_PR:-7}" \

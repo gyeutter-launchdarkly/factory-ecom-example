@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { mkdir, writeFile, appendFile } from 'node:fs/promises';
+import { mkdir, writeFile, appendFile, rm } from 'node:fs/promises';
 const stream = '.autofactory/e2e.ndjson';
 test.beforeAll(async () => {
   await mkdir('.autofactory', { recursive: true });
@@ -300,4 +300,83 @@ test('live delivery moves from approval to verified store and exposes rollback',
   await expect(
     page.getByRole('link', { name: 'Open released store' }),
   ).toHaveCount(0);
+});
+
+test('ordered live circles wait for verification receipts and link their results', async ({
+  page,
+  request,
+}) => {
+  const run = `e2e-ordered-${Date.now()}`;
+  const dir = `.autofactory/live-runs/${run}`;
+  await mkdir(dir, { recursive: true });
+  const receipt = {
+    ok: true,
+    run,
+    step: 'write-plan',
+    revision: 'a'.repeat(40),
+    artifacts: [{ label: 'Request', url: 'https://example.com/request' }],
+  };
+  await writeFile(`${dir}/write-plan.json`, JSON.stringify(receipt));
+  const url = `/api/factory-runs/${run}/steps/write-plan`;
+  const emit = async (events: object[]) =>
+    appendFile(
+      stream,
+      events
+        .map((event, seq) =>
+          JSON.stringify({
+            run,
+            scenario: 'express-checkout',
+            at: Date.now(),
+            seq,
+            ...event,
+          }),
+        )
+        .join('\n') + '\n',
+    );
+  try {
+    await emit([
+      { t: 'run-start' },
+      { t: 'mode', mode: 'hosted' },
+      { t: 'pr', number: 123 },
+      { t: 'node', key: 'live-sequence-v1', status: 'done' },
+      { t: 'node', key: 'write-plan', status: 'done' },
+      {
+        t: 'resource',
+        kind: 'run',
+        key: 'receipt',
+        station: 'write-plan',
+        url,
+        label: 'Verification receipt',
+      },
+      { t: 'node', key: 'write-design', status: 'running' },
+      { t: 'node', key: 'ext-deploy', status: 'done' },
+      { t: 'node', key: 'ld-outcome', status: 'done' },
+    ]);
+    await page.goto('/');
+    await expect(
+      page.getByRole('button', { name: 'Plan: Complete', exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Design: Running', exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Code: Waiting', exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Production: Waiting', exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('link', { name: 'Verification receipt ↗', exact: true }),
+    ).toHaveAttribute('href', url);
+    expect(await (await request.get(url)).json()).toEqual(receipt);
+    await emit([
+      { t: 'node', key: 'write-design', status: 'failed' },
+      { t: 'run-done' },
+    ]);
+    await expect(
+      page.getByText('Design stopped', { exact: true }),
+    ).toBeVisible();
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
 });

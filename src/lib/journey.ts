@@ -127,6 +127,9 @@ export const JOURNEY: { key: string; title: string; steps: JourneyStep[] }[] = [
   },
 ];
 export const JOURNEY_STEPS = JOURNEY.flatMap((phase) => phase.steps);
+for (const step of JOURNEY_STEPS) {
+  if (!step.sources.includes(step.key)) step.sources.unshift(step.key);
+}
 export function journeyStatus(step: JourneyStep, run: RunView): JourneyStatus {
   const state = (key: string): JourneyStatus => {
     const value = run.statuses[key];
@@ -134,6 +137,8 @@ export function journeyStatus(step: JourneyStep, run: RunView): JourneyStatus {
       ? (value as JourneyStatus)
       : 'pending';
   };
+  // Ordered live runs accept only the orchestrator's verified step receipts.
+  if (run.statuses['live-sequence-v1'] === 'done') return state(step.key);
   // The change exists before the run does, so these read as "prepared" when a
   // PR or its commits are on record but nothing reported executing the step.
   const prepared = () =>

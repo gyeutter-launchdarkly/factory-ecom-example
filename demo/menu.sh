@@ -236,12 +236,7 @@ run_scenario() {
   # links and final result, not the parser's raw protocol. Running `make hosted`
   # directly remains verbose for troubleshooting.
   case "$RUNNER" in
-    hosted)
-      FACTORY_ATTACH="$([[ "$PR_STRATEGY" == "attach" ]] && echo 1 || echo 0)" \
-        FACTORY_PROGRESS_ONLY=1 make hosted SCENARIO="$1"
-      ;;
-    factory) ./demo/ci/run-factory.sh "$1" ;;
-    local) FACTORY_PROGRESS_ONLY=1 ./demo/ci/run-local.sh "$1" ;;
+    hosted|factory|local) node demo/run-live.mjs "$1" "$RUNNER" ;;
     recorded)
       [[ -f "$(pack_recordings_dir)/$1.ndjson" ]] || {
         echo "  no recording for '$1'; run demo/capture-recording.sh $1 after a live run"

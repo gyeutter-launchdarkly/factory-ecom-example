@@ -927,7 +927,7 @@ function DemoControls({
         action,
         scenario,
         mode,
-        strategy,
+        strategy: 'new',
         pack,
         ...(action === 'observe-release'
           ? {
@@ -1036,9 +1036,7 @@ function DemoControls({
             ? 'Rehearse'
             : mode === 'recorded'
               ? 'Play Recording'
-              : mode === 'hosted' && strategy === 'attach'
-                ? 'Attach to Run'
-                : 'Run Scenario'}
+              : 'Run Scenario'}
       </button>
       {!currentRun || mode !== currentRun.mode ? (
         <span className="factory-mode">Next run: {modeLabel}</span>
@@ -1151,24 +1149,7 @@ function DemoControls({
               ))}
             </select>
           </label>
-          {mode === 'hosted' && (
-            <label>
-              PR behavior
-              <select
-                value={strategy}
-                onChange={(event) =>
-                  configure({
-                    strategy: event.target.value as 'new' | 'attach',
-                  })
-                }
-                disabled={disabled}
-                aria-label="Live PR behavior"
-              >
-                <option value="new">New run</option>
-                <option value="attach">Attach to active run</option>
-              </select>
-            </label>
-          )}
+
           <button
             onClick={() => send('run', true)}
             disabled={disabled || !scenario || runUnavailable}

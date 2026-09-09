@@ -128,3 +128,26 @@ it('fills every circle for the actual rehearsal event stream in order', async ()
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+it('ordered live circles require explicit verified completion, never legacy agent activity', () => {
+  expect(
+    status('write-code', {
+      pr: 123,
+      statuses: { 'live-sequence-v1': 'done', 'ext-coding-agent': 'done' },
+    }),
+  ).toBe('pending');
+  expect(
+    status('production', {
+      statuses: {
+        'live-sequence-v1': 'done',
+        'ext-deploy': 'done',
+        'ld-outcome': 'done',
+      },
+    }),
+  ).toBe('pending');
+  expect(
+    status('production', {
+      statuses: { 'live-sequence-v1': 'done', production: 'done' },
+    }),
+  ).toBe('done');
+});

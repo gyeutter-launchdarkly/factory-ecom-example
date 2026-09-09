@@ -43,6 +43,30 @@ export function deliverySummary(run: DeliveryRun | null): DeliverySummary {
     tone,
     action: simulated || recorded ? null : action,
   });
+  if (s['live-sequence-v1'] === 'done') {
+    const failed = JOURNEY_STEPS.find((step) => s[step.key] === 'failed');
+    if (failed)
+      return result(
+        `${failed.title} stopped`,
+        'Execution or verification failed. Later steps were not started.',
+        'stopped',
+        null,
+      );
+    if (JOURNEY_STEPS.every((step) => s[step.key] === 'done'))
+      return result(
+        'Live journey complete',
+        'All eleven tasks executed and their results were verified in order.',
+        'success',
+        null,
+      );
+    const active = JOURNEY_STEPS.find((step) => s[step.key] === 'running');
+    return result(
+      active ? `${active.title} in progress` : 'Live journey interrupted',
+      'Each task must execute and pass verification before the next starts.',
+      active ? 'active' : 'stopped',
+      null,
+    );
+  }
   if (s[GUARDED_RELEASE] === 'failed' || s['ld-outcome'] === 'failed')
     return result(
       'Release stopped',
