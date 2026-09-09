@@ -37,12 +37,25 @@ export default function CartPage() {
             className={`flex items-center gap-4 px-5 py-5 ${i < items.length - 1 ? 'border-b border-hair' : ''}`}
           >
             <span className="w-14 h-14 rounded-2xl bg-shell flex items-center justify-center text-2xl shrink-0">
-              {item.emoji}
+              {item.image ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={item.image}
+                  alt=""
+                  width={56}
+                  height={56}
+                  className="w-full h-full object-cover rounded-2xl"
+                />
+              ) : (
+                item.emoji
+              )}
             </span>
 
             <div className="flex-1 min-w-0">
               <p className="text-[14px] font-medium truncate">{item.name}</p>
-              <p className="text-[13px] text-muted mt-0.5">{item.displayPrice}</p>
+              <p className="text-[13px] text-muted mt-0.5">
+                {item.displayPrice}
+              </p>
             </div>
 
             <div className="flex items-center gap-1 bg-shell rounded-pill p-1">
@@ -53,7 +66,9 @@ export default function CartPage() {
               >
                 −
               </button>
-              <span className="w-6 text-center text-[13px] font-medium">{item.quantity}</span>
+              <span className="w-6 text-center text-[13px] font-medium">
+                {item.quantity}
+              </span>
               <button
                 onClick={() => update(item.productId, item.quantity + 1)}
                 className="w-7 h-7 rounded-pill flex items-center justify-center text-muted hover:bg-white hover:text-ink transition-colors"
@@ -87,7 +102,10 @@ export default function CartPage() {
       </Link>
 
       <div className="mt-5 text-center">
-        <Link href="/" className="text-[13px] text-muted hover:text-ink transition-colors">
+        <Link
+          href="/"
+          className="text-[13px] text-muted hover:text-ink transition-colors"
+        >
           Continue shopping
         </Link>
       </div>

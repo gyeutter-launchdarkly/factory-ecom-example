@@ -18,12 +18,12 @@ Node.js 22+, npm, bash, and jq are required. GitHub modes also require an authen
 
 ```bash
 npm ci
-npm run dev -- --port 3001
-# In another terminal, keep the browser's controller running:
-npm run controller
+npm run demo
+# Optional: npm run demo -- --port 3109
+# Configuration report only: npm run doctor
 ```
 
-Open http://localhost:3001, expand Settings, choose **Rehearsal**, and run a scenario.
+Open http://127.0.0.1:3108, expand Settings, choose **Rehearsal**, and run a scenario.
 This verifies the local control channel and event stream without creating external
 resources. Rehearsal is labeled simulated throughout; it is not a live success.
 
@@ -150,3 +150,29 @@ uses that executable. Test screenshots and traces are ignored by git.
 
 A local test pass verifies the local app and modeled failure cases. Live Factory, Beacon,
 and LaunchDarkly behavior must also be verified against the configured demo account.
+
+
+## Presenter experience
+
+`npm run demo` starts the web app and controller together, checks local prerequisites,
+and stops its own child processes on Ctrl-C. An occupied port is refused before starting
+the controller. To serve a built app: `npm run build`, then `npm run demo -- --production`.
+Set `FACTORY_ENV_FILE=/absolute/path/to/demo.env` to load an existing environment file.
+Readiness reports contain missing variable names, never their values. They check local
+prerequisites; live runners still verify remote access and permissions.
+
+The delivery summary distinguishes review approval, merge, deployment, guarded rollout,
+and a verified customer release. A completed agent chain is never labeled as a completed
+release. Recorded and synthetic runs keep their origin labels and offer no live next actions.
+After verified deployment and rollout, **Open released store** links to the observed store.
+Cleanup remains a separate follow-up, with its own evidence.
+
+**Compare discount codes** opens `/compare`: an interactive illustration of the prepared
+`discount-codes` scenario with SAVE10, LAUNCH20, and DEMO. It does not place orders, evaluate
+or modify live flags, or claim deployment evidence. This deliberately keeps the prepared
+feature branch separate from the demo harness. Verify the actual customer experience on
+the deployed scenario after the observer confirms the release.
+
+The default catalog uses locally stored generated images; customer packs retain their own
+assets. See [product image prompts](docs/PRODUCT-IMAGES.md). Catalog requests time out after
+12 seconds and offer Retry on failure. Add-to-bag controls are visible for keyboard and touch.

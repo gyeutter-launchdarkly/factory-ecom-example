@@ -8,7 +8,9 @@
     "start": "next start",
     "test": "vitest run",
     "test:e2e": "playwright test",
-    "controller": "bash demo/lib/control-watch.sh"
+    "controller": "bash demo/lib/control-watch.sh",
+    "demo": "node demo/start.mjs",
+    "doctor": "node demo/doctor.mjs"
   },
   "dependencies": {
     "@fontsource/inter": "^5.3.0",

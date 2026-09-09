@@ -43,7 +43,8 @@ fi
 # clone. The current setup uses one LD project for control plane and app flags.
 set -a
 # shellcheck disable=SC1091
-[[ -f .env.local ]] && source .env.local
+env_file="${FACTORY_ENV_FILE:-.env.local}"
+[[ -f "$env_file" ]] && source "$env_file"
 set +a
 export LD_PROJECT_KEY="${LD_PROJECT_KEY:-${LD_APP_PROJECT_KEY:-}}"
 

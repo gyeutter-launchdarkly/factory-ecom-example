@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useDemoPack } from '@/lib/use-demo-pack';
 import { Link, Linkify } from './links';
 import { PipelineRail } from './PipelineRail';
+import { usePathname } from 'next/navigation';
+import { deliverySummary } from '@/lib/delivery-summary';
 import {
   aiConfigResources,
   githubResources,
@@ -516,7 +518,14 @@ type ScenarioInfo = {
   recorded?: boolean;
   story: ScenarioStory;
 };
+type ReadinessCheck = { ready: boolean; missing: string[] };
 type ControlInfo = {
+  readiness?: {
+    at: number;
+    modes: Record<RunMode, ReadinessCheck>;
+    release: ReadinessCheck;
+    note: string;
+  };
   available: boolean;
   busy: boolean;
   scenarios: ScenarioInfo[];
@@ -818,12 +827,7 @@ function DemoControls({
   onGuidedRunStarted: (scenario: ScenarioInfo) => void;
   /** The run on screen, so re-running it does not mean re-picking it. */
   currentScenario?: string;
-  currentRun?: {
-    id: string;
-    repo: string | null;
-    pr: number | null;
-    mode: string | null;
-  };
+  currentRun?: Run;
 }) {
   const [info, setInfo] = useState<ControlInfo>({
     available: false,
@@ -856,11 +860,17 @@ function DemoControls({
   // scenario the presenter deliberately chooses for the next run.
   const followedScenario = useRef<string | undefined>();
   useEffect(() => {
-    if (currentScenario && followedScenario.current !== currentScenario &&
-        info.scenarios.some(item => item.key === currentScenario)) {
+    if (
+      currentScenario &&
+      followedScenario.current !== currentScenario &&
+      info.scenarios.some((item) => item.key === currentScenario)
+    ) {
       followedScenario.current = currentScenario;
       setScenario(currentScenario);
-    } else if (info.scenarios.length && !info.scenarios.some(item => item.key === scenario)) {
+    } else if (
+      info.scenarios.length &&
+      !info.scenarios.some((item) => item.key === scenario)
+    ) {
       setScenario(info.scenarios[0].key);
     }
   }, [currentScenario, info.scenarios, scenario]);
@@ -979,8 +989,15 @@ function DemoControls({
 
   const working = info.busy || (!!job && !settled);
   const disabled = !info.available || working;
+  const summary = deliverySummary(currentRun ?? null);
   const selectedScenario = info.scenarios.find((item) => item.key === scenario);
-  const runUnavailable = mode === 'recorded' && !selectedScenario?.recorded;
+  const prerequisites =
+    info.readiness && Date.now() - info.readiness.at < 90000
+      ? info.readiness.modes?.[mode]
+      : undefined;
+  const runUnavailable =
+    (mode === 'recorded' && !selectedScenario?.recorded) ||
+    prerequisites?.ready === false;
   const modeLabel =
     mode === 'factory'
       ? 'Factory App'
@@ -1023,7 +1040,77 @@ function DemoControls({
                 ? 'Attach to Run'
                 : 'Run Scenario'}
       </button>
-      <span className="factory-mode">{modeLabel}</span>
+      {!currentRun || mode !== currentRun.mode ? (
+        <span className="factory-mode">Next run: {modeLabel}</span>
+      ) : null}
+      {currentRun?.repo && currentRun.pr && summary.action === 'review' && (
+        <Link
+          href={`https://github.com/${currentRun.repo}/pull/${currentRun.pr}`}
+          className="factory-next-link"
+        >
+          Open PR & verdict ↗
+        </Link>
+      )}
+      {currentRun?.repo && currentRun.pr && summary.action === 'observe' && (
+        <button onClick={() => send('observe-release')} disabled={disabled}>
+          Observe release
+        </button>
+      )}
+      {summary.action === 'store' &&
+        currentRun?.resources.find((resource) => resource.kind === 'store') && (
+          <Link
+            href={
+              currentRun.resources.find(
+                (resource) => resource.kind === 'store',
+              )!.url
+            }
+            className="factory-next-link"
+          >
+            Open released store ↗
+          </Link>
+        )}
+      <a href="/compare" className="factory-next-link">
+        Compare discount codes →
+      </a>
+      <details className="factory-readiness">
+        <summary>
+          {!info.available
+            ? 'Controller offline'
+            : prerequisites?.ready === false
+              ? 'Setup needed'
+              : prerequisites
+                ? 'Prerequisites checked'
+                : 'Checking setup'}
+        </summary>
+        <div>
+          <strong>Before you run</strong>
+          {!info.available && (
+            <p>
+              Start the app and controller together: <code>npm run demo</code>
+            </p>
+          )}
+          {prerequisites?.missing.map((item) => (
+            <p key={item}>Missing: {item}</p>
+          ))}
+          {prerequisites?.ready && (
+            <p>Local prerequisites for {modeLabel} are present.</p>
+          )}
+          {mode === 'recorded' && !selectedScenario?.recorded && (
+            <p>
+              No recording for this scenario. Choose discount codes or dynamic
+              pricing in the default pack.
+            </p>
+          )}
+          <strong>Live release</strong>
+          {info.readiness?.release.missing.map((item) => (
+            <p key={item}>Missing: {item}</p>
+          ))}
+          <p>
+            {info.readiness?.note ??
+              'Waiting for the controller readiness report.'}
+          </p>
+        </div>
+      </details>
       <details className="factory-settings">
         <summary>Settings</summary>
         <div className="factory-settings-grid">
@@ -1096,6 +1183,7 @@ function DemoControls({
           </button>
           {currentRun?.repo &&
             currentRun.pr &&
+            summary.action !== 'observe' &&
             !['rehearsal', 'recorded', 'simulation'].includes(
               currentRun.mode ?? '',
             ) && (
@@ -1126,7 +1214,7 @@ function DemoControls({
       </details>
       <span className="factory-job" role="status">
         {!info.available
-          ? 'Start the demo controller to run scenarios.'
+          ? 'Controller offline. Run npm run demo in the project terminal.'
           : job
             ? job.message
             : ''}
@@ -1141,8 +1229,12 @@ function DemoControls({
 }
 
 export function FactoryPane() {
+  const pathname = usePathname();
+  const comparisonMode = useRef(pathname === '/compare');
   const pack = useDemoPack();
-  const [view, setView] = useState<View>('expanded');
+  const [view, setView] = useState<View>(
+    pathname === '/compare' ? 'collapsed' : 'expanded',
+  );
   const [size, setSize] = useState<Size>('normal');
   const [runs, setRuns] = useState<Record<string, Run>>({});
   const [selected, setSelected] = useState<string | null>(null);
@@ -1174,7 +1266,15 @@ export function FactoryPane() {
   }, [terminalUp]);
   // Respect a manual hide, and a manual PR choice: a new run should not yank
   // the pane open or steal the selection out from under you.
-  const userHid = useRef(false);
+  const userHid = useRef(pathname === '/compare');
+  useEffect(() => {
+    const comparing = pathname === '/compare';
+    if (comparisonMode.current !== comparing) {
+      userHid.current = comparing;
+      setView(comparing ? 'collapsed' : 'expanded');
+      comparisonMode.current = comparing;
+    }
+  }, [pathname]);
   const userPicked = useRef(false);
 
   useEffect(() => {
@@ -1458,16 +1558,8 @@ export function FactoryPane() {
 
   const statusOf = (run: Run, key: string): Status =>
     run.statuses[key] ?? 'pending';
-  const doneCount = current
-    ? CHAIN.filter((n) =>
-        ['done', 'failed', 'skipped'].includes(statusOf(current, n.key)),
-      ).length
-    : 0;
-  const progressLabel = current?.mode === 'factory'
-    ? current.statuses['factory-validation'] === 'done' ? 'Checks passed'
-      : current.statuses['factory-validation'] === 'failed' ? 'Checks failed'
-        : 'Observing checks'
-    : `${doneCount}/${CHAIN.length}`;
+  const summary = deliverySummary(current);
+  const progressLabel = summary.label;
   const running = current
     ? CHAIN.find((n) => statusOf(current, n.key) === 'running')
     : undefined;
@@ -1629,8 +1721,7 @@ export function FactoryPane() {
             >
               {current && (
                 <span>
-                  {running ? `${running.title} · ` : ''}
-                  {progressLabel}
+                  {view === 'collapsed' ? progressLabel : 'Elapsed'}
                   {' · '}
                   <span
                     className="tabular-nums"
@@ -1679,6 +1770,15 @@ export function FactoryPane() {
             </div>
           )}
 
+          {view === 'expanded' && (
+            <div
+              className={`delivery-summary delivery-${summary.tone}`}
+              role="status"
+            >
+              <strong>{summary.label}</strong>
+              <span>{summary.detail}</span>
+            </div>
+          )}
           {view === 'expanded' && !current && (
             <div className="border-t border-hair px-6 py-5 max-h-[65vh] overflow-y-auto">
               <PipelineRail
@@ -1725,7 +1825,7 @@ export function FactoryPane() {
                 </p>
               )}
 
-              {current.verdict && (
+              {current.verdict && !current.verdict.approved && (
                 <p
                   className={`mt-4 text-[12px] ${
                     current.verdict.approved ? 'text-muted' : 'text-red-800'

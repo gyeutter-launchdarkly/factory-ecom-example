@@ -210,22 +210,10 @@ run_action() {
         return
       fi
       write_status "$id" running "Observing merge, deployment, and guarded release…"
-      if [[ ! -f .env.local ]]; then
-        write_status "$id" error "Configure the release environment in .env.local first"
-        return
-      fi
-      # Name exactly what is missing: "configure the environment" sent people
-      # hunting through the observer's source for the variable list.
-      local missing=()
-      local var
-      for var in FACTORY_STORE_URL FACTORY_RELEASE_FLAG FACTORY_RELEASE_ID LD_API_KEY LD_APP_PROJECT_KEY; do
-        grep -q "^${var}=" .env.local || missing+=("$var")
-      done
-      if (( ${#missing[@]} > 0 )); then
-        write_status "$id" error "Release observation needs ${missing[*]} in .env.local — see docs/MANUAL-SETUP.md, 'Observing the release'"
-        return
-      fi
-      node --env-file=.env.local demo/observe-release.mjs "$scenario" "$repo" "$pr" "$run_id" >>"$LOG" 2>&1 </dev/null || rc=$?
+      local env_args=()
+      local env_file="${FACTORY_ENV_FILE:-.env.local}"
+      [[ -f "$env_file" ]] && env_args+=("--env-file=$env_file")
+      node "${env_args[@]}" demo/observe-release.mjs "$scenario" "$repo" "$pr" "$run_id" >>"$LOG" 2>&1 </dev/null || rc=$?
       ;;
     clear-history)
       write_status "$id" running "Clearing the run history…"
@@ -260,11 +248,20 @@ if [[ -f "$HEARTBEAT" ]]; then
   fi
 fi
 
+publish_readiness() {
+  node demo/doctor.mjs --json >"$CONTROL_DIR/readiness.json.tmp" 2>/dev/null && mv "$CONTROL_DIR/readiness.json.tmp" "$CONTROL_DIR/readiness.json"
+}
+last_readiness=0
+
 echo "control-watch: watching $REQ_DIR (ctrl-c to stop)"
 publish_scenarios
 beat
 
 while :; do
+  if (( $(date +%s) - last_readiness > 30 )); then
+    publish_readiness
+    last_readiness=$(date +%s)
+  fi
   beat
   publish_scenarios
 

@@ -341,10 +341,11 @@ ui_done
 # lines in the tap's format so there is a single parser for both paths.
 export FACTORY_REPO="$SLUG"
 export GH_WATCH_TOKEN="$(G auth token)"
-export LD_API_KEY="$(grep '^LD_API_KEY=' .env.local 2>/dev/null | cut -d= -f2-)"
-LD_PROJECT=$(grep '^LD_APP_PROJECT_KEY=' .env.local 2>/dev/null | cut -d= -f2- || echo "checkout-demo")
-# The pane's deep links have to point at the environment the demo actually uses.
-LD_ENV=$(grep '^LD_ENVIRONMENT_KEY=' .env.local 2>/dev/null | cut -d= -f2-)
+env_file="${FACTORY_ENV_FILE:-.env.local}"
+export LD_API_KEY="${LD_API_KEY:-$(node --env-file-if-exists="$env_file" -p 'process.env.LD_API_KEY || ""')}"
+LD_PROJECT="${LD_APP_PROJECT_KEY:-$(node --env-file-if-exists="$env_file" -p 'process.env.LD_APP_PROJECT_KEY || "checkout-demo"')}"
+# The pane's links follow the same environment as the running app.
+LD_ENV="${LD_ENVIRONMENT_KEY:-$(node --env-file-if-exists="$env_file" -p 'process.env.LD_ENVIRONMENT_KEY || "production"')}"
 # ld_view_sync below reads these from the environment, and returns quietly when
 # they are unset — which is why the view stopped collecting the factory's flags.
 export LD_APP_PROJECT_KEY="$LD_PROJECT"

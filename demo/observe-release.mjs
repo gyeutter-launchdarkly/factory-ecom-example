@@ -128,6 +128,14 @@ try {
     node('ext-deploy', 'done', { deployed_sha: sha });
     emit({
       t: 'resource',
+      kind: 'store',
+      key: sha,
+      url: new URL(store).href,
+      station: 'ext-deploy',
+      label: 'Open deployed store',
+    });
+    emit({
+      t: 'resource',
       kind: 'run',
       key: sha,
       url: statusUrl,

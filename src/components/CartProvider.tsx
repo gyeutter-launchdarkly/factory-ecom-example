@@ -7,6 +7,7 @@ export interface CartLineItem {
   productId: string;
   name: string;
   emoji: string;
+  image?: string;
   price: number;
   displayPrice: string;
   quantity: number;
@@ -35,9 +36,23 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     try {
       const stored = localStorage.getItem(storageKey);
       const parsed = stored ? JSON.parse(stored) : [];
-      setItems(Array.isArray(parsed) ? parsed.filter(item => item && typeof item.productId === 'string' && Number.isFinite(item.price) && Number.isSafeInteger(item.quantity) && item.quantity > 0) : []);
-    } catch { setItems([]); }
-    finally { setLoadedKey(storageKey); }
+      setItems(
+        Array.isArray(parsed)
+          ? parsed.filter(
+              (item) =>
+                item &&
+                typeof item.productId === 'string' &&
+                Number.isFinite(item.price) &&
+                Number.isSafeInteger(item.quantity) &&
+                item.quantity > 0,
+            )
+          : [],
+      );
+    } catch {
+      setItems([]);
+    } finally {
+      setLoadedKey(storageKey);
+    }
   }, [storageKey]);
 
   useEffect(() => {
@@ -50,7 +65,9 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       const existing = prev.find((i) => i.productId === item.productId);
       if (existing) {
         return prev.map((i) =>
-          i.productId === item.productId ? { ...i, quantity: i.quantity + 1 } : i,
+          i.productId === item.productId
+            ? { ...i, quantity: i.quantity + 1 }
+            : i,
         );
       }
       return [...prev, { ...item, quantity: 1 }];
@@ -74,7 +91,18 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const total = items.reduce((sum, i) => sum + i.price * i.quantity, 0);
 
   return (
-    <CartContext.Provider value={{ items, ready: loadedKey === storageKey, add, remove, update, clear, count, total }}>
+    <CartContext.Provider
+      value={{
+        items,
+        ready: loadedKey === storageKey,
+        add,
+        remove,
+        update,
+        clear,
+        count,
+        total,
+      }}
+    >
       {children}
     </CartContext.Provider>
   );

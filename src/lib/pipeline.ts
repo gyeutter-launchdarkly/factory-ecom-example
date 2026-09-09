@@ -22,7 +22,13 @@ export type Owner = 'launchdarkly' | 'autofactory' | 'external';
  * drawn so the end-to-end model is explainable, and drawn differently so
  * nothing on screen claims to have happened when it did not.
  */
-export type Status = 'pending' | 'running' | 'done' | 'failed' | 'skipped' | 'beyond';
+export type Status =
+  | 'pending'
+  | 'running'
+  | 'done'
+  | 'failed'
+  | 'skipped'
+  | 'beyond';
 
 export type Stage = {
   /** Agents use their AI Config key, so run events address them directly. */
@@ -44,9 +50,12 @@ export const OWNER_LABEL: Record<Owner, string> = {
 };
 
 export const OWNER_TITLE: Record<Owner, string> = {
-  launchdarkly: 'Provided by the LaunchDarkly platform: AI Configs, judges, monitoring, flags, metrics, guarded releases',
-  autofactory: "AutoFactory's own code: orchestration, evidence gates, the release manifest, Beacon",
-  external: 'Tools you already run: your issue tracker, coding agent, GitHub, CI, test runner, and CD',
+  launchdarkly:
+    'Provided by the LaunchDarkly platform: AI Configs, judges, monitoring, flags, metrics, guarded releases',
+  autofactory:
+    "AutoFactory's own code: orchestration, evidence gates, the release manifest, Beacon",
+  external:
+    'Tools you already run: your issue tracker, coding agent, GitHub, CI, test runner, and CD',
 };
 
 export const OWNER_CLASS: Record<Owner, string> = {
@@ -208,7 +217,13 @@ export const PIPELINE: readonly Stage[] = [
 ];
 
 /** Stages after the run's boundary: explainable, never claimed as executed. */
-const BEYOND = new Set(['ext-merge', 'ext-deploy', 'af-beacon', GUARDED_RELEASE, 'ld-outcome']);
+const BEYOND = new Set([
+  'ext-merge',
+  'ext-deploy',
+  'af-beacon',
+  GUARDED_RELEASE,
+  'ld-outcome',
+]);
 
 /** The agent sub-sequence, which is what a run reports progress against. */
 export const AGENTS = PIPELINE.filter((stage) => stage.kind === 'agent');
@@ -262,6 +277,7 @@ export const LOOPS: readonly Loop[] = [
 export type Detail = { text: string; url?: string };
 
 export type ResourceKind =
+  | 'store'
   | 'issue'
   | 'pr'
   | 'commits'
@@ -285,6 +301,7 @@ export type PipelineResource = {
 };
 
 const RESOURCE_STATION: Record<ResourceKind, string> = {
+  store: 'ext-deploy',
   issue: 'ext-request',
   pr: PULL_REQUEST,
   commits: CODING_AGENT,
@@ -301,7 +318,10 @@ const RESOURCE_STATION: Record<ResourceKind, string> = {
 
 export function stationForResource(resource: PipelineResource): string {
   if (resource.station) return resource.station;
-  if (resource.kind === 'agent-config' && PIPELINE.some((stage) => stage.key === resource.key)) {
+  if (
+    resource.kind === 'agent-config' &&
+    PIPELINE.some((stage) => stage.key === resource.key)
+  ) {
     return resource.key;
   }
   return RESOURCE_STATION[resource.kind];
@@ -310,6 +330,8 @@ export function stationForResource(resource: PipelineResource): string {
 export function resourceLabel(resource: PipelineResource): string {
   if (resource.label) return resource.label;
   switch (resource.kind) {
+    case 'store':
+      return 'Open deployed store';
     case 'issue':
       return `issue ${resource.key}`;
     case 'pr':
@@ -358,7 +380,11 @@ export type Check = { name: string; ok: boolean; detail?: string };
  * A LaunchDarkly judge's score for a node, when it was sampled. The judge's own
  * key is absent in the closing summary form, which reports only the score.
  */
-export type Judge = { judge: string | null; score: number | null; reasoning?: string };
+export type Judge = {
+  judge: string | null;
+  score: number | null;
+  reasoning?: string;
+};
 
 /**
  * The parts of a run this module needs. Structural, so the pane's own Run type
@@ -391,9 +417,12 @@ export function checksFailed(run: RunView): boolean {
 export function stageStatus(stage: Stage, run: RunView): Status {
   if (BEYOND.has(stage.key)) {
     const status = run.statuses[stage.key];
-    return ['running', 'done', 'failed', 'skipped'].includes(status) ? status as Status : 'beyond';
+    return ['running', 'done', 'failed', 'skipped'].includes(status)
+      ? (status as Status)
+      : 'beyond';
   }
-  if (stage.kind === 'agent') return (run.statuses[stage.key] as Status) ?? 'pending';
+  if (stage.kind === 'agent')
+    return (run.statuses[stage.key] as Status) ?? 'pending';
 
   switch (stage.key) {
     // The request and the change predate the run: a run only exists because

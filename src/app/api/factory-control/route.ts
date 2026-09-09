@@ -12,7 +12,9 @@ import { demoPack, scenarioBelongsToPack } from '@/lib/demo-pack';
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-const CONTROL_DIR = resolve(process.env.FACTORY_CONTROL_DIR ?? '.autofactory/control');
+const CONTROL_DIR = resolve(
+  process.env.FACTORY_CONTROL_DIR ?? '.autofactory/control',
+);
 const REQ_DIR = join(CONTROL_DIR, 'requests');
 const STATUS_DIR = join(CONTROL_DIR, 'status');
 
@@ -21,7 +23,14 @@ const STATUS_DIR = join(CONTROL_DIR, 'status');
 // second; this tolerates a slow poll without flickering.
 const HEARTBEAT_MAX_AGE_MS = 15_000;
 
-const ACTIONS = ['configure', 'reset', 'run', 'replay', 'clear-history', 'observe-release'] as const;
+const ACTIONS = [
+  'configure',
+  'reset',
+  'run',
+  'replay',
+  'clear-history',
+  'observe-release',
+] as const;
 type Action = (typeof ACTIONS)[number];
 
 const isAction = (v: unknown): v is Action => ACTIONS.includes(v as Action);
@@ -35,7 +44,9 @@ async function readJson<T>(path: string): Promise<T | null> {
 }
 
 async function watcherAlive(): Promise<boolean> {
-  const beat = await readJson<{ at?: number }>(join(CONTROL_DIR, 'watcher.json'));
+  const beat = await readJson<{ at?: number }>(
+    join(CONTROL_DIR, 'watcher.json'),
+  );
   return !!beat?.at && Date.now() - beat.at < HEARTBEAT_MAX_AGE_MS;
 }
 
@@ -48,19 +59,23 @@ export async function GET(request: Request) {
     }
     const status = await readJson<unknown>(join(STATUS_DIR, `${id}.json`));
     // No file yet means the watcher has not picked the request up.
-    return NextResponse.json(status ?? { id, state: 'queued', message: 'Queued…' });
+    return NextResponse.json(
+      status ?? { id, state: 'queued', message: 'Queued…' },
+    );
   }
 
-  const beat = await readJson<{ at?: number; busy?: boolean }>(join(CONTROL_DIR, 'watcher.json'));
+  const beat = await readJson<{ at?: number; busy?: boolean }>(
+    join(CONTROL_DIR, 'watcher.json'),
+  );
   const scenarios =
-    (await readJson<{
-      key: string;
-      title: string;
-      recorded?: boolean;
-      story: { problem: string; goal: string; payoff: string };
-    }[]>(
-      join(CONTROL_DIR, 'scenarios.json'),
-    )) ?? [];
+    (await readJson<
+      {
+        key: string;
+        title: string;
+        recorded?: boolean;
+        story: { problem: string; goal: string; payoff: string };
+      }[]
+    >(join(CONTROL_DIR, 'scenarios.json'))) ?? [];
   const runtime = await readJson<{
     mode: string;
     strategy: string;
@@ -75,12 +90,15 @@ export async function GET(request: Request) {
   const pack = await demoPack();
 
   return NextResponse.json({
+    readiness: await readJson<unknown>(join(CONTROL_DIR, 'readiness.json')),
     available: await watcherAlive(),
     busy: !!beat?.busy,
     pack,
     runtime,
     packs,
-    scenarios: scenarios.filter((scenario) => scenarioBelongsToPack(scenario.key, pack)),
+    scenarios: scenarios.filter((scenario) =>
+      scenarioBelongsToPack(scenario.key, pack),
+    ),
   });
 }
 
@@ -111,12 +129,17 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'bad scenario' }, { status: 400 });
   }
   if (needsScenario && !scenarioBelongsToPack(scenario, await demoPack())) {
-    return NextResponse.json({ error: 'scenario is not available for this demo pack' }, { status: 400 });
+    return NextResponse.json(
+      { error: 'scenario is not available for this demo pack' },
+      { status: 400 },
+    );
   }
   if (body.action === 'configure' || body.action === 'run') {
     if (
       typeof body.mode !== 'string' ||
-      !['factory', 'hosted', 'local', 'recorded', 'rehearsal'].includes(body.mode) ||
+      !['factory', 'hosted', 'local', 'recorded', 'rehearsal'].includes(
+        body.mode,
+      ) ||
       typeof body.strategy !== 'string' ||
       !['new', 'attach'].includes(body.strategy) ||
       typeof body.pack !== 'string' ||
@@ -131,17 +154,31 @@ export async function POST(request: Request) {
   // someone else's demo.
   if (!(await watcherAlive())) {
     return NextResponse.json(
-      { error: 'no demo controller is running — start `make menu` on the host' },
+      {
+        error:
+          'no demo controller is running — start `npm run demo` on the host',
+      },
       { status: 503 },
     );
   }
 
-  if (body.action === 'observe-release' && (
-    typeof body.runId !== 'string' || !/^[A-Za-z0-9_-]{1,128}$/.test(body.runId) ||
-    typeof body.repo !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9-]*\/[A-Za-z0-9][A-Za-z0-9_.-]*$/.test(body.repo) ||
-    typeof body.pr !== 'number' || !Number.isSafeInteger(body.pr) || body.pr < 1 ||
-    !/^[a-z0-9-]{1,64}$/.test(scenario)
-  )) return NextResponse.json({ error: 'bad release observation' }, { status: 400 });
+  if (
+    body.action === 'observe-release' &&
+    (typeof body.runId !== 'string' ||
+      !/^[A-Za-z0-9_-]{1,128}$/.test(body.runId) ||
+      typeof body.repo !== 'string' ||
+      !/^[A-Za-z0-9][A-Za-z0-9-]*\/[A-Za-z0-9][A-Za-z0-9_.-]*$/.test(
+        body.repo,
+      ) ||
+      typeof body.pr !== 'number' ||
+      !Number.isSafeInteger(body.pr) ||
+      body.pr < 1 ||
+      !/^[a-z0-9-]{1,64}$/.test(scenario))
+  )
+    return NextResponse.json(
+      { error: 'bad release observation' },
+      { status: 400 },
+    );
   const id = randomUUID();
   try {
     await mkdir(REQ_DIR, { recursive: true });
@@ -165,7 +202,9 @@ export async function POST(request: Request) {
     // Almost always the read-only mount: the control directory did not exist
     // when the container started, so compose bound nothing writable.
     return NextResponse.json(
-      { error: 'control channel unavailable — restart the app with `make dev`' },
+      {
+        error: 'control channel unavailable — restart the app with `make dev`',
+      },
       { status: 503 },
     );
   }
