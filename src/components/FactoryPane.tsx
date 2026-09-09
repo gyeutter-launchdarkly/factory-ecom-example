@@ -1124,7 +1124,7 @@ function DemoControls({
             >
               <option value="factory">Factory App</option>
               <option value="hosted">AutoFactory · GitHub Actions</option>
-              <option value="local">Local agents</option>
+              <option value="local">Local execution</option>
               <option
                 value="recorded"
                 disabled={!info.scenarios.some((item) => item.recorded)}

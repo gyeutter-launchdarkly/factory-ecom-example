@@ -162,6 +162,29 @@ async function check(port, expected) {
     );
   return { ids, prices, ascending };
 }
+async function checkout() {
+  const catalog = await check(3110, true);
+  const order = await json(store + '/api/checkout', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      items: [{ productId: catalog.ids[0], quantity: 2 }],
+      customer: {
+        name: 'Local Test',
+        email: 'local@example.invalid',
+        address: 'Test address',
+        city: 'Test city',
+        zip: '00000',
+      },
+    }),
+  });
+  assert(
+    order.orderTotal === catalog.prices[0] * 2 &&
+      order.orderId.startsWith('ORD-'),
+    'Local checkout total incorrect',
+  );
+  return { orderId: order.orderId, orderTotal: order.orderTotal };
+}
 function review() {
   git('diff', '--check', 'baseline', 'HEAD');
   assert(
@@ -182,7 +205,7 @@ function review() {
 async function build() {
   writeFileSync(
     resolve(root, step + '-tests.log'),
-    execFileSync('npm', ['test'], {
+    execFileSync('npm', ['test', '--', '--testTimeout=30000'], {
       cwd: repo,
       env: { ...process.env, LD_SDK_KEY: '', LOCAL_RELEASE_URL: '' },
       stdio: 'pipe',
@@ -350,6 +373,7 @@ if (action === 'execute') {
         revision: sha(),
         deployment: await json(store + '/api/status'),
         http: await check(3110, true),
+        checkout: await checkout(),
         scope: 'Local deployment; no cloud release',
       });
       break;
@@ -360,6 +384,28 @@ if (action === 'execute') {
   const evidence = load(step);
   assert(evidence.revision === sha(), 'Stale revision');
   const code = readFileSync(file(route), 'utf8');
+  const reports = [];
+  if (['write-validate', 'release-guard', 'release-cleanup'].includes(step)) {
+    for (const kind of ['tests', 'build']) {
+      const output = readFileSync(
+        resolve(root, step + '-' + kind + '.log'),
+        'utf8',
+      );
+      save(step + '-' + kind, { revision: sha(), exitCode: 0, output });
+      reports.push({
+        label: kind === 'tests' ? 'Test output' : 'Build output',
+        url:
+          control +
+          '/runs/' +
+          run +
+          '/artifacts/' +
+          step +
+          '-' +
+          kind +
+          '.json',
+      });
+    }
+  }
   if (step === 'write-plan')
     assert(evidence.criteria.length === 4, 'Acceptance criteria missing');
   if (step === 'write-design')
@@ -441,6 +487,7 @@ if (action === 'execute') {
     );
     await check(3110, true);
   }
+  if (step === 'production') await checkout();
   console.log(
     JSON.stringify({
       ok: true,
@@ -448,6 +495,7 @@ if (action === 'execute') {
       step,
       revision: sha(),
       artifacts: [
+        ...reports,
         {
           label:
             step === 'production' ? 'Local storefront' : 'Actual step output',
