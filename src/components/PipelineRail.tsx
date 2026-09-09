@@ -14,6 +14,7 @@ import {
   JOURNEY_STEPS,
   JOURNEY_STATUS_LABEL,
   journeyStatus,
+  orderedJourneyStatuses,
 } from '@/lib/journey';
 
 type RailRun = RunView & {
@@ -38,6 +39,15 @@ export function PipelineRail({
   const [selected, setSelected] = useState<string | null>(null);
   const buttons = useRef(new Map<string, HTMLButtonElement>());
   useEffect(() => setSelected(null), [run.id]);
+  const ordered = orderedJourneyStatuses(run);
+  const linksFor = (item: (typeof JOURNEY_STEPS)[number]) =>
+    Array.from(
+      new Map(
+        item.sources
+          .flatMap((key) => resourcesForStation(run.resources, key))
+          .map((r) => [r.url, r]),
+      ).values(),
+    );
   const step = JOURNEY_STEPS.find((item) => item.key === selected);
   const resources: PipelineResource[] = step
     ? Array.from(
@@ -48,6 +58,22 @@ export function PipelineRail({
         ).values(),
       )
     : [];
+  const referenceFor = (key: string) => {
+    const paths: Record<string, string> = {
+      'write-plan': 'demo/ci/events',
+      'write-design': 'src/components',
+      'write-code': 'src',
+      'write-review': 'demo/ci',
+      'write-validate': 'e2e',
+      'release-classify': 'demo/ci',
+      'release-flag': 'src/lib',
+      'release-instrument': 'src/app/api',
+      'release-guard': 'demo/observe-release.mjs',
+      'release-cleanup': 'README.md',
+      production: 'demo/lib/release-state.mjs',
+    };
+    return `https://github.com/gyeutter-launchdarkly/factory-ecom-example/tree/main/${paths[key]}`;
+  };
   const facts = step?.sources.flatMap((key) => details(key)) ?? [];
   const checks =
     step?.sources.flatMap((key) =>
@@ -76,10 +102,7 @@ export function PipelineRail({
     buttons.current.get(JOURNEY_STEPS[next].key)?.focus();
   };
   return (
-    <section
-      className={`journey journey-${size}`}
-      aria-label="Delivery steps"
-    >
+    <section className={`journey journey-${size}`} aria-label="Delivery steps">
       <div className="journey-phases">
         {JOURNEY.map((phase) => (
           <section
@@ -89,7 +112,8 @@ export function PipelineRail({
           >
             <ol className="journey-steps">
               {phase.steps.map((item) => {
-                const status = journeyStatus(item, run);
+                const status = ordered[JOURNEY_STEPS.indexOf(item)];
+                const links = linksFor(item);
                 return (
                   <li key={item.key}>
                     <button
@@ -126,6 +150,25 @@ export function PipelineRail({
                           : JOURNEY_STATUS_LABEL[status]}
                       </small>
                     </button>
+                    {!links.length && (
+                      <Link
+                        className="journey-artifact"
+                        href={referenceFor(item.key)}
+                        title={`${item.title} source reference`}
+                      >
+                        Source ↗
+                      </Link>
+                    )}
+                    {links.slice(0, 2).map((resource) => (
+                      <Link
+                        key={resource.url}
+                        className="journey-artifact"
+                        href={resource.url}
+                        title={resourceLabel(resource)}
+                      >
+                        {resourceLabel(resource)} ↗
+                      </Link>
+                    ))}
                   </li>
                 );
               })}
@@ -159,7 +202,7 @@ export function PipelineRail({
             </div>
             <div className="journey-evidence-grid">
               <div>
-                <h4>Observed work</h4>
+                <h4>Step activity</h4>
                 {facts.length ? (
                   facts.map((fact, index) => (
                     <p key={index}>
@@ -171,7 +214,15 @@ export function PipelineRail({
                     </p>
                   ))
                 ) : (
-                  <p>No execution evidence reported for this step yet.</p>
+                  <p>
+                    {journeyStatus(step, run) === 'done'
+                      ? 'Step completed. Open the linked artifacts for details.'
+                      : journeyStatus(step, run) === 'prepared'
+                        ? 'Prepared before this run.'
+                        : journeyStatus(step, run) === 'running'
+                          ? 'Work is in progress.'
+                          : 'This step is waiting for its work to begin.'}
+                  </p>
                 )}
                 {models.map((agent, i) => (
                   <p key={i}>
@@ -191,7 +242,9 @@ export function PipelineRail({
                     </Link>
                   ))
                 ) : (
-                  <p>No linked artifacts yet.</p>
+                  <Link href={referenceFor(step.key)}>
+                    Browse source reference ↗
+                  </Link>
                 )}
                 {checks.map((check, index) => (
                   <p

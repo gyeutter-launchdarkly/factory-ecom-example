@@ -11,7 +11,13 @@ import {
 } from './pipeline';
 
 export type JourneyStatus =
-  'pending' | 'prepared' | 'running' | 'done' | 'failed' | 'skipped';
+  | 'pending'
+  | 'prepared'
+  | 'running'
+  | 'done'
+  | 'failed'
+  | 'skipped'
+  | 'ready';
 export type JourneyStep = {
   key: string;
   title: string;
@@ -172,10 +178,23 @@ export function journeyStatus(step: JourneyStep, run: RunView): JourneyStatus {
   return 'pending';
 }
 export const JOURNEY_STATUS_LABEL: Record<JourneyStatus, string> = {
-  pending: 'Not observed',
+  pending: 'Waiting',
+  ready: 'Ready',
   prepared: 'Prepared',
   running: 'Running',
   done: 'Complete',
   failed: 'Stopped',
   skipped: 'Not used',
 };
+
+/** Fill left to right; retain raw execution results in the evidence drawer. */
+export function orderedJourneyStatuses(run: RunView): JourneyStatus[] {
+  let waiting = false;
+  return JOURNEY_STEPS.map((step) => {
+    const status = journeyStatus(step, run);
+    const resolved = ['done', 'prepared', 'skipped'].includes(status);
+    const display = waiting && resolved ? 'ready' : status;
+    if (!resolved) waiting = true;
+    return display;
+  });
+}

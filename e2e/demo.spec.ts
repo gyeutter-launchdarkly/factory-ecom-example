@@ -15,7 +15,7 @@ test('steps-only journey, accessible evidence, and responsive layout', async ({
     );
   await expect(page.getByText('Build Control', { exact: true })).toHaveCount(0);
   await page
-    .getByRole('button', { name: 'Guard release: Not observed', exact: true })
+    .getByRole('button', { name: 'Guard release: Waiting', exact: true })
     .click();
   await expect(
     page.getByText('A manifest alone does not mean', { exact: false }),
@@ -26,7 +26,7 @@ test('steps-only journey, accessible evidence, and responsive layout', async ({
   ).toHaveCount(0);
   await page.setViewportSize({ width: 820, height: 900 });
   await expect(
-    page.getByRole('button', { name: 'Production: Not observed', exact: true }),
+    page.getByRole('button', { name: 'Production: Waiting', exact: true }),
   ).toBeVisible();
   expect(
     await page.evaluate(
@@ -91,7 +91,7 @@ test('replay remains labeled and a failure never completes production', async ({
     page.getByRole('button', { name: 'Review: Stopped', exact: true }),
   ).toBeVisible();
   await expect(
-    page.getByRole('button', { name: 'Production: Not observed', exact: true }),
+    page.getByRole('button', { name: 'Production: Waiting', exact: true }),
   ).toBeVisible();
   await page.reload();
   await expect(

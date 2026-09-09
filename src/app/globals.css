@@ -743,3 +743,9 @@ html {
     margin: 24px 0;
   }
 }
+
+.journey-prepared .journey-dot, .journey-skipped .journey-dot {
+  background: var(--phase); border-color: var(--phase); color: rgb(var(--c-surface));
+}
+.journey-artifact { display: block; position: relative; z-index: 2; text-align: center; font-size: 10px; color: var(--phase); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 110px; margin: 4px auto; }
+.journey-artifact:hover { text-decoration: underline; }
