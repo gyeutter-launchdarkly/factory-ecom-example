@@ -5,6 +5,7 @@ import {
   mkdirSync,
   existsSync,
   unlinkSync,
+  symlinkSync,
 } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -111,7 +112,13 @@ async function start(name, args, port, env = {}) {
   const log = fs.openSync(resolve(root, name + '.log'), 'a');
   const child = spawn(process.execPath, args, {
     cwd: repo,
-    env: { ...process.env, LD_SDK_KEY: '', LD_API_KEY: '', ...env },
+    env: {
+      ...process.env,
+      LD_SDK_KEY: '',
+      LD_API_KEY: '',
+      LOCAL_DEMO_BUILD: '1',
+      ...env,
+    },
     detached: true,
     stdio: ['ignore', log, log],
   });
@@ -207,16 +214,28 @@ async function build() {
     resolve(root, step + '-tests.log'),
     execFileSync('npm', ['test', '--', '--testTimeout=30000'], {
       cwd: repo,
-      env: { ...process.env, LD_SDK_KEY: '', LOCAL_RELEASE_URL: '' },
+      env: {
+        ...process.env,
+        LD_SDK_KEY: '',
+        LOCAL_RELEASE_URL: '',
+        LOCAL_DEMO_BUILD: '1',
+      },
       stdio: 'pipe',
       timeout: 120000,
+      killSignal: 'SIGKILL',
     }),
   );
   const output = execFileSync('npm', ['run', 'build'], {
     cwd: repo,
     stdio: 'pipe',
     timeout: 240000,
-    env: { ...process.env, LD_SDK_KEY: '', LOCAL_RELEASE_URL: '' },
+    killSignal: 'SIGKILL',
+    env: {
+      ...process.env,
+      LD_SDK_KEY: '',
+      LOCAL_RELEASE_URL: '',
+      LOCAL_DEMO_BUILD: '1',
+    },
   });
   writeFileSync(resolve(root, step + '-build.log'), output);
 }
@@ -369,6 +388,12 @@ if (action === 'execute') {
       });
       break;
     case 'production':
+      mkdirSync(file('.autofactory'), { recursive: true });
+      for (const name of ['runs.ndjson', 'live-runs', 'control']) {
+        const target = file('.autofactory/' + name);
+        if (!existsSync(target))
+          symlinkSync(resolve(source, '.autofactory', name), target);
+      }
       save(step, {
         revision: sha(),
         deployment: await json(store + '/api/status'),
