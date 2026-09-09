@@ -83,7 +83,7 @@ const assert = (ok, message) => {
 async function json(url, options) {
   const r = await fetch(url, {
     ...options,
-    signal: AbortSignal.timeout(10000),
+    signal: AbortSignal.timeout(url.includes(':3112/') ? 90000 : 10000),
   });
   if (!r.ok) throw Error('HTTP ' + r.status);
   return r.json();
