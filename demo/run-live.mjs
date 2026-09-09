@@ -21,7 +21,19 @@ process.once('SIGTERM', () => abort.abort());
 const lock = resolve('.autofactory/live-run.lock');
 let locked = false;
 try {
-  const config = await loadLiveConfig(process.env.FACTORY_LIVE_CONFIG);
+  const config = await loadLiveConfig(
+    process.env.FACTORY_LIVE_CONFIG ||
+      (existsSync('.autofactory/live-config.json')
+        ? '.autofactory/live-config.json'
+        : undefined),
+  );
+  if (
+    config.kind === 'local-deployment' &&
+    (mode !== 'local' || scenario !== 'local-catalog-sort')
+  )
+    throw new Error(
+      'Choose Local mode and the local-catalog-sort scenario for the configured local deployment.',
+    );
   await mkdir(resolve('.autofactory'), { recursive: true });
   await mkdir(lock);
   locked = true;

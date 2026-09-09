@@ -72,3 +72,6 @@ tsconfig.tsbuildinfo
 .autofactory/live-runs/
 .autofactory/live-run.lock/
 .autofactory/live-config.json
+
+.autofactory/local-live/
+.autofactory/local-execution/

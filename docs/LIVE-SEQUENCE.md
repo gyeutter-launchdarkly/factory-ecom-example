@@ -2,9 +2,11 @@
 
 ## Current status
 
+A concrete local implementation is now included: see [Real local release](LOCAL-LIVE.md). Run `npm run demo:local:setup` then `npm run demo:local` to execute it without cloud credentials.
+
 The host controller now runs live modes through `demo/run-live.mjs`. It executes one task, invokes a separate verifier, saves its receipt, fills that circle, and only then starts the next task. Rehearsal remains simulated.
 
-**The existing whole-graph AutoFactory runners are not step adapters.** They remain available as legacy scripts for partial graph work. They cannot satisfy the ordered live contract by being wrapped as one step. Until real adapters are configured, the UI disables live runs. No live deployment has been verified in this checkout.
+**The existing whole-graph AutoFactory runners are not step adapters.** They remain available as legacy scripts for partial graph work. They cannot satisfy the ordered live contract by being wrapped as one step. Until adapters are configured, the UI disables live runs. The bundled local setup configures all eleven for the catalog-sort scenario. No live deployment has been verified in this checkout.
 
 ## Configure the host
 

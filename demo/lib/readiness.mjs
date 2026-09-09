@@ -42,23 +42,34 @@ export function readiness(env, tools) {
     modes: {
       rehearsal: mode(base),
       recorded: mode(base),
-      factory: mode([...github, ...sequence]),
+      factory: mode([
+        ...github,
+        ...sequence,
+        ...(tools.localDeployment
+          ? ['Factory adapters (current configuration is local only)']
+          : []),
+      ]),
       hosted: mode([
+        ...(tools.localDeployment
+          ? ['Hosted adapters (current configuration is local only)']
+          : []),
         ...github,
         ...sequence,
         ...configuration(['LD_API_KEY', 'LD_APP_PROJECT_KEY']),
       ]),
-      local: mode([
-        ...base,
-        ...sequence,
-        ...configuration([
-          'LD_API_KEY',
-          'LD_SDK_KEY',
-          'ANTHROPIC_API_KEY',
-          'LD_APP_PROJECT_KEY',
-        ]),
-        ...(!tools.cli ? ['Built AutoFactory CLI (AUTOFACTORY_DIR)'] : []),
-      ]),
+      local: tools.localDeployment
+        ? mode([...base, ...sequence])
+        : mode([
+            ...base,
+            ...sequence,
+            ...configuration([
+              'LD_API_KEY',
+              'LD_SDK_KEY',
+              'ANTHROPIC_API_KEY',
+              'LD_APP_PROJECT_KEY',
+            ]),
+            ...(!tools.cli ? ['Built AutoFactory CLI (AUTOFACTORY_DIR)'] : []),
+          ]),
     },
     release: mode([...github, ...release]),
     note: 'Local prerequisites only. Repository access, remote secrets, SDK connectivity, and rollout permissions are verified by the live run.',

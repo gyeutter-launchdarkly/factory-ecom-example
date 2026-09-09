@@ -1,0 +1,17 @@
+{
+  "demo": {
+    "problem": "Shoppers cannot browse prices in ascending order.",
+    "goal": "Release ascending catalog sorting through a real local flag.",
+    "payoff": "Verified local deployment with the temporary flag removed."
+  },
+  "pull_request": {
+    "title": "Local live: sort catalog by price",
+    "head": {
+      "ref": "local/catalog-sort"
+    },
+    "base": {
+      "ref": "main"
+    },
+    "body": "Fully local deterministic implementation, review, tests, controlled HTTP release, and cleanup."
+  }
+}

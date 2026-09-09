@@ -10,7 +10,9 @@
     "test:e2e": "playwright test",
     "controller": "bash demo/lib/control-watch.sh",
     "demo": "node demo/start.mjs",
-    "doctor": "node demo/doctor.mjs"
+    "doctor": "node demo/doctor.mjs",
+    "demo:local:setup": "node demo/local/setup.mjs",
+    "demo:local": "node demo/local/run.mjs"
   },
   "dependencies": {
     "@fontsource/inter": "^5.3.0",

@@ -1004,7 +1004,7 @@ function DemoControls({
       : mode === 'hosted'
         ? 'AutoFactory'
         : mode === 'local'
-          ? 'Local agents'
+          ? 'Local execution'
           : mode === 'recorded'
             ? 'Recorded playback'
             : 'Rehearsal · simulated';
@@ -1675,15 +1675,17 @@ export function FactoryPane() {
 
             {current && (
               <span className="factory-mode">
-                {current.mode === 'rehearsal'
-                  ? 'Rehearsal · simulated'
-                  : current.mode === 'recorded'
-                    ? 'Recorded playback'
-                    : current.mode === 'factory'
-                      ? 'Factory App'
-                      : current.mode === 'simulation'
-                        ? 'Offline simulation'
-                        : 'Live evidence'}
+                {current.mode === 'local'
+                  ? 'Local execution'
+                  : current.mode === 'rehearsal'
+                    ? 'Rehearsal · simulated'
+                    : current.mode === 'recorded'
+                      ? 'Recorded playback'
+                      : current.mode === 'factory'
+                        ? 'Factory App'
+                        : current.mode === 'simulation'
+                          ? 'Offline simulation'
+                          : 'Live evidence'}
               </span>
             )}
 

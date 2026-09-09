@@ -39,3 +39,13 @@ it('requires ordered adapters for every live mode', () => {
       'Ordered live adapters (FACTORY_LIVE_CONFIG)',
     );
 });
+
+it('enables the concrete local deployment without cloud credentials', () => {
+  const report = readiness(
+    {},
+    { ...tools, liveSequence: true, localDeployment: true },
+  );
+  expect(report.modes.local.ready).toBe(true);
+  expect(report.modes.hosted.ready).toBe(false);
+  expect(report.modes.factory.ready).toBe(false);
+});

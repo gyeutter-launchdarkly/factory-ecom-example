@@ -176,6 +176,7 @@ export async function executeSequence({
   emit({ t: 'mode', mode });
   emit({ t: 'repo', repo: config.repo });
   emit({ t: 'node', key: 'live-sequence-v1', status: 'done' });
+  const heartbeat = setInterval(() => emit({ t: 'heartbeat' }), 5000);
   let active;
   const receipts = [];
   try {
@@ -261,6 +262,7 @@ export async function executeSequence({
     emit({ t: 'note', level: 'error', text: error.message });
     throw error;
   } finally {
+    clearInterval(heartbeat);
     emit({ t: 'run-done' });
   }
 }

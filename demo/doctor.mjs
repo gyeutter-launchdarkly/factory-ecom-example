@@ -41,7 +41,13 @@ tools.cli = [
   .filter(Boolean)
   .some((dir) => existsSync(resolve(dir, 'packages/phase1-cli/dist/cli.js')));
 try {
-  const config = await loadLiveConfig(process.env.FACTORY_LIVE_CONFIG);
+  const config = await loadLiveConfig(
+    process.env.FACTORY_LIVE_CONFIG ||
+      (existsSync('.autofactory/live-config.json')
+        ? '.autofactory/live-config.json'
+        : undefined),
+  );
+  tools.localDeployment = config.kind === 'local-deployment';
   tools.liveSequence = existsSync(resolve(config.workspace));
 } catch {
   tools.liveSequence = false;
