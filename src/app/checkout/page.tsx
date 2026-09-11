@@ -8,6 +8,7 @@ import { formatPrice } from '@/lib/pricing';
 interface OrderResult {
   orderId: string;
   orderTotalFormatted: string;
+  discountApplied?: { code: string; amount: number } | null;
 }
 
 export default function CheckoutPage() {
@@ -22,14 +23,24 @@ export default function CheckoutPage() {
     cardNumber: '',
     expiry: '',
     cvc: '',
+    discountCode: '',
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [order, setOrder] = useState<OrderResult | null>(null);
+  const [discountSectionVisible, setDiscountSectionVisible] = useState(true);
 
   useEffect(() => {
     if (ready && items.length === 0 && !order) router.replace('/cart');
   }, [ready, items.length, order, router]);
+
+  useEffect(() => {
+    // Fetch flag state to determine if discount section should be visible
+    fetch('/api/flags/enable-discount-codes')
+      .then((res) => res.json())
+      .then((data) => setDiscountSectionVisible(data.enabled ?? true))
+      .catch(() => setDiscountSectionVisible(true)); // Show by default if fetch fails
+  }, []);
 
   const set = (key: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((f) => ({ ...f, [key]: e.target.value }));
@@ -46,6 +57,7 @@ export default function CheckoutPage() {
       cardNumber: '4242 4242 4242 4242',
       expiry: '12 / 34',
       cvc: '123',
+      discountCode: '',
     });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -66,6 +78,7 @@ export default function CheckoutPage() {
             zip: form.zip,
           },
           payment: { cardNumber: form.cardNumber },
+          discountCode: form.discountCode || undefined,
         }),
       });
       const data = await res.json();
@@ -91,6 +104,12 @@ export default function CheckoutPage() {
           <p className="text-[11px] uppercase tracking-[0.16em] text-muted">Order</p>
           <p className="text-[13px] mt-1">{order.orderId}</p>
           <p className="text-[24px] font-light mt-4">{order.orderTotalFormatted}</p>
+          {order.discountApplied && (
+            <p className="text-[12px] text-rose mt-2">
+              {order.discountApplied.code} applied, saved{' '}
+              {formatPrice(order.discountApplied.amount)}
+            </p>
+          )}
         </div>
 
         <a
@@ -170,6 +189,26 @@ export default function CheckoutPage() {
               {fieldInput({ label: 'CVC', field: 'cvc', placeholder: '123' })}
             </div>
           </section>
+
+          {/* Discount code. The AutoFactory flag will gate this section. */}
+          {discountSectionVisible && (
+            <section>
+              <p className="text-[11px] uppercase tracking-[0.16em] text-muted mb-4">Discount</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="col-span-2">
+                  <label htmlFor="checkout-discountCode" className="block text-[12px] text-muted mb-1.5">Discount code</label>
+                  <input
+                    id="checkout-discountCode"
+                    type="text"
+                    value={form.discountCode}
+                    onChange={set('discountCode')}
+                    placeholder="SAVE10"
+                    className="w-full bg-white border border-hair rounded-2xl px-4 py-3 text-[14px] focus:outline-none focus:border-rose transition-colors placeholder:text-muted/50"
+                  />
+                </div>
+              </div>
+            </section>
+          )}
 
           {error && (
             <p className="text-[13px] text-red-700 bg-red-50 border border-red-200 rounded-2xl px-4 py-3">

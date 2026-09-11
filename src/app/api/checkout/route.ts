@@ -2,8 +2,8 @@ import { randomUUID } from 'node:crypto';
 import { shopperKey, withShopper } from '@/lib/shopper';
 import { NextRequest, NextResponse } from 'next/server';
 import { resolveProduct } from '@/lib/catalog';
-import { calculateOrderTotal, calculateLineTotal, formatPrice } from '@/lib/pricing';
-import { track } from '@/lib/ld';
+import { calculateOrderTotal, calculateLineTotal, applyDiscountCode, formatPrice } from '@/lib/pricing';
+import { track, stringVariation } from '@/lib/ld';
 import type { CartItem } from '@/lib/pricing';
 
 interface CheckoutBody {
@@ -18,6 +18,7 @@ interface CheckoutBody {
   payment: {
     cardNumber: string;
   };
+  discountCode?: string;
 }
 
 export async function POST(req: NextRequest) {
@@ -53,19 +54,49 @@ export async function POST(req: NextRequest) {
     items.push({ product, quantity: line.quantity });
   }
 
-  const orderTotal = calculateOrderTotal(items);
-  const orderId = `ORD-${randomUUID()}`;
+  const subtotal = calculateOrderTotal(items);
   const userKey = shopperKey(req);
+
+  // Evaluate feature flag for discount code support
+  const discountCodeVariant = await stringVariation('enable-discount-codes', userKey, 'control');
+  const discountCodesEnabled = discountCodeVariant === 'v1';
+
+  // Apply discount code if provided and flag is enabled
+  let orderTotal = subtotal;
+  let discountApplied: { code: string; amount: number } | null = null;
+
+  if (discountCodesEnabled && body.discountCode) {
+    const result = applyDiscountCode(body.discountCode, subtotal);
+    if (!result) {
+      // Track discount code validation error for guarded-release monitoring
+      await track('enable-discount-codes-error', userKey);
+      return NextResponse.json(
+        { error: `Invalid discount code: ${body.discountCode}` },
+        { status: 400 },
+      );
+    }
+    orderTotal = result.discountedTotal;
+    discountApplied = { code: result.code, amount: result.discountAmount };
+    // Track successful discount code application for guarded-release monitoring
+    await track('enable-discount-codes-success', userKey);
+  }
+
+  const orderId = `ORD-${randomUUID()}`;
 
   // Track checkout completion — the Metrics Author builds guarded-release
   // metrics on top of this event (error rate, latency, conversion).
   await track('checkout-completed', userKey, orderTotal, {
     orderId,
+    subtotal,
+    discountCode: discountApplied?.code ?? null,
+    discountAmount: discountApplied?.amount ?? 0,
     itemCount: items.reduce((n, i) => n + i.quantity, 0),
   });
 
   return withShopper(NextResponse.json({
     orderId,
+    subtotal,
+    discountApplied,
     orderTotal,
     orderTotalFormatted: formatPrice(orderTotal),
     customer: body.customer,
