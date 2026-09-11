@@ -1,0 +1,14 @@
+  ▲ Next.js 14.2.30
+  - Local:        http://127.0.0.1:3108
+  - Network:      http://127.0.0.1:3108
+  - Environments: .env.local
+
+ ✓ Starting...
+ ✓ Ready in 2.7s
+ ○ Compiling / ...
+ ✓ Compiled / in 1124ms (614 modules)
+ GET / 200 in 1204ms
+ ✓ Compiled in 68ms (283 modules)
+ ✓ Compiled /api/factory-control in 47ms (301 modules)
+ GET /api/factory-control 200 in 87ms
+ GET / 200 in 30ms
