@@ -34,7 +34,7 @@ describe('readiness', () => {
 });
 
 it('requires ordered adapters for adapter-driven live modes', () => {
-  for (const mode of ['factory', 'local'])
+  for (const mode of ['factory', 'local'] as const)
     expect(readiness({}, tools).modes[mode].missing).toContain(
       'Ordered live adapters (FACTORY_LIVE_CONFIG)',
     );

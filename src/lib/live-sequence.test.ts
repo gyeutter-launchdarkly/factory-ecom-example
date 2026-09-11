@@ -49,7 +49,7 @@ if (action === 'verify') console.log(JSON.stringify({ok:true,run:process.env.FAC
       );
       const cfg = config();
       for (const key of LIVE_STEPS)
-        for (const action of ['execute', 'verify'])
+        for (const action of ['execute', 'verify'] as const)
           cfg.steps[key][action] = [
             process.execPath,
             adapter,
@@ -64,7 +64,8 @@ if (action === 'verify') console.log(JSON.stringify({ok:true,run:process.env.FAC
         scenario: 'demo',
         mode: 'local',
         root: `${dir}/receipts`,
-        emit: (e) => events.push(e),
+        emit: (e: any) => events.push(e),
+        signal: undefined,
       });
       expect(result).toHaveLength(11);
       expect(
@@ -94,8 +95,9 @@ if (action === 'verify') console.log(JSON.stringify({ok:true,run:process.env.FAC
             scenario: 'demo',
             mode: 'hosted',
             root,
-            emit: (e) => events.push(e),
-            invoke: async ([action, key]) => {
+            emit: (e: any) => events.push(e),
+            signal: undefined,
+            invoke: async ([action, key]: string[]) => {
               calls.push(`${action}:${key}`);
               if (key === 'write-design' && action === failure)
                 throw new Error('failure');
@@ -156,6 +158,7 @@ if (action === 'verify') console.log(JSON.stringify({ok:true,run:process.env.FAC
         cwd: '.',
         env: process.env,
         timeoutSeconds: 0.05,
+        signal: undefined,
       }),
     ).rejects.toThrow('timed out');
   });
@@ -173,7 +176,8 @@ it('refuses a review of a different code revision', async () => {
         mode: 'hosted',
         root,
         emit: () => {},
-        invoke: async ([action, key]) => {
+        signal: undefined,
+        invoke: async ([action, key]: string[]) => {
           calls.push(key);
           return key === 'write-review'
             ? receipt(key).replace(revision, 'b'.repeat(40))
