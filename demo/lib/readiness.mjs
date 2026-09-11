@@ -49,12 +49,11 @@ export function readiness(env, tools) {
           ? ['Factory adapters (current configuration is local only)']
           : []),
       ]),
+      // Hosted runs use the whole-graph GitHub Actions runner
+      // (demo/ci/run-hosted.sh), not the ordered live adapters, so it needs
+      // GitHub access and LaunchDarkly credentials — no FACTORY_LIVE_CONFIG.
       hosted: mode([
-        ...(tools.localDeployment
-          ? ['Hosted adapters (current configuration is local only)']
-          : []),
         ...github,
-        ...sequence,
         ...configuration(['LD_API_KEY', 'LD_APP_PROJECT_KEY']),
       ]),
       local: tools.localDeployment

@@ -169,8 +169,15 @@ run_action() {
       fi
       write_status "$id" running "Starting ${RUNNER} mode for ${scenario}…"
       case "$RUNNER" in
-        factory|hosted|local)
+        factory|local)
           node demo/run-live.mjs "$scenario" "$RUNNER" >>"$LOG" 2>&1 </dev/null || rc=$?
+          ;;
+        hosted)
+          # The whole-graph GitHub Actions runner: real PR, label trigger, real
+          # agents. Attach strategy joins an already-running Actions run instead
+          # of starting a new one (presenter mode).
+          FACTORY_ATTACH="$([[ "$PR_STRATEGY" == "attach" ]] && echo 1 || echo 0)" \
+            ./demo/ci/run-hosted.sh "$scenario" >>"$LOG" 2>&1 </dev/null || rc=$?
           ;;
         recorded)
           ./demo/replay-recording.sh "$scenario" >>"$LOG" 2>&1 </dev/null || rc=$?

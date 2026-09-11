@@ -86,7 +86,7 @@ ifeq ($(origin SCENARIO),file)
 	@echo "  make hosted SCENARIO=dynamic-pricing"
 	@exit 1
 else
-	@node demo/run-live.mjs "$(SCENARIO)" hosted
+	@./demo/ci/run-hosted.sh "$(SCENARIO)"
 endif
 
 ## Real agents through phase1-cli; no PR or GitHub Actions queue.
