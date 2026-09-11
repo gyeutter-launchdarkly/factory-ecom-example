@@ -28,10 +28,19 @@ export default function CheckoutPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [order, setOrder] = useState<OrderResult | null>(null);
+  const [discountSectionVisible, setDiscountSectionVisible] = useState(true);
 
   useEffect(() => {
     if (ready && items.length === 0 && !order) router.replace('/cart');
   }, [ready, items.length, order, router]);
+
+  useEffect(() => {
+    // Fetch flag state to determine if discount section should be visible
+    fetch('/api/flags/enable-discount-codes')
+      .then((res) => res.json())
+      .then((data) => setDiscountSectionVisible(data.enabled ?? true))
+      .catch(() => setDiscountSectionVisible(true)); // Show by default if fetch fails
+  }, []);
 
   const set = (key: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((f) => ({ ...f, [key]: e.target.value }));
@@ -182,22 +191,24 @@ export default function CheckoutPage() {
           </section>
 
           {/* Discount code. The AutoFactory flag will gate this section. */}
-          <section>
-            <p className="text-[11px] uppercase tracking-[0.16em] text-muted mb-4">Discount</p>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="col-span-2">
-                <label htmlFor="checkout-discountCode" className="block text-[12px] text-muted mb-1.5">Discount code</label>
-                <input
-                  id="checkout-discountCode"
-                  type="text"
-                  value={form.discountCode}
-                  onChange={set('discountCode')}
-                  placeholder="SAVE10"
-                  className="w-full bg-white border border-hair rounded-2xl px-4 py-3 text-[14px] focus:outline-none focus:border-rose transition-colors placeholder:text-muted/50"
-                />
+          {discountSectionVisible && (
+            <section>
+              <p className="text-[11px] uppercase tracking-[0.16em] text-muted mb-4">Discount</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="col-span-2">
+                  <label htmlFor="checkout-discountCode" className="block text-[12px] text-muted mb-1.5">Discount code</label>
+                  <input
+                    id="checkout-discountCode"
+                    type="text"
+                    value={form.discountCode}
+                    onChange={set('discountCode')}
+                    placeholder="SAVE10"
+                    className="w-full bg-white border border-hair rounded-2xl px-4 py-3 text-[14px] focus:outline-none focus:border-rose transition-colors placeholder:text-muted/50"
+                  />
+                </div>
               </div>
-            </div>
-          </section>
+            </section>
+          )}
 
           {error && (
             <p className="text-[13px] text-red-700 bg-red-50 border border-red-200 rounded-2xl px-4 py-3">
