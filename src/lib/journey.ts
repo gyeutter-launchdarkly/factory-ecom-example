@@ -94,7 +94,7 @@ export const JOURNEY: { key: string; title: string; steps: JourneyStep[] }[] = [
         key: 'release-guard',
         title: 'Guard release',
         description:
-          'Inspect the release manifest, merge, deployment, and observed guarded rollout. A manifest alone does not mean the feature was released.',
+          'Inspect the release manifest, merge, deployment, and observed guarded rollout. A manifest alone does not mean the feature was released: the flag stays off until the PR is reviewed, merged, and deployed, and the deploy notification starts the rollout.',
         sources: [
           GUARDED_RELEASE,
           RELEASE_AGENT,

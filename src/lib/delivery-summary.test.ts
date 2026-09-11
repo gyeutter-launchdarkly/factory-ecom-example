@@ -14,7 +14,7 @@ const base: DeliveryRun = {
 describe('delivery summary', () => {
   it('does not call finished agents a customer release', () => {
     expect(deliverySummary(base)).toMatchObject({
-      label: 'Review approved · awaiting merge',
+      label: 'Approved · waiting for PR review & merge',
       action: 'review',
     });
     expect(deliverySummary({ ...base, verdict: null })).toMatchObject({

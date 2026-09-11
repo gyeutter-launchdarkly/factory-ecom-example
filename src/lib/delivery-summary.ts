@@ -129,8 +129,8 @@ export function deliverySummary(run: DeliveryRun | null): DeliverySummary {
     );
   if (run.verdict?.approved === true)
     return result(
-      'Review approved · awaiting merge',
-      'Review and merge the PR, deploy it, then observe the release.',
+      'Approved · waiting for PR review & merge',
+      'The flag stays off until release. Merge the PR and deploy; the deploy notification starts the guarded rollout (demo/release-live.sh does all three).',
       'neutral',
       'review',
     );
