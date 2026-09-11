@@ -68,6 +68,8 @@ export async function POST(req: NextRequest) {
   if (discountCodesEnabled && body.discountCode) {
     const result = applyDiscountCode(body.discountCode, subtotal);
     if (!result) {
+      // Track discount code validation error for guarded-release monitoring
+      await track('enable-discount-codes-error', userKey);
       return NextResponse.json(
         { error: `Invalid discount code: ${body.discountCode}` },
         { status: 400 },
@@ -75,6 +77,8 @@ export async function POST(req: NextRequest) {
     }
     orderTotal = result.discountedTotal;
     discountApplied = { code: result.code, amount: result.discountAmount };
+    // Track successful discount code application for guarded-release monitoring
+    await track('enable-discount-codes-success', userKey);
   }
 
   const orderId = `ORD-${randomUUID()}`;
